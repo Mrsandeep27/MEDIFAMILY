@@ -1,0 +1,88 @@
+"use client";
+
+import { useLiveQuery } from "dexie-react-hooks";
+import { v4 as uuidv4 } from "uuid";
+import { db } from "@/lib/db/dexie";
+import type { Member, Relation, BloodGroup, Gender } from "@/lib/db/schema";
+import { useAuthStore } from "@/stores/auth-store";
+import type { MemberFormData } from "@/lib/utils/validators";
+
+export function useMembers() {
+  const user = useAuthStore((s) => s.user);
+
+  const members = useLiveQuery(
+    () =>
+      user
+        ? db.members
+            .where({ user_id: user.id, is_deleted: false })
+            .toArray()
+        : [],
+    [user?.id]
+  );
+
+  const getMember = (id: string) =>
+    useLiveQuery(() => db.members.get(id), [id]);
+
+  const addMember = async (data: MemberFormData): Promise<string> => {
+    if (!user) throw new Error("Not authenticated");
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const member: Member = {
+      id,
+      user_id: user.id,
+      name: data.name,
+      relation: data.relation as Relation,
+      date_of_birth: data.date_of_birth,
+      blood_group: (data.blood_group || "") as BloodGroup,
+      gender: (data.gender || "") as Gender,
+      allergies: data.allergies,
+      chronic_conditions: data.chronic_conditions,
+      emergency_contact_name: data.emergency_contact_name,
+      emergency_contact_phone: data.emergency_contact_phone,
+      avatar_url: undefined,
+      created_at: now,
+      updated_at: now,
+      sync_status: "pending",
+      synced_at: undefined,
+      is_deleted: false,
+    };
+    await db.members.add(member);
+    return id;
+  };
+
+  const updateMember = async (
+    id: string,
+    data: Partial<MemberFormData>
+  ): Promise<void> => {
+    await db.members.update(id, {
+      ...data,
+      blood_group: (data.blood_group || undefined) as BloodGroup | undefined,
+      gender: (data.gender || undefined) as Gender | undefined,
+      relation: data.relation as Relation | undefined,
+      updated_at: new Date().toISOString(),
+      sync_status: "pending",
+    });
+  };
+
+  const deleteMember = async (id: string): Promise<void> => {
+    await db.members.update(id, {
+      is_deleted: true,
+      updated_at: new Date().toISOString(),
+      sync_status: "pending",
+    });
+  };
+
+  return {
+    members: members ?? [],
+    isLoading: members === undefined,
+    getMember,
+    addMember,
+    updateMember,
+    deleteMember,
+  };
+}
+
+export function useMember(id: string) {
+  const member = useLiveQuery(() => db.members.get(id), [id]);
+  return { member, isLoading: member === undefined };
+}
