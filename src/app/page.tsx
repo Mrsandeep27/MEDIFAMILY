@@ -3,28 +3,43 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
-import { createClient } from "@/lib/supabase/client";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 
 export default function RootPage() {
   const router = useRouter();
-  const { setSession, hasCompletedOnboarding } = useAuthStore();
+  const { isAuthenticated, hasCompletedOnboarding, setUser } = useAuthStore();
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        if (hasCompletedOnboarding) {
-          router.replace("/home");
-        } else {
-          router.replace("/onboarding");
-        }
-      } else {
-        router.replace("/login");
+    async function checkAuth() {
+      if (isAuthenticated) {
+        router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+        return;
       }
-    });
-  }, [router, setSession, hasCompletedOnboarding]);
+
+      // Check server auth
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+            return;
+          }
+        }
+      } catch {
+        // Offline — check local state
+        if (isAuthenticated) {
+          router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+          return;
+        }
+      }
+
+      router.replace("/login");
+    }
+
+    checkAuth();
+  }, [router, isAuthenticated, hasCompletedOnboarding, setUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

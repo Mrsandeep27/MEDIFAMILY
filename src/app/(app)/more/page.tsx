@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Settings,
   Share2,
@@ -12,7 +13,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "sonner";
 
 const menuItems = [
   {
@@ -31,12 +33,24 @@ const menuItems = [
     href: "/more/export",
     icon: Download,
     label: "Export Data",
-    description: "Download all records as ZIP",
+    description: "Download all records as JSON or CSV",
   },
 ];
 
 export default function MorePage() {
-  const { signOut } = useAuth();
+  const router = useRouter();
+  const { logout } = useAuthStore();
+
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Offline — still clear local state
+    }
+    logout();
+    toast.success("Signed out");
+    router.push("/login");
+  };
 
   return (
     <div>
@@ -69,7 +83,7 @@ export default function MorePage() {
         <Card>
           <CardContent className="p-0">
             <button
-              onClick={signOut}
+              onClick={handleSignOut}
               className="flex items-center gap-3 p-4 w-full hover:bg-muted/50 transition-colors text-destructive"
             >
               <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">

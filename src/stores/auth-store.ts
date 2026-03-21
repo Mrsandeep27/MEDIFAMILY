@@ -1,13 +1,18 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Session, User } from "@supabase/supabase-js";
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+}
 
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
-  setSession: (session: Session | null) => void;
+  setUser: (user: AppUser | null) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
   logout: () => void;
 }
@@ -16,27 +21,26 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      session: null,
       isAuthenticated: false,
       hasCompletedOnboarding: false,
-      setSession: (session) =>
+      setUser: (user) =>
         set({
-          session,
-          user: session?.user ?? null,
-          isAuthenticated: !!session,
+          user,
+          isAuthenticated: !!user,
         }),
       setHasCompletedOnboarding: (value) =>
         set({ hasCompletedOnboarding: value }),
       logout: () =>
         set({
           user: null,
-          session: null,
           isAuthenticated: false,
         }),
     }),
     {
       name: "medilog-auth",
       partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
     }

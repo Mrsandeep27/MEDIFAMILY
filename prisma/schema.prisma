@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  password_hash  String
+  name           String
+  phone          String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  members  Member[]
+
+  @@map("users")
+}
+
+model Member {
+  id                      String   @id @default(uuid())
+  user_id                 String
+  name                    String
+  relation                String   @default("self")
+  date_of_birth           String?
+  blood_group             String   @default("")
+  gender                  String   @default("")
+  allergies               String[] @default([])
+  chronic_conditions      String[] @default([])
+  emergency_contact_name  String?
+  emergency_contact_phone String?
+  avatar_url              String?
+  is_deleted              Boolean  @default(false)
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  user           User           @relation(fields: [user_id], references: [id])
+  records        HealthRecord[]
+  medicines      Medicine[]
+  reminders      Reminder[]
+  share_links    ShareLink[]
+  health_metrics HealthMetric[]
+
+  @@index([user_id])
+  @@map("members")
+}
+
+model HealthRecord {
+  id             String   @id @default(uuid())
+  member_id      String
+  type           String   @default("prescription")
+  title          String
+  doctor_name    String?
+  hospital_name  String?
+  visit_date     String?
+  diagnosis      String?
+  notes          String?
+  image_urls     String[] @default([])
+  raw_ocr_text   String?
+  ai_extracted   Json?
+  tags           String[] @default([])
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  member    Member     @relation(fields: [member_id], references: [id])
+  medicines Medicine[]
+
+  @@index([member_id])
+  @@map("health_records")
+}
+
+model Medicine {
+  id          String   @id @default(uuid())
+  record_id   String
+  member_id   String
+  name        String
+  dosage      String?
+  frequency   String?
+  duration    String?
+  before_food Boolean  @default(false)
+  start_date  String?
+  end_date    String?
+  is_active   Boolean  @default(true)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  record  HealthRecord @relation(fields: [record_id], references: [id])
+  member  Member       @relation(fields: [member_id], references: [id])
+
+  @@index([member_id])
+  @@index([record_id])
+  @@map("medicines")
+}
+
+model Reminder {
+  id            String   @id @default(uuid())
+  medicine_id   String   @default("")
+  member_id     String
+  medicine_name String
+  member_name   String
+  dosage        String?
+  before_food   Boolean  @default(false)
+  time          String
+  days          String[] @default([])
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  member        Member        @relation(fields: [member_id], references: [id])
+  reminder_logs ReminderLog[]
+
+  @@index([member_id])
+  @@map("reminders")
+}
+
+model ReminderLog {
+  id           String   @id @default(uuid())
+  reminder_id  String
+  scheduled_at String
+  status       String
+  acted_at     String?
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  reminder Reminder @relation(fields: [reminder_id], references: [id])
+
+  @@index([reminder_id])
+  @@map("reminder_logs")
+}
+
+model ShareLink {
+  id         String   @id @default(uuid())
+  member_id  String
+  created_by String
+  token      String   @unique
+  record_ids String[] @default([])
+  expires_at DateTime
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  member      Member           @relation(fields: [member_id], references: [id])
+  access_logs ShareAccessLog[]
+
+  @@index([token])
+  @@index([member_id])
+  @@map("share_links")
+}
+
+model ShareAccessLog {
+  id            String   @id @default(uuid())
+  share_link_id String
+  accessed_at   DateTime @default(now())
+
+  share_link ShareLink @relation(fields: [share_link_id], references: [id])
+
+  @@index([share_link_id])
+  @@map("share_access_logs")
+}
+
+model HealthMetric {
+  id          String   @id @default(uuid())
+  member_id   String
+  type        String
+  value       Json
+  recorded_at String
+  notes       String?
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  member Member @relation(fields: [member_id], references: [id])
+
+  @@index([member_id])
+  @@map("health_metrics")
+}

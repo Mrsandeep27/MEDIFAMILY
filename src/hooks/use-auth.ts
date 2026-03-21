@@ -2,41 +2,34 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
-import { createClient } from "@/lib/supabase/client";
 
 export function useAuth() {
-  const { user, session, isAuthenticated, setSession, logout } = useAuthStore();
+  const { user, isAuthenticated, setUser } = useAuthStore();
 
   useEffect(() => {
-    const supabase = createClient();
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            return;
+          }
+        }
+        setUser(null);
+      } catch {
+        // Offline — keep existing state
+      }
+    }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [setSession]);
-
-  const signOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    logout();
-  };
+    if (!user) {
+      checkAuth();
+    }
+  }, [user, setUser]);
 
   return {
     user,
-    session,
     isAuthenticated,
-    signOut,
   };
 }

@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/src/generated
 /.pnp
 .pnp.*
 .yarn/*
@@ -44,3 +45,5 @@ MEMORY.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

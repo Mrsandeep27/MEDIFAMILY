@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/jwt";
 
 const EXTRACTION_PROMPT = `You are a medical prescription parser for Indian prescriptions. Extract structured data from the OCR text below.
 
@@ -33,9 +33,8 @@ Rules:
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const auth = await getAuthUser();
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,7 +44,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    // Input size limit (10K chars max)
     if (typeof text !== "string" || text.length > 10000) {
       return NextResponse.json(
         { error: "Text too long (max 10,000 characters)" },
@@ -53,35 +51,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // Use Google Gemini Flash (free)
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "AI service not configured" },
+        { error: "AI service not configured. Set GOOGLE_AI_API_KEY." },
         { status: 500 }
       );
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [
-          {
-            role: "user",
-            content: `${EXTRACTION_PROMPT}\n\nOCR Text:\n${text}`,
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${EXTRACTION_PROMPT}\n\nOCR Text:\n${text}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1024,
           },
-        ],
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
-      console.error("Claude API error: status", response.status);
+      console.error("Gemini API error: status", response.status);
       return NextResponse.json(
         { error: "AI extraction failed" },
         { status: 500 }
@@ -89,9 +95,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    const content = result.content?.[0]?.text || "{}";
+    const content =
+      result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
-    // Extract JSON robustly — find first { and last }
+    // Extract JSON robustly
     let parsed;
     try {
       const firstBrace = content.indexOf("{");
