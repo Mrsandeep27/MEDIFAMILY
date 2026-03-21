@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/common/loading-spinner";
 
 export default function RootPage() {
   const router = useRouter();
-  const { setUser, hasCompletedOnboarding } = useAuthStore();
+  const { setUser, hasCompletedOnboarding, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     const supabase = createClient();
@@ -18,14 +18,16 @@ export default function RootPage() {
           id: session.user.id,
           email: session.user.email || "",
           name: session.user.user_metadata?.name || "",
-          phone: session.user.phone || "",
         });
         router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+      } else if (isAuthenticated && hasCompletedOnboarding) {
+        // Offline but was logged in before
+        router.replace("/home");
       } else {
         router.replace("/login");
       }
     });
-  }, [router, setUser, hasCompletedOnboarding]);
+  }, [router, setUser, hasCompletedOnboarding, isAuthenticated]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
