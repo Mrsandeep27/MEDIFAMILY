@@ -1,24 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ScanLine, Plus, AlertTriangle, Bell, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MemberSelector } from "@/components/family/member-selector";
+import { RecordCard } from "@/components/records/record-card";
 import { useMembers } from "@/hooks/use-members";
+import { useRecords } from "@/hooks/use-records";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFamilyStore } from "@/stores/family-store";
 import { APP_NAME } from "@/constants/config";
 
 export default function HomePage() {
-  const user = useAuthStore((s) => s.user);
+  const router = useRouter();
   const { members } = useMembers();
   const { selectedMemberId, setSelectedMember } = useFamilyStore();
+  const { records } = useRecords(selectedMemberId || undefined);
 
   const selfMember = members.find((m) => m.relation === "self");
   const greeting = selfMember
     ? `Hi, ${selfMember.name.split(" ")[0]}`
     : "Welcome";
+
+  const recentRecords = records.slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -29,7 +35,7 @@ export default function HomePage() {
             <h1 className="text-2xl font-bold">{greeting}</h1>
             <p className="text-primary-foreground/70 text-sm">{APP_NAME}</p>
           </div>
-          <Link href="/more/settings">
+          <Link href="/reminders">
             <Button
               size="icon"
               variant="ghost"
@@ -43,20 +49,14 @@ export default function HomePage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-3 gap-3">
           <Link href="/scan">
-            <QuickAction
-              icon={ScanLine}
-              label="Scan Prescription"
-            />
+            <QuickAction icon={ScanLine} label="Scan Prescription" />
           </Link>
           <Link href="/records/add">
             <QuickAction icon={Plus} label="Add Record" />
           </Link>
           {selfMember && (
             <Link href={`/family/${selfMember.id}/emergency`}>
-              <QuickAction
-                icon={AlertTriangle}
-                label="Emergency Card"
-              />
+              <QuickAction icon={AlertTriangle} label="Emergency Card" />
             </Link>
           )}
         </div>
@@ -83,36 +83,46 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Today's Reminders - Placeholder */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Today&apos;s Reminders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No reminders for today. Scan a prescription to auto-create
-              reminders.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Recent Records - Placeholder */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+        {/* Recent Records */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Recent Records
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No records yet. Add your first health record to get started.
-            </p>
-          </CardContent>
-        </Card>
+            </h2>
+            {records.length > 0 && (
+              <Link
+                href="/records"
+                className="text-sm text-primary font-medium"
+              >
+                View All
+              </Link>
+            )}
+          </div>
+          {recentRecords.length === 0 ? (
+            <Card>
+              <CardContent className="py-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No records yet. Add your first health record to get started.
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => router.push("/records/add")}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Record
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {recentRecords.map((record) => (
+                <RecordCard key={record.id} record={record} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
