@@ -66,7 +66,13 @@ export default function LoginPage() {
         });
 
         if (error) {
-          toast.error(error.message);
+          if (error.message === "Invalid login credentials") {
+            toast.error("No account found with these credentials. Please Sign Up first.");
+          } else if (error.message === "Email not confirmed") {
+            toast.error("Please verify your email first. Check your inbox.");
+          } else {
+            toast.error(error.message);
+          }
           return;
         }
 
