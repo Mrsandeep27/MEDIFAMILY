@@ -26,28 +26,27 @@ export default function OnboardingPage() {
       return;
     }
 
-    const supabase = createClient();
-    supabase.auth
-      .getSession()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((response: any) => {
-        const session = response?.data?.session;
-        if (session?.user) {
+    const init = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        const sessionUser = data.session?.user;
+        if (sessionUser) {
           setUser({
-            id: session.user.id,
-            email: session.user.email || "",
-            name: session.user.user_metadata?.name || "",
+            id: sessionUser.id,
+            email: sessionUser.email || "",
+            name: (sessionUser.user_metadata as Record<string, string>)?.name || "",
           });
         } else {
           router.replace("/login");
         }
-      })
-      .catch(() => {
+      } catch {
         router.replace("/login");
-      })
-      .finally(() => {
+      } finally {
         setAuthReady(true);
-      });
+      }
+    };
+    init();
   }, [user, setUser, router]);
 
   const handleSubmit = async (data: MemberFormData) => {

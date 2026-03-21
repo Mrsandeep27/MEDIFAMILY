@@ -15,18 +15,19 @@ export default function RootPage() {
     if (didRun.current) return;
     didRun.current = true;
 
-    const { hasCompletedOnboarding, isAuthenticated } = useAuthStore.getState();
-    const supabase = createClient();
+    const init = async () => {
+      const { hasCompletedOnboarding, isAuthenticated } = useAuthStore.getState();
+      const supabase = createClient();
 
-    supabase.auth
-      .getSession()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data: { session } }: any) => {
-        if (session?.user) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+
+        if (user) {
           setUser({
-            id: session.user.id,
-            email: session.user.email || "",
-            name: session.user.user_metadata?.name || "",
+            id: user.id,
+            email: user.email || "",
+            name: (user.user_metadata as Record<string, string>)?.name || "",
           });
           router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
         } else if (isAuthenticated && hasCompletedOnboarding) {
@@ -34,15 +35,13 @@ export default function RootPage() {
         } else {
           router.replace("/login");
         }
-      })
-      .catch(() => {
-        // Offline or network error
-        if (isAuthenticated && hasCompletedOnboarding) {
-          router.replace("/home");
-        } else {
-          router.replace("/login");
-        }
-      });
+      } catch {
+        const { hasCompletedOnboarding: hco, isAuthenticated: ia } = useAuthStore.getState();
+        router.replace(ia && hco ? "/home" : "/login");
+      }
+    };
+
+    init();
   }, [router, setUser]);
 
   return (
