@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
 
+// Global flag — only one auth listener across the entire app
+let authInitialized = false;
+
 export function useAuth() {
   const { user, isAuthenticated, setUser, logout } = useAuthStore();
+  const didInit = useRef(false);
 
   useEffect(() => {
+    // Skip if already initialized globally or in this instance
+    if (authInitialized || didInit.current) return;
+    didInit.current = true;
+    authInitialized = true;
+
     const supabase = createClient();
 
+    // One-time session check
     supabase.auth
       .getSession()
       .then(({ data: { session } }) => {
@@ -26,6 +36,7 @@ export function useAuth() {
         console.error("Failed to get session:", err);
       });
 
+    // One listener for auth state changes (login/logout/token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -43,6 +54,7 @@ export function useAuth() {
 
     return () => {
       subscription.unsubscribe();
+      authInitialized = false;
     };
   }, [setUser]);
 
@@ -53,6 +65,7 @@ export function useAuth() {
     } catch (err) {
       console.error("Sign out error:", err);
     } finally {
+      authInitialized = false;
       logout();
     }
   };

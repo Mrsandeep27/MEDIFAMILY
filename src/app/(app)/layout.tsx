@@ -11,7 +11,10 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  // Initialize auth listener (only runs once globally)
+  useAuth();
+  // Read state from Zustand (no API call)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
 
   useEffect(() => {
