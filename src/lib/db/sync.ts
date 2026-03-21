@@ -22,86 +22,131 @@ const TABLES_TO_SYNC = [
 // Fields that should NOT be sent to the server
 const LOCAL_ONLY_FIELDS = new Set(["local_image_blobs", "sync_status", "synced_at"]);
 
+// Debounce: prevent multiple syncs firing at once
+let syncInProgress = false;
+
+/**
+ * Batched sync — ONE API call for push, ONE for pull (instead of 14)
+ */
 export async function syncAll(): Promise<SyncResult> {
+  if (syncInProgress) return { pushed: 0, pulled: 0, errors: [] };
+  syncInProgress = true;
+
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
 
-  for (const { local, remote } of TABLES_TO_SYNC) {
-    try {
-      const pushResult = await pushTable(local, remote);
-      result.pushed += pushResult.pushed;
-      result.errors.push(...pushResult.errors);
-
-      const pullResult = await pullTable(local, remote);
-      result.pulled += pullResult.pulled;
-      result.errors.push(...pullResult.errors);
-    } catch (err) {
-      result.errors.push(`${local}: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  return result;
-}
-
-async function pushTable(
-  localTable: string,
-  remoteTable: string
-): Promise<{ pushed: number; errors: string[] }> {
-  const result = { pushed: 0, errors: [] as string[] };
-  const dexieTable = db.table(localTable);
-
-  const pendingItems = await dexieTable
-    .filter((item: { sync_status: SyncStatus }) => item.sync_status === "pending")
-    .toArray();
-
-  if (pendingItems.length === 0) return result;
-
-  // Strip local-only fields
-  const cleanItems = pendingItems.map((item: Record<string, unknown>) => {
-    const clean: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(item)) {
-      if (!LOCAL_ONLY_FIELDS.has(key)) {
-        clean[key] = value;
-      }
-    }
-    return clean;
-  });
-
   try {
-    const response = await fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ table: remoteTable, items: cleanItems }),
-    });
+    // ── PUSH: Collect all pending items across all tables ──
+    const pushPayload: Record<string, Record<string, unknown>[]> = {};
 
-    if (!response.ok) {
-      result.errors.push(`Push ${localTable}: HTTP ${response.status}`);
-      return result;
-    }
+    for (const { local, remote } of TABLES_TO_SYNC) {
+      const dexieTable = db.table(local);
+      const pendingItems = await dexieTable
+        .where("sync_status")
+        .equals("pending")
+        .toArray();
 
-    const data = await response.json();
-    const serverPushed = data.pushed || 0;
-    const serverErrors: string[] = data.errors || [];
-    result.pushed = serverPushed;
-    result.errors.push(...serverErrors);
-
-    // Only mark items as synced if server confirmed success and no errors
-    if (serverPushed > 0 && serverErrors.length === 0) {
-      const now = new Date().toISOString();
-      for (const item of pendingItems) {
-        await dexieTable.update(item.id, {
-          sync_status: "synced",
-          synced_at: now,
+      if (pendingItems.length > 0) {
+        pushPayload[remote] = pendingItems.map((item: Record<string, unknown>) => {
+          const clean: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(item)) {
+            if (!LOCAL_ONLY_FIELDS.has(key)) clean[key] = value;
+          }
+          return clean;
         });
       }
     }
-  } catch (err) {
-    result.errors.push(`Push ${localTable}: ${err instanceof Error ? err.message : String(err)}`);
+
+    // Single POST for all tables with pending data
+    if (Object.keys(pushPayload).length > 0) {
+      try {
+        const response = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tables: pushPayload }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          result.pushed = data.pushed || 0;
+          if (data.errors) result.errors.push(...data.errors);
+
+          // Mark synced locally
+          if (result.pushed > 0) {
+            const now = new Date().toISOString();
+            for (const { local, remote } of TABLES_TO_SYNC) {
+              if (pushPayload[remote]) {
+                const dexieTable = db.table(local);
+                const ids = pushPayload[remote].map((i) => i.id as string);
+                for (const id of ids) {
+                  await dexieTable.update(id, { sync_status: "synced", synced_at: now });
+                }
+              }
+            }
+          }
+        } else {
+          result.errors.push(`Push failed: HTTP ${response.status}`);
+        }
+      } catch (err) {
+        result.errors.push(`Push: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // ── PULL: Single GET with all table timestamps ──
+    const sinceMap: Record<string, string> = {};
+    for (const { remote } of TABLES_TO_SYNC) {
+      sinceMap[remote] = getSyncTimestamp(remote);
+    }
+
+    try {
+      const response = await fetch("/api/sync?" + new URLSearchParams({
+        tables: JSON.stringify(sinceMap),
+      }));
+
+      if (response.ok) {
+        const { data } = await response.json();
+
+        if (data && typeof data === "object") {
+          for (const { local, remote } of TABLES_TO_SYNC) {
+            const serverItems = data[remote];
+            if (!Array.isArray(serverItems) || serverItems.length === 0) continue;
+
+            const dexieTable = db.table(local);
+            for (const serverItem of serverItems) {
+              const localItem = await dexieTable.get(serverItem.id);
+              if (
+                !localItem ||
+                new Date(serverItem.updated_at) > new Date(localItem.updated_at)
+              ) {
+                await dexieTable.put({
+                  ...serverItem,
+                  sync_status: "synced" as SyncStatus,
+                  synced_at: new Date().toISOString(),
+                });
+                result.pulled++;
+              }
+            }
+
+            // Update timestamp
+            const latest = serverItems.reduce(
+              (max: string, item: { updated_at: string }) =>
+                item.updated_at > max ? item.updated_at : max,
+              sinceMap[remote]
+            );
+            setSyncTimestamp(remote, latest);
+          }
+        }
+      }
+    } catch (err) {
+      result.errors.push(`Pull: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } finally {
+    syncInProgress = false;
   }
 
   return result;
 }
 
-// Per-table sync timestamps stored in localStorage
+// Per-table sync timestamps
 function getSyncTimestamp(table: string): string {
   if (typeof window === "undefined") return new Date(0).toISOString();
   return localStorage.getItem(`medilog_sync_${table}`) || new Date(0).toISOString();
@@ -113,67 +158,10 @@ function setSyncTimestamp(table: string, timestamp: string): void {
   }
 }
 
-async function pullTable(
-  localTable: string,
-  remoteTable: string
-): Promise<{ pulled: number; errors: string[] }> {
-  const result = { pulled: 0, errors: [] as string[] };
-  const dexieTable = db.table(localTable);
-
-  const since = getSyncTimestamp(remoteTable);
-
-  try {
-    const response = await fetch(
-      `/api/sync?table=${remoteTable}&since=${encodeURIComponent(since)}`
-    );
-
-    if (!response.ok) {
-      result.errors.push(`Pull ${localTable}: HTTP ${response.status}`);
-      return result;
-    }
-
-    const { data } = await response.json();
-
-    if (data && Array.isArray(data)) {
-      for (const serverItem of data) {
-        const localItem = await dexieTable.get(serverItem.id);
-        if (
-          !localItem ||
-          new Date(serverItem.updated_at) > new Date(localItem.updated_at)
-        ) {
-          await dexieTable.put({
-            ...serverItem,
-            sync_status: "synced",
-            synced_at: new Date().toISOString(),
-          });
-          result.pulled++;
-        }
-      }
-
-      // Update per-table sync timestamp
-      if (data.length > 0) {
-        const latest = data.reduce(
-          (max: string, item: { updated_at: string }) =>
-            item.updated_at > max ? item.updated_at : max,
-          since
-        );
-        setSyncTimestamp(remoteTable, latest);
-      }
-    }
-  } catch (err) {
-    result.errors.push(`Pull ${localTable}: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  return result;
-}
-
 export async function getPendingCount(): Promise<number> {
   let count = 0;
   for (const { local } of TABLES_TO_SYNC) {
-    const items = await db
-      .table(local)
-      .filter((item: { sync_status: SyncStatus }) => item.sync_status === "pending")
-      .count();
+    const items = await db.table(local).where("sync_status").equals("pending").count();
     count += items;
   }
   return count;

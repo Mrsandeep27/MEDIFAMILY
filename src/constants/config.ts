@@ -7,7 +7,7 @@ export const PIN_LENGTH = 4;
 export const PIN_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // Sync
-export const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+export const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes (reduces API calls)
 
 // Reminders
 export const REMINDER_CHECK_INTERVAL_MS = 60 * 1000; // 1 minute

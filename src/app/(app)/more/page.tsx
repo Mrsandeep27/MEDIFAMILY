@@ -8,6 +8,7 @@ import {
   LogOut,
   ChevronRight,
   Shield,
+  Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +18,12 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 const menuItems = [
+  {
+    href: "/more/family-group",
+    icon: Users,
+    label: "Family Group",
+    description: "Share records across devices with family",
+  },
   {
     href: "/more/settings",
     icon: Settings,

@@ -19,24 +19,21 @@ export function useAuth() {
 
     const supabase = createClient();
 
-    // One-time session check
-    const initSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const user = data.session?.user;
-        if (user) {
+    // Only call getSession if Zustand doesn't already have a user (skip redundant API call)
+    const zustandUser = useAuthStore.getState().user;
+    if (!zustandUser) {
+      supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string>; phone?: string } } | null } }) => {
+        const u = data.session?.user;
+        if (u) {
           setUser({
-            id: user.id,
-            email: user.email || "",
-            name: (user.user_metadata as Record<string, string>)?.name || "",
-            phone: user.phone || "",
+            id: u.id,
+            email: u.email || "",
+            name: (u.user_metadata as Record<string, string>)?.name || "",
+            phone: u.phone || "",
           });
         }
-      } catch (err) {
-        console.error("Failed to get session:", err);
-      }
-    };
-    initSession();
+      }).catch(() => {});
+    }
 
     // One listener for auth state changes (login/logout/token refresh)
     const {
