@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ScanLine, Plus, AlertTriangle, Bell, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,18 @@ export default function HomePage() {
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 pt-6 pb-8 rounded-b-3xl">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold">{greeting}</h1>
-            <p className="text-primary-foreground/70 text-sm">{APP_NAME}</p>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="MediLog"
+              width={36}
+              height={36}
+              className="rounded-lg bg-white p-0.5"
+            />
+            <div>
+              <h1 className="text-2xl font-bold">{greeting}</h1>
+              <p className="text-primary-foreground/70 text-sm">{APP_NAME}</p>
+            </div>
           </div>
           <Link href="/reminders">
             <Button

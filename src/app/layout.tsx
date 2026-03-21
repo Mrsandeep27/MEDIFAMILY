@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   description:
     "India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -36,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}

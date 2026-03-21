@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Heart, Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import { Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,10 +118,16 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="text-center space-y-2">
-        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-          <Heart className="h-7 w-7 text-primary" />
+        <div className="mx-auto">
+          <Image
+            src="/logo.png"
+            alt="MediLog"
+            width={200}
+            height={60}
+            className="mx-auto"
+            priority
+          />
         </div>
-        <h1 className="text-2xl font-bold">MediLog</h1>
         <p className="text-sm text-muted-foreground">
           Your family&apos;s digital health locker
         </p>
