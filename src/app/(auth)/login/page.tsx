@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Heart, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Heart, Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailSent, setEmailSent] = useState<string | null>(null);
   const { setUser } = useAuthStore();
 
   const {
@@ -43,9 +44,12 @@ export default function LoginPage() {
       const supabase = createClient();
 
       if (isSignup) {
-        const { data: result, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
 
         if (error) {
@@ -53,15 +57,7 @@ export default function LoginPage() {
           return;
         }
 
-        if (result.user) {
-          setUser({
-            id: result.user.id,
-            email: result.user.email || "",
-            name: "",
-          });
-          toast.success("Account created! Welcome to MediLog.");
-          router.push("/onboarding");
-        }
+        setEmailSent(data.email);
       } else {
         const { data: result, error } = await supabase.auth.signInWithPassword({
           email: data.email,
@@ -89,6 +85,34 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show "check your email" after signup
+  if (emailSent) {
+    return (
+      <Card>
+        <CardContent className="pt-8 pb-6 text-center space-y-4">
+          <div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-xl font-bold">Check Your Email</h2>
+          <p className="text-sm text-muted-foreground">
+            We sent a verification link to
+          </p>
+          <p className="font-medium text-sm">{emailSent}</p>
+          <p className="text-xs text-muted-foreground">
+            Click the link in the email to verify your account, then come back and sign in.
+          </p>
+          <Button
+            variant="outline"
+            className="w-full mt-4"
+            onClick={() => { setEmailSent(null); setIsSignup(false); }}
+          >
+            Back to Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
