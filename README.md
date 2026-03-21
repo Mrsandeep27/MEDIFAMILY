@@ -2,10 +2,13 @@
 
 > India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors — all from your browser.
 
+**Live Demo:** [medi--log.vercel.app](https://medi--log.vercel.app)
+
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ecf8e?logo=supabase)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)
 ![PWA](https://img.shields.io/badge/PWA-Installable-purple)
 
 ---
@@ -65,10 +68,10 @@ Every Indian family faces this:
 | **Styling** | Tailwind CSS v4 + shadcn/ui |
 | **State Management** | Zustand |
 | **Local Database** | Dexie.js (IndexedDB) — offline-first |
-| **Cloud Database** | Supabase (PostgreSQL, Mumbai region) |
-| **Auth** | Supabase Auth (Phone OTP) |
-| **AI/OCR** | Claude API (Haiku) + Tesseract.js |
-| **Notifications** | Firebase Cloud Messaging |
+| **Cloud Database** | Supabase PostgreSQL (Mumbai) + Prisma ORM |
+| **Auth** | Custom JWT (bcrypt + httpOnly cookies) |
+| **AI/OCR** | Google Gemini 2.0 Flash (free) + Tesseract.js |
+| **Notifications** | Web Push API |
 | **Forms** | React Hook Form + Zod |
 | **PWA** | Web App Manifest + Service Workers |
 | **Deployment** | Vercel |
@@ -81,7 +84,8 @@ Every Indian family faces this:
 
 - Node.js 18+
 - npm
-- Supabase account (free tier works)
+- Supabase account (free tier — used as PostgreSQL)
+- Google AI API key (free — for prescription scanning)
 
 ### Installation
 
@@ -95,7 +99,10 @@ npm install
 
 # Set up environment variables
 cp .env.example .env.local
-# Edit .env.local with your Supabase credentials
+# Edit .env.local with your credentials
+
+# Push database schema
+npx prisma db push
 
 # Run development server
 npm run dev
@@ -106,8 +113,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Environment Variables
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
+JWT_SECRET=your-secret-key-min-32-chars
+GOOGLE_AI_API_KEY=your-google-ai-api-key
 ```
 
 ---
