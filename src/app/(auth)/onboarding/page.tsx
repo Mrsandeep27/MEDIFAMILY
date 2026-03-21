@@ -29,8 +29,9 @@ export default function OnboardingPage() {
     const supabase = createClient();
     supabase.auth
       .getSession()
-      .then((response) => {
-        const session = response.data.session;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((response: any) => {
+        const session = response?.data?.session;
         if (session?.user) {
           setUser({
             id: session.user.id,
