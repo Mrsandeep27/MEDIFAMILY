@@ -47,7 +47,7 @@ export async function GET(
     }
 
     // Get records
-    const recordWhere: any = {
+    const recordWhere: { member_id: string; is_deleted: boolean; id?: { in: string[] } } = {
       member_id: shareLink.member_id,
       is_deleted: false,
     };
@@ -82,10 +82,12 @@ export async function GET(
       },
     });
 
-    // Log access (anonymized)
+    // Log access (anonymized) — non-critical, log errors
     await prisma.shareAccessLog.create({
       data: { share_link_id: shareLink.id },
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("Failed to log share access:", err);
+    });
 
     return NextResponse.json({
       member: {

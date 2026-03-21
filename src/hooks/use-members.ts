@@ -56,8 +56,8 @@ export function useMembers() {
   ): Promise<void> => {
     await db.members.update(id, {
       ...data,
-      blood_group: (data.blood_group || undefined) as BloodGroup | undefined,
-      gender: (data.gender || undefined) as Gender | undefined,
+      blood_group: (data.blood_group ?? undefined) as BloodGroup | undefined,
+      gender: (data.gender ?? undefined) as Gender | undefined,
       relation: data.relation as Relation | undefined,
       updated_at: new Date().toISOString(),
       sync_status: "pending",

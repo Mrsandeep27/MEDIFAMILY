@@ -112,6 +112,11 @@ export async function POST(request: NextRequest) {
       parsed = { medicines: [], notes: content };
     }
 
+    // Ensure medicines is always an array
+    if (!Array.isArray(parsed.medicines)) {
+      parsed.medicines = [];
+    }
+
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("Extract API error:", err instanceof Error ? err.message : String(err));

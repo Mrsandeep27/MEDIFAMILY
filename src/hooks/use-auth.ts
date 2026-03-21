@@ -10,16 +10,21 @@ export function useAuth() {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name || "",
-          phone: session.user.phone || "",
-        });
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || "",
+            name: session.user.user_metadata?.name || "",
+            phone: session.user.phone || "",
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to get session:", err);
+      });
 
     const {
       data: { subscription },
@@ -42,9 +47,14 @@ export function useAuth() {
   }, [setUser]);
 
   const signOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    logout();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Sign out error:", err);
+    } finally {
+      logout();
+    }
   };
 
   return {

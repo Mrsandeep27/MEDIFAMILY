@@ -27,12 +27,10 @@ export async function syncAll(): Promise<SyncResult> {
 
   for (const { local, remote } of TABLES_TO_SYNC) {
     try {
-      // Push pending items
       const pushResult = await pushTable(local, remote);
       result.pushed += pushResult.pushed;
       result.errors.push(...pushResult.errors);
 
-      // Pull updated items
       const pullResult = await pullTable(local, remote);
       result.pulled += pullResult.pulled;
       result.errors.push(...pullResult.errors);
@@ -81,21 +79,38 @@ async function pushTable(
     }
 
     const data = await response.json();
-    result.pushed = data.pushed || 0;
-    if (data.errors) result.errors.push(...data.errors);
+    const serverPushed = data.pushed || 0;
+    const serverErrors: string[] = data.errors || [];
+    result.pushed = serverPushed;
+    result.errors.push(...serverErrors);
 
-    // Mark as synced
-    for (const item of pendingItems) {
-      await dexieTable.update(item.id, {
-        sync_status: "synced",
-        synced_at: new Date().toISOString(),
-      });
+    // Only mark items as synced if server confirmed success and no errors
+    if (serverPushed > 0 && serverErrors.length === 0) {
+      const now = new Date().toISOString();
+      for (const item of pendingItems) {
+        await dexieTable.update(item.id, {
+          sync_status: "synced",
+          synced_at: now,
+        });
+      }
     }
   } catch (err) {
     result.errors.push(`Push ${localTable}: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return result;
+}
+
+// Per-table sync timestamps stored in localStorage
+function getSyncTimestamp(table: string): string {
+  if (typeof window === "undefined") return new Date(0).toISOString();
+  return localStorage.getItem(`medilog_sync_${table}`) || new Date(0).toISOString();
+}
+
+function setSyncTimestamp(table: string, timestamp: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(`medilog_sync_${table}`, timestamp);
+  }
 }
 
 async function pullTable(
@@ -105,13 +120,7 @@ async function pullTable(
   const result = { pulled: 0, errors: [] as string[] };
   const dexieTable = db.table(localTable);
 
-  // Get last sync time
-  const lastSynced = await dexieTable
-    .orderBy("synced_at")
-    .reverse()
-    .first()
-    .catch(() => null);
-  const since = lastSynced?.synced_at || "2000-01-01T00:00:00Z";
+  const since = getSyncTimestamp(remoteTable);
 
   try {
     const response = await fetch(
@@ -139,6 +148,16 @@ async function pullTable(
           });
           result.pulled++;
         }
+      }
+
+      // Update per-table sync timestamp
+      if (data.length > 0) {
+        const latest = data.reduce(
+          (max: string, item: { updated_at: string }) =>
+            item.updated_at > max ? item.updated_at : max,
+          since
+        );
+        setSyncTimestamp(remoteTable, latest);
       }
     }
   } catch (err) {

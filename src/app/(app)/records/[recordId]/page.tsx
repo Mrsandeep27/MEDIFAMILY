@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
-import { useRecord, useRecords, getRecordImageUrls } from "@/hooks/use-records";
+import { useRecord, useRecords, useRecordImageUrls } from "@/hooks/use-records";
 import { useMedicines } from "@/hooks/use-medicines";
 import { useMember } from "@/hooks/use-members";
 import { RECORD_TYPE_LABELS, FREQUENCY_LABELS } from "@/constants/config";
@@ -42,12 +42,12 @@ export default function RecordDetailPage({
   const { record, isLoading } = useRecord(recordId);
   const { deleteRecord } = useRecords();
   const { medicines } = useMedicines(undefined, recordId);
-  const { member } = useMember(record?.member_id || "");
+  const { member } = useMember(record?.member_id ?? "__none__");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Generate blob URLs on-demand from stored blobs (survives page reload)
-  const imageUrls = record ? getRecordImageUrls(record) : [];
+  // Auto-revoked blob URLs (no memory leak)
+  const imageUrls = useRecordImageUrls(record);
 
   if (isLoading) {
     return (
@@ -70,9 +70,11 @@ export default function RecordDetailPage({
   const handleDelete = async () => {
     try {
       await deleteRecord(recordId);
+      setShowDeleteDialog(false);
       toast.success("Record deleted");
       router.push("/records");
     } catch {
+      setShowDeleteDialog(false);
       toast.error("Failed to delete record");
     }
   };

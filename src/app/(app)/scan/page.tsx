@@ -62,13 +62,21 @@ export default function ScanPage() {
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [editedMedicines, setEditedMedicines] = useState<ExtractedMedicine[]>([]);
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleCapture = async () => {
-    const blob = await captureAsync();
-    if (blob) {
-      stop();
-      setCapturedImage(blob);
-      setPreviewUrl(URL.createObjectURL(blob));
-      processImage(blob);
+    if (isProcessing) return;
+    try {
+      const blob = await captureAsync();
+      if (blob) {
+        stop();
+        setCapturedImage(blob);
+        setPreviewUrl(URL.createObjectURL(blob));
+        processImage(blob);
+      }
+    } catch (err) {
+      console.error("Capture failed:", err);
+      toast.error("Failed to capture image. Please try again.");
     }
   };
 
@@ -82,6 +90,8 @@ export default function ScanPage() {
   };
 
   const processImage = async (image: Blob | File) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
     setStep("processing");
 
     try {
@@ -112,6 +122,8 @@ export default function ScanPage() {
       console.error("Processing failed:", err);
       toast.error("Processing failed. Please try again.");
       resetScan();
+    } finally {
+      setIsProcessing(false);
     }
   };
 

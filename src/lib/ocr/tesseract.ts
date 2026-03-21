@@ -9,11 +9,16 @@ async function getWorker(): Promise<Worker> {
   if (worker) return worker;
   if (workerInitPromise) return workerInitPromise;
 
-  workerInitPromise = createWorker("eng+hin").then((w) => {
-    worker = w;
-    workerInitPromise = null;
-    return w;
-  });
+  workerInitPromise = createWorker("eng+hin")
+    .then((w) => {
+      worker = w;
+      return w;
+    })
+    .catch((err) => {
+      // Allow retry on next call
+      workerInitPromise = null;
+      throw err;
+    });
 
   return workerInitPromise;
 }
@@ -55,5 +60,6 @@ export async function terminateOCR(): Promise<void> {
   if (worker) {
     await worker.terminate();
     worker = null;
+    workerInitPromise = null;
   }
 }

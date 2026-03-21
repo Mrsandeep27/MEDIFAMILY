@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
@@ -8,26 +8,41 @@ import { LoadingSpinner } from "@/components/common/loading-spinner";
 
 export default function RootPage() {
   const router = useRouter();
-  const { setUser, hasCompletedOnboarding, isAuthenticated } = useAuthStore();
+  const { setUser } = useAuthStore();
+  const didRun = useRef(false);
 
   useEffect(() => {
+    if (didRun.current) return;
+    didRun.current = true;
+
+    const { hasCompletedOnboarding, isAuthenticated } = useAuthStore.getState();
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name || "",
-        });
-        router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
-      } else if (isAuthenticated && hasCompletedOnboarding) {
-        // Offline but was logged in before
-        router.replace("/home");
-      } else {
-        router.replace("/login");
-      }
-    });
-  }, [router, setUser, hasCompletedOnboarding, isAuthenticated]);
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || "",
+            name: session.user.user_metadata?.name || "",
+          });
+          router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+        } else if (isAuthenticated && hasCompletedOnboarding) {
+          router.replace("/home");
+        } else {
+          router.replace("/login");
+        }
+      })
+      .catch(() => {
+        // Offline or network error
+        if (isAuthenticated && hasCompletedOnboarding) {
+          router.replace("/home");
+        } else {
+          router.replace("/login");
+        }
+      });
+  }, [router, setUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

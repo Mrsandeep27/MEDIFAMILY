@@ -8,7 +8,8 @@ export default function VerifyPage() {
 
   useEffect(() => {
     router.replace("/login");
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }

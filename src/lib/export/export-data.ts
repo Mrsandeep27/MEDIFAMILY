@@ -25,6 +25,7 @@ export async function exportAllData(): Promise<ExportData> {
     ]);
 
   // Remove blobs from records for JSON export
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const cleanRecords = records.map(({ local_image_blobs, ...rest }) => rest);
 
   return {

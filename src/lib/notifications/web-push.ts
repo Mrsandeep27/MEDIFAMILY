@@ -47,7 +47,7 @@ export function showReminderNotification(
       : null,
     `for ${memberName}`,
   ]
-    .filter(Boolean)
+    .filter((v): v is string => v !== null && v !== undefined)
     .join(" · ");
 
   showNotification(`Time for ${medicineName}`, {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db/dexie";
@@ -129,7 +130,10 @@ export function useRecord(id: string) {
   return { record, isLoading: record === undefined };
 }
 
-/** Get blob URLs on-demand from local_image_blobs (survives page reload) */
+/**
+ * Get blob URLs on-demand from local_image_blobs (survives page reload).
+ * IMPORTANT: Caller must revoke returned URLs when done (use useRecordImageUrls hook).
+ */
 export function getRecordImageUrls(record: HealthRecord): string[] {
   if (record.local_image_blobs && record.local_image_blobs.length > 0) {
     return record.local_image_blobs.map((blob) => URL.createObjectURL(blob));
@@ -137,8 +141,45 @@ export function getRecordImageUrls(record: HealthRecord): string[] {
   return record.image_urls || [];
 }
 
+/** Hook that creates blob URLs and auto-revokes them on unmount/change */
+export function useRecordImageUrls(record: HealthRecord | undefined): string[] {
+  const [urls, setUrls] = useState<string[]>([]);
+  const urlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    // Revoke previous URLs
+    urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+
+    if (!record) {
+      urlsRef.current = [];
+      setUrls([]);
+      return;
+    }
+
+    if (record.local_image_blobs && record.local_image_blobs.length > 0) {
+      const newUrls = record.local_image_blobs.map((blob) => URL.createObjectURL(blob));
+      urlsRef.current = newUrls;
+      setUrls(newUrls);
+    } else {
+      urlsRef.current = [];
+      setUrls(record.image_urls || []);
+    }
+
+    return () => {
+      urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [record?.id, record?.updated_at]);
+
+  return urls;
+}
+
 async function compressImage(file: File | Blob, maxSizeKB = 500): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+  const timeoutMs = 15000;
+  return Promise.race([
+    new Promise<Blob>((_, reject) =>
+      setTimeout(() => reject(new Error("Image compression timed out")), timeoutMs)
+    ),
+    new Promise<Blob>((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
 
@@ -153,7 +194,7 @@ async function compressImage(file: File | Blob, maxSizeKB = 500): Promise<Blob> 
       let { width, height } = img;
 
       if (width === 0 || height === 0) {
-        resolve(new Blob());
+        resolve(new Blob([], { type: "image/jpeg" }));
         return;
       }
 
@@ -191,5 +232,6 @@ async function compressImage(file: File | Blob, maxSizeKB = 500): Promise<Blob> 
       tryCompress();
     };
     img.src = url;
-  });
+  }),
+  ]);
 }
