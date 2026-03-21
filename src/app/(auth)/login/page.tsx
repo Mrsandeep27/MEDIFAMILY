@@ -117,18 +117,18 @@ export default function LoginPage() {
 
   return (
     <Card>
-      <CardHeader className="text-center space-y-2">
-        <div className="mx-auto">
+      <CardHeader className="text-center space-y-0 pb-2">
+        <div className="mx-auto -my-4 overflow-hidden" style={{ maxHeight: "70px" }}>
           <Image
             src="/logo.png"
             alt="MediLog"
-            width={200}
-            height={60}
-            className="mx-auto"
+            width={220}
+            height={220}
+            className="mx-auto object-contain scale-[1.8]"
             priority
           />
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground !mt-2">
           Your family&apos;s digital health locker
         </p>
       </CardHeader>
