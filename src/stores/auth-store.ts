@@ -46,9 +46,15 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
-      onRehydrateStorage: () => () => {
-        useAuthStore.setState({ _hasHydrated: true });
-      },
     }
   )
 );
+
+// Mark hydration complete after store is created
+// Zustand persist hydrates synchronously from localStorage on client
+if (typeof window !== "undefined") {
+  // Use queueMicrotask to ensure persist has finished hydrating
+  queueMicrotask(() => {
+    useAuthStore.setState({ _hasHydrated: true });
+  });
+}
