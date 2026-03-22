@@ -12,6 +12,7 @@ interface AuthState {
   user: AppUser | null;
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
+  _hasHydrated: boolean;
   setUser: (user: AppUser | null) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
   logout: () => void;
@@ -23,6 +24,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       hasCompletedOnboarding: false,
+      _hasHydrated: false,
       setUser: (user) =>
         set({
           user,
@@ -34,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           isAuthenticated: false,
+          hasCompletedOnboarding: false,
         }),
     }),
     {
@@ -43,6 +46,9 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ _hasHydrated: true });
+      },
     }
   )
 );

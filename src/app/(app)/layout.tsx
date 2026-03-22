@@ -11,21 +11,24 @@ import { useAuthStore } from "@/stores/auth-store";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  // Initialize auth listener (only runs once globally)
   useAuth();
-  // Read state from Zustand (no API call)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage before making redirect decisions
+    if (!hasHydrated) return;
+
     if (!isAuthenticated) {
       router.replace("/login");
     } else if (!hasCompletedOnboarding) {
       router.replace("/onboarding");
     }
-  }, [isAuthenticated, hasCompletedOnboarding, router]);
+  }, [isAuthenticated, hasCompletedOnboarding, hasHydrated, router]);
 
-  if (!isAuthenticated) {
+  // Show loading while hydrating or if not authenticated
+  if (!hasHydrated || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />

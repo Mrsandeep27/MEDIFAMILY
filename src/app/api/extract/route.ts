@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth/jwt";
 
 const EXTRACTION_PROMPT = `You are a medical prescription parser for Indian prescriptions. Extract structured data from the OCR text below.
 
@@ -32,12 +31,6 @@ Rules:
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await getAuthUser();
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { text } = await request.json();
 
     if (!text) {

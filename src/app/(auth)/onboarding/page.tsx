@@ -17,15 +17,19 @@ export default function OnboardingPage() {
   const { user, setUser, setHasCompletedOnboarding } = useAuthStore();
   const { addMember } = useMembers();
   const [loading, setLoading] = useState(false);
-  const [authReady, setAuthReady] = useState(!!user);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const [authReady, setAuthReady] = useState(false);
 
-  // Sync Supabase session into Zustand (in case user just verified email)
+  // Wait for Zustand hydration, then check Supabase session if needed
   useEffect(() => {
+    if (!hasHydrated) return;
+
     if (user) {
       setAuthReady(true);
       return;
     }
 
+    // No user in Zustand — check Supabase (user just verified email)
     const init = async () => {
       try {
         const supabase = createClient();
@@ -39,15 +43,16 @@ export default function OnboardingPage() {
           });
         } else {
           router.replace("/login");
+          return;
         }
       } catch {
         router.replace("/login");
-      } finally {
-        setAuthReady(true);
+        return;
       }
+      setAuthReady(true);
     };
     init();
-  }, [user, setUser, router]);
+  }, [hasHydrated, user, setUser, router]);
 
   const handleSubmit = async (data: MemberFormData) => {
     setLoading(true);

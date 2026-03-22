@@ -10,16 +10,25 @@ export default function RootPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
   const didRun = useRef(false);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   useEffect(() => {
-    if (didRun.current) return;
+    // Wait for Zustand to hydrate first
+    if (!hasHydrated || didRun.current) return;
     didRun.current = true;
 
     const init = async () => {
       const { hasCompletedOnboarding, isAuthenticated } = useAuthStore.getState();
-      const supabase = createClient();
 
+      // If already authenticated in Zustand, redirect immediately (no API call)
+      if (isAuthenticated && hasCompletedOnboarding) {
+        router.replace("/home");
+        return;
+      }
+
+      // Otherwise check Supabase session
       try {
+        const supabase = createClient();
         const { data } = await supabase.auth.getSession();
         const user = data.session?.user;
 
@@ -30,19 +39,16 @@ export default function RootPage() {
             name: (user.user_metadata as Record<string, string>)?.name || "",
           });
           router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
-        } else if (isAuthenticated && hasCompletedOnboarding) {
-          router.replace("/home");
         } else {
           router.replace("/login");
         }
       } catch {
-        const { hasCompletedOnboarding: hco, isAuthenticated: ia } = useAuthStore.getState();
-        router.replace(ia && hco ? "/home" : "/login");
+        router.replace(isAuthenticated ? "/home" : "/login");
       }
     };
 
     init();
-  }, [router, setUser]);
+  }, [hasHydrated, router, setUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

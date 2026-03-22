@@ -10,6 +10,7 @@ export function useCamera(options: UseCameraOptions = {}) {
   const { facingMode = "environment" } = options;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const isActiveRef = useRef(false);
   const [isActive, setIsActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -29,6 +30,7 @@ export function useCamera(options: UseCameraOptions = {}) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+      isActiveRef.current = true;
       setIsActive(true);
       setHasPermission(true);
     } catch (err) {
@@ -41,6 +43,7 @@ export function useCamera(options: UseCameraOptions = {}) {
       } else {
         setError("Failed to access camera. Please try again.");
       }
+      isActiveRef.current = false;
       setIsActive(false);
     }
   }, [facingMode]);
@@ -53,12 +56,13 @@ export function useCamera(options: UseCameraOptions = {}) {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    isActiveRef.current = false;
     setIsActive(false);
   }, []);
 
   const captureAsync = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
-      if (!videoRef.current || !isActive) {
+      if (!videoRef.current || !isActiveRef.current) {
         resolve(null);
         return;
       }
@@ -86,7 +90,7 @@ export function useCamera(options: UseCameraOptions = {}) {
         0.9
       );
     });
-  }, [isActive]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

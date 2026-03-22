@@ -1,20 +1,18 @@
-const CACHE_NAME = "medilog-v1";
+const CACHE_NAME = "medilog-v2";
 const STATIC_ASSETS = [
   "/",
-  "/home",
-  "/family",
-  "/records",
-  "/reminders",
-  "/scan",
-  "/more",
   "/login",
   "/manifest.json",
 ];
 
-// Install — cache static assets
+// Install — cache only essential static assets (others cached on navigation)
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(STATIC_ASSETS).catch(() => {
+        // Silently fail — pages may redirect, cache on next visit
+      })
+    )
   );
   self.skipWaiting();
 });
