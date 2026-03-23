@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -63,6 +63,12 @@ export default function ScanPage() {
   const [editedMedicines, setEditedMedicines] = useState<ExtractedMedicine[]>([]);
 
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Auto-start camera when page opens
+  useEffect(() => {
+    start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCapture = async () => {
     if (isProcessing) return;
@@ -238,29 +244,33 @@ export default function ScanPage() {
       <div>
         <AppHeader title="Scan Prescription" showBack />
         <div className="p-4 space-y-4">
-          {isActive ? (
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                // @ts-expect-error — webkit vendor prefix for iOS
-                webkitPlaysinline="true"
-                className="w-full h-full object-cover"
-                style={{ transform: "scaleX(1)" }}
-              />
-              <div className="absolute inset-0 border-2 border-white/30 rounded-2xl m-4" />
+          {/* Camera viewfinder — always rendered so videoRef is available */}
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+            {!isActive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+                <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
+                <p className="text-white text-sm">Opening camera...</p>
+                {cameraError && (
+                  <div className="mt-4 text-center px-4">
+                    <p className="text-red-400 text-sm mb-3">{cameraError}</p>
+                    <Button size="sm" variant="secondary" onClick={start}>
+                      Retry Camera
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="absolute inset-0 border-2 border-white/30 rounded-2xl m-4 pointer-events-none" />
+            {isActive && (
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="rounded-full h-14 w-14"
-                  onClick={() => stop()}
-                >
-                  <X className="h-6 w-6" />
-                </Button>
                 <Button
                   size="lg"
                   className="rounded-full h-16 w-16 bg-white text-black hover:bg-white/90"
@@ -269,58 +279,32 @@ export default function ScanPage() {
                   <Camera className="h-7 w-7" />
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Card
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={start}
-              >
-                <CardContent className="flex flex-col items-center py-12">
-                  <div className="rounded-full bg-primary/10 p-6 mb-4">
-                    <Camera className="h-10 w-10 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg mb-1">Take Photo</h3>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Point your camera at the prescription
-                  </p>
-                </CardContent>
-              </Card>
+            )}
+          </div>
 
-              <div className="relative flex items-center gap-3">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              <Card
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <CardContent className="flex flex-col items-center py-8">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <h3 className="font-medium">Upload from Gallery</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Select an existing photo
-                  </p>
-                </CardContent>
-              </Card>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-
-              {cameraError && (
-                <p className="text-sm text-destructive text-center">
-                  {cameraError}
+          {/* Upload fallback — always visible below camera */}
+          <Card
+            className="cursor-pointer hover:border-primary transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <CardContent className="flex items-center gap-3 py-3">
+              <Upload className="h-5 w-5 text-muted-foreground shrink-0" />
+              <div>
+                <h3 className="text-sm font-medium">Upload from Gallery</h3>
+                <p className="text-xs text-muted-foreground">
+                  Select an existing photo instead
                 </p>
-              )}
-            </div>
-          )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
       </div>
     );
