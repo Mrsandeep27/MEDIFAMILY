@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Shield,
   Users,
+  MessageSquare,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -39,8 +40,14 @@ const menuItems = [
   {
     href: "/more/export",
     icon: Download,
-    label: "Export Data",
-    description: "Download all records as JSON or CSV",
+    label: "Export Report",
+    description: "Download health report as PDF",
+  },
+  {
+    href: "/more/feedback",
+    icon: MessageSquare,
+    label: "Feedback & Reviews",
+    description: "Report bugs, suggest features, rate us",
   },
 ];
 

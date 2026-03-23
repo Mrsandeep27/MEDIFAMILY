@@ -216,3 +216,25 @@ model HealthMetric {
   @@index([member_id])
   @@map("health_metrics")
 }
+
+// ============================================================
+// User Feedback & Reviews
+// ============================================================
+model Feedback {
+  id         String   @id @default(uuid())
+  user_id    String?
+  user_email String?
+  user_name  String?
+  category   String   @default("review") // review, bug, feature, testimonial
+  rating     Int?     // 1-5 stars
+  message    String
+  page       String?  // which page the feedback was from
+  device     String?  // mobile/desktop
+  status     String   @default("new") // new, read, resolved, archived
+  admin_note String?
+  created_at DateTime @default(now())
+
+  @@index([category])
+  @@index([status])
+  @@map("feedback")
+}
