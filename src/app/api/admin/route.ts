@@ -44,6 +44,10 @@ export async function GET(request: NextRequest) {
     const section = searchParams.get("section") || "overview";
 
     if (section === "overview") {
+      // Use try-catch per query to handle missing tables gracefully
+      const safeCount = async (fn: () => Promise<number>) => { try { return await fn(); } catch { return 0; } };
+      const safeQuery = async <T>(fn: () => Promise<T>, fallback: T) => { try { return await fn(); } catch { return fallback; } };
+
       const [
         totalMembers,
         totalRecords,
@@ -54,14 +58,14 @@ export async function GET(request: NextRequest) {
         totalFamilies,
         recentFeedback,
       ] = await Promise.all([
-        prisma.member.count({ where: { is_deleted: false } }),
-        prisma.healthRecord.count({ where: { is_deleted: false } }),
-        prisma.medicine.count({ where: { is_deleted: false } }),
-        prisma.reminder.count({ where: { is_deleted: false } }),
-        prisma.feedback.count(),
-        prisma.feedback.count({ where: { status: "new" } }),
-        prisma.family.count(),
-        prisma.feedback.findMany({ orderBy: { created_at: "desc" }, take: 5 }),
+        safeCount(() => prisma.member.count({ where: { is_deleted: false } })),
+        safeCount(() => prisma.healthRecord.count({ where: { is_deleted: false } })),
+        safeCount(() => prisma.medicine.count({ where: { is_deleted: false } })),
+        safeCount(() => prisma.reminder.count({ where: { is_deleted: false } })),
+        safeCount(() => prisma.feedback.count()),
+        safeCount(() => prisma.feedback.count({ where: { status: "new" } })),
+        safeCount(() => prisma.family.count()),
+        safeQuery(() => prisma.feedback.findMany({ orderBy: { created_at: "desc" }, take: 5 }), []),
       ]);
 
       return NextResponse.json({

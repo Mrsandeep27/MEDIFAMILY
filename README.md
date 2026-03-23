@@ -78,6 +78,35 @@ Every Indian family faces this:
 
 ---
 
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (auth)/             # Login, OTP verify, Onboarding
+│   ├── (app)/              # Authenticated app (bottom nav)
+│   │   ├── home/           # Dashboard
+│   │   ├── family/         # Family members CRUD
+│   │   ├── records/        # Health records
+│   │   ├── scan/           # AI prescription scanner
+│   │   ├── reminders/      # Medicine reminders
+│   │   └── more/           # Settings, export, shared links
+│   └── share/[token]/      # Public doctor view (no auth)
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── layout/             # Bottom nav, header, PIN lock
+│   ├── family/             # Member card, form, avatar
+│   └── common/             # Empty state, loading spinner
+├── lib/
+│   ├── db/                 # Dexie schema + database
+│   ├── supabase/           # Supabase clients
+│   ├── auth/               # PIN authentication
+│   └── utils/              # Validators, helpers
+├── stores/                 # Zustand state stores
+├── hooks/                  # Custom React hooks
+└── constants/              # App config, labels
+```
+
 ---
 
 ## Development Phases
