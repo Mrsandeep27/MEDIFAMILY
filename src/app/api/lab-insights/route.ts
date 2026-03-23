@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const response = await callGemini(parts);
+      const response = await callGemini(parts, { feature: "lab-insights" });
       const parsed = parseJsonResponse(response);
       if (!Array.isArray(parsed.markers)) parsed.markers = [];
 

@@ -62,7 +62,7 @@ Rules:
       try {
         const answer = await callGemini(
           [{ text: chatPrompt }],
-          { temperature: 0.3, maxOutputTokens: 512 }
+          { temperature: 0.3, maxOutputTokens: 512, feature: "medicine-chat" }
         );
         return NextResponse.json({ answer });
       } catch (err) {
@@ -95,7 +95,7 @@ Rules:
       const text = await callGemini([
         { text: MEDICINE_INFO_PROMPT },
         { inlineData: { mimeType, data: base64Data } },
-      ]);
+      ], { feature: "medicine-info" });
 
       const parsed = parseJsonResponse(text);
       if (!parsed.name) {

@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await callGemini(
         [{ text: prompt }],
-        { temperature: 0.3, maxOutputTokens: 1500 }
+        { temperature: 0.3, maxOutputTokens: 1500, feature: "ai-doctor" }
       );
 
       const parsed = parseJsonResponse(response);

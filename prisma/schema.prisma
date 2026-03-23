@@ -238,3 +238,24 @@ model Feedback {
   @@index([status])
   @@map("feedback")
 }
+
+// ============================================================
+// API Usage Tracking
+// ============================================================
+model ApiUsage {
+  id         String   @id @default(uuid())
+  feature    String   // medicine-info, lab-insights, extract, ai-doctor, medicine-chat
+  model_used String   // gemini model that succeeded
+  key_index  Int      // which API key was used (1-10)
+  tokens_in  Int?     // estimated input tokens
+  tokens_out Int?     // estimated output tokens
+  duration   Int?     // response time in ms
+  success    Boolean  @default(true)
+  error      String?
+  user_id    String?
+  created_at DateTime @default(now())
+
+  @@index([feature])
+  @@index([created_at])
+  @@map("api_usage")
+}

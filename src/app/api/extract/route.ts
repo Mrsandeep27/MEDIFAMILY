@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await callGemini(
         [{ text: `${EXTRACTION_PROMPT}\n\nOCR Text:\n${text}` }],
-        { temperature: 0.1, maxOutputTokens: 1024 }
+        { temperature: 0.1, maxOutputTokens: 1024, feature: "extract" }
       );
 
       const parsed = parseJsonResponse(response);

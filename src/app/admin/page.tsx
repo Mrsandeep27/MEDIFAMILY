@@ -32,7 +32,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 
-type Tab = "overview" | "feedback" | "users" | "families" | "records";
+type Tab = "overview" | "feedback" | "users" | "families" | "records" | "api-usage";
 
 interface Stats {
   totalMembers: number;
@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [members, setMembers] = useState<Array<Record<string, unknown>>>([]);
   const [families, setFamilies] = useState<Array<Record<string, unknown>>>([]);
   const [records, setRecords] = useState<Array<Record<string, unknown>>>([]);
+  const [apiUsage, setApiUsage] = useState<Record<string, unknown> | null>(null);
   const [feedbackFilter, setFeedbackFilter] = useState("all");
 
   const handleLogin = async () => {
@@ -136,6 +137,7 @@ export default function AdminPage() {
       if (section === "users") setMembers(data.members || []);
       if (section === "families") setFamilies(data.families || []);
       if (section === "records") setRecords(data.records || []);
+      if (section === "api-usage") setApiUsage(data);
     } catch {}
   };
 
@@ -205,6 +207,7 @@ export default function AdminPage() {
     { id: "users", label: "Members", icon: Users },
     { id: "families", label: "Families", icon: UsersRound },
     { id: "records", label: "Records", icon: FileText },
+    { id: "api-usage", label: "API Usage", icon: Activity },
   ];
 
   const catIcon: Record<string, typeof Star> = { review: Star, bug: Bug, feature: Lightbulb, testimonial: Heart };
@@ -428,6 +431,67 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+        )}
+
+        {/* === API USAGE === */}
+        {tab === "api-usage" && apiUsage && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Total Calls", value: apiUsage.totalCalls as number, color: "text-blue-600" },
+                { label: "Today", value: apiUsage.todayCalls as number, color: "text-green-600" },
+                { label: "Success Rate", value: `${apiUsage.successRate}%`, color: "text-emerald-600" },
+                { label: "Avg Duration", value: `${apiUsage.avgDuration}ms`, color: "text-orange-600" },
+              ].map((s) => (
+                <Card key={s.label}>
+                  <CardContent className="py-3 text-center">
+                    <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* By Feature */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Usage by Feature</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {((apiUsage.byFeature as Array<{ feature: string; _count: number }>) || []).map((f) => (
+                  <div key={f.feature} className="flex items-center justify-between text-sm">
+                    <span className="capitalize">{f.feature.replace(/-/g, " ")}</span>
+                    <Badge variant="secondary">{f._count} calls</Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Recent Calls */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Recent API Calls</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {((apiUsage.recentCalls as Array<Record<string, unknown>>) || []).map((c) => (
+                  <div key={c.id as string} className="flex items-center justify-between text-xs border-b last:border-0 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${c.success ? "bg-green-500" : "bg-red-500"}`} />
+                      <span className="capitalize font-medium">{String(c.feature).replace(/-/g, " ")}</span>
+                      <span className="text-muted-foreground">{String(c.model_used)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Key{c.key_index as number}</span>
+                      <span className="text-muted-foreground">{c.duration as number}ms</span>
+                      <span className="text-muted-foreground">
+                        {new Date(c.created_at as string).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </div>

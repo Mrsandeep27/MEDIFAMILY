@@ -144,6 +144,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ records });
     }
 
+    if (section === "api-usage") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [totalCalls, todayCalls, successCalls, failedCalls, byFeature, recentCalls, avgDuration] = await Promise.all([
+        prisma.apiUsage.count(),
+        prisma.apiUsage.count({ where: { created_at: { gte: today } } }),
+        prisma.apiUsage.count({ where: { success: true } }),
+        prisma.apiUsage.count({ where: { success: false } }),
+        prisma.apiUsage.groupBy({ by: ["feature"], _count: true, orderBy: { _count: { feature: "desc" } } }),
+        prisma.apiUsage.findMany({ orderBy: { created_at: "desc" }, take: 20 }),
+        prisma.apiUsage.aggregate({ _avg: { duration: true } }),
+      ]);
+
+      return NextResponse.json({
+        totalCalls,
+        todayCalls,
+        successCalls,
+        failedCalls,
+        successRate: totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0,
+        avgDuration: Math.round(avgDuration._avg.duration || 0),
+        byFeature,
+        recentCalls,
+      });
+    }
+
     return NextResponse.json({ error: "Invalid section" }, { status: 400 });
   } catch (err) {
     console.error("Admin GET error:", err);

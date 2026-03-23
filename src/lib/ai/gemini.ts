@@ -1,51 +1,35 @@
 /**
  * Gemini API helper with:
- * 1. Multiple API key rotation (round-robin across keys)
- * 2. Model fallback per key (tries 4 models before moving to next key)
- * 3. Automatic retry loop
- *
- * Flow:
- * Key1 → model1 → model2 → model3 → model4 → all failed?
- * Key2 → model1 → model2 → model3 → model4 → all failed?
- * Key3 → model1 → model2 → model3 → model4 → all failed?
- * → Error: all keys and models exhausted
- *
- * Set env vars:
- * GOOGLE_AI_API_KEY=key1            (required, primary key)
- * GOOGLE_AI_API_KEY_2=key2          (optional)
- * GOOGLE_AI_API_KEY_3=key3          (optional)
- * GOOGLE_AI_API_KEY_4=key4          (optional)
- * GOOGLE_AI_API_KEY_5=key5          (optional)
+ * 1. Multiple API key rotation (round-robin)
+ * 2. Model fallback per key
+ * 3. API usage tracking (logs every call to DB)
  */
 
-// Ordered by: highest free RPD first
+import { prisma } from "@/lib/db/prisma";
+
 const VISION_MODELS = [
-  "gemini-3.1-flash-lite-preview",  // 15 RPM, 500 RPD
-  "gemini-2.5-flash-lite",          // 10 RPM, 20 RPD
-  "gemini-3-flash-preview",         // 5 RPM, 20 RPD
-  "gemini-2.5-flash",               // 5 RPM, 20 RPD
+  "gemini-3.1-flash-lite-preview",
+  "gemini-2.5-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-2.5-flash",
 ];
 
 const TEXT_MODELS = [
-  "gemini-3.1-flash-lite-preview",  // 15 RPM, 500 RPD
-  "gemini-2.5-flash-lite",          // 10 RPM, 20 RPD
-  "gemini-3-flash-preview",         // 5 RPM, 20 RPD
+  "gemini-3.1-flash-lite-preview",
+  "gemini-2.5-flash-lite",
+  "gemini-3-flash-preview",
 ];
 
-// Track which key to start with (round-robin across requests)
 let currentKeyIndex = 0;
 
 function getApiKeys(): string[] {
   const keys: string[] = [];
   const primary = process.env.GOOGLE_AI_API_KEY;
   if (primary) keys.push(primary);
-
-  // Support up to 10 additional keys
   for (let i = 2; i <= 11; i++) {
     const key = process.env[`GOOGLE_AI_API_KEY_${i}`];
     if (key) keys.push(key);
   }
-
   return keys;
 }
 
@@ -57,6 +41,33 @@ interface GeminiPart {
 interface GeminiOptions {
   temperature?: number;
   maxOutputTokens?: number;
+  feature?: string; // for tracking: medicine-info, lab-insights, extract, ai-doctor
+  userId?: string;
+}
+
+// Log API usage to database (fire-and-forget)
+function logUsage(data: {
+  feature: string;
+  model_used: string;
+  key_index: number;
+  duration: number;
+  success: boolean;
+  error?: string;
+  user_id?: string;
+  tokens_in?: number;
+  tokens_out?: number;
+}) {
+  prisma.apiUsage.create({ data: {
+    feature: data.feature,
+    model_used: data.model_used,
+    key_index: data.key_index,
+    duration: data.duration,
+    success: data.success,
+    error: data.error?.slice(0, 200),
+    user_id: data.user_id,
+    tokens_in: data.tokens_in,
+    tokens_out: data.tokens_out,
+  }}).catch(() => {}); // fire-and-forget, don't block response
 }
 
 export async function callGemini(
@@ -68,19 +79,19 @@ export async function callGemini(
 
   const hasImage = parts.some((p) => p.inlineData);
   const models = hasImage ? VISION_MODELS : TEXT_MODELS;
-  const { temperature = 0.1, maxOutputTokens = 2048 } = options;
+  const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId } = options;
 
   let lastError = "";
   const startKeyIndex = currentKeyIndex % apiKeys.length;
+  const startTime = Date.now();
 
-  // Try each API key
   for (let k = 0; k < apiKeys.length; k++) {
     const keyIndex = (startKeyIndex + k) % apiKeys.length;
     const apiKey = apiKeys[keyIndex];
 
-    // Try each model with this key
     for (const model of models) {
       try {
+        const callStart = Date.now();
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           {
@@ -100,8 +111,20 @@ export async function callGemini(
           const result = await response.json();
           const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
-            // Success! Advance round-robin to next key for next request
             currentKeyIndex = (keyIndex + 1) % apiKeys.length;
+
+            // Log success
+            logUsage({
+              feature,
+              model_used: model,
+              key_index: keyIndex + 1,
+              duration: Date.now() - callStart,
+              success: true,
+              user_id: userId,
+              tokens_in: Math.ceil(JSON.stringify(parts).length / 4),
+              tokens_out: Math.ceil(text.length / 4),
+            });
+
             return text;
           }
           lastError = `Key${keyIndex + 1}/${model}: empty response`;
@@ -113,15 +136,12 @@ export async function callGemini(
 
         if (status === 429 || status === 404 || status === 400) {
           lastError = `Key${keyIndex + 1}/${model}: ${status}`;
-          console.warn(`Gemini Key${keyIndex + 1}/${model} → ${status}, trying next...`);
           continue;
         }
 
-        // 403 = invalid key, skip to next key entirely
         if (status === 403) {
           lastError = `Key${keyIndex + 1}: invalid/expired`;
-          console.warn(`Gemini Key${keyIndex + 1} → 403 (invalid), skipping key...`);
-          break; // break model loop, move to next key
+          break;
         }
 
         lastError = `Key${keyIndex + 1}/${model}: ${status}`;
@@ -133,12 +153,20 @@ export async function callGemini(
     }
   }
 
+  // Log failure
+  logUsage({
+    feature,
+    model_used: "none",
+    key_index: 0,
+    duration: Date.now() - startTime,
+    success: false,
+    error: lastError,
+    user_id: userId,
+  });
+
   throw new Error(`All AI models failed. ${lastError}`);
 }
 
-/**
- * Parse JSON from AI response (handles markdown blocks, extra text)
- */
 export function parseJsonResponse(text: string): Record<string, unknown> {
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
