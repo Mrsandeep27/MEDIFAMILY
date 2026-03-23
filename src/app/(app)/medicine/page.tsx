@@ -139,9 +139,14 @@ export default function MedicinePage() {
     setChatMessages((prev) => [...prev, { role: "user", text: question }]);
     setIsChatting(true);
 
-    // Add timeout controller (15 seconds max)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    // Show "taking time" message after 5 seconds
+    const slowTimer = setTimeout(() => {
+      setChatMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "ai" && last.text.includes("Taking")) return prev;
+        return [...prev, { role: "ai", text: isHindi ? "⏳ थोड़ा समय लग रहा है, रुकिए..." : "⏳ Taking a moment, please wait..." }];
+      });
+    }, 5000);
 
     try {
       const langHint = isHindi ? " Answer ONLY in Hindi (Devanagari script)." : "";
@@ -157,25 +162,31 @@ export default function MedicinePage() {
             uses: medicineInfo.uses,
           },
         }),
-        signal: controller.signal,
       });
 
+      clearTimeout(slowTimer);
+
       const data = await res.json();
+
+      // Remove the "taking time" message if it was added
+      setChatMessages((prev) => prev.filter((m) => !m.text.includes("Taking") && !m.text.includes("समय लग")));
+
       if (res.ok && data.answer) {
         setChatMessages((prev) => [...prev, { role: "ai", text: data.answer }]);
       } else {
         setChatMessages((prev) => [
           ...prev,
-          { role: "ai", text: data.error || "Sorry, couldn't get an answer. Please try again." },
+          { role: "ai", text: data.error || (isHindi ? "जवाब नहीं मिला, दोबारा कोशिश करें।" : "Couldn't get an answer. Please try again.") },
         ]);
       }
-    } catch (err) {
-      const msg = err instanceof Error && err.name === "AbortError"
-        ? "Request timed out. Please try again."
-        : "Network error. Please check your connection.";
-      setChatMessages((prev) => [...prev, { role: "ai", text: msg }]);
+    } catch {
+      clearTimeout(slowTimer);
+      setChatMessages((prev) => prev.filter((m) => !m.text.includes("Taking") && !m.text.includes("समय लग")));
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "ai", text: isHindi ? "इंटरनेट कनेक्शन चेक करें।" : "Network error. Check your connection." },
+      ]);
     } finally {
-      clearTimeout(timeout);
       setIsChatting(false);
       setTimeout(() => chatInputRef.current?.focus(), 100);
     }
