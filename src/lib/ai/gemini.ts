@@ -18,17 +18,18 @@
  * GOOGLE_AI_API_KEY_5=key5          (optional)
  */
 
+// Ordered by: highest free RPD first
 const VISION_MODELS = [
-  "gemini-1.5-flash",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-pro",
+  "gemini-3.1-flash-lite-preview",  // 15 RPM, 500 RPD
+  "gemini-2.5-flash-lite",          // 10 RPM, 20 RPD
+  "gemini-3-flash-preview",         // 5 RPM, 20 RPD
+  "gemini-2.5-flash",               // 5 RPM, 20 RPD
 ];
 
 const TEXT_MODELS = [
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash",
-  "gemini-2.0-flash",
+  "gemini-3.1-flash-lite-preview",  // 15 RPM, 500 RPD
+  "gemini-2.5-flash-lite",          // 10 RPM, 20 RPD
+  "gemini-3-flash-preview",         // 5 RPM, 20 RPD
 ];
 
 // Track which key to start with (round-robin across requests)
