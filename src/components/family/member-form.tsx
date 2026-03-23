@@ -169,7 +169,7 @@ export function MemberForm({
 
       {/* Emergency Contact */}
       <div className="space-y-2">
-        <Label htmlFor="emergency_name">Emergency Contact Name</Label>
+        <Label htmlFor="emergency_name">Emergency Contact Name *</Label>
         <Input
           id="emergency_name"
           placeholder="Contact person name"
@@ -178,7 +178,7 @@ export function MemberForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="emergency_phone">Emergency Contact Phone</Label>
+        <Label htmlFor="emergency_phone">Emergency Contact Phone *</Label>
         <Input
           id="emergency_phone"
           type="tel"
