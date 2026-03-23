@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 
 const LAB_INSIGHT_PROMPT = `You are a friendly Indian doctor explaining lab results to a patient's family.
 
@@ -34,77 +35,40 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { text, image } = body;
 
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
+    if (!text && !image) {
+      return NextResponse.json({ error: "No report data provided" }, { status: 400 });
     }
 
-    const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
       { text: LAB_INSIGHT_PROMPT },
     ];
 
-    // If image provided (base64), use vision
     if (image) {
       const base64Match = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
       if (base64Match) {
         let mime = `image/${base64Match[1]}`;
         if (mime === "image/jpg") mime = "image/jpeg";
-        parts.push({
-          inlineData: {
-            mimeType: mime,
-            data: base64Match[2],
-          },
-        });
+        parts.push({ inlineData: { mimeType: mime, data: base64Match[2] } });
       }
     }
 
-    // If OCR text provided
     if (text) {
       parts.push({ text: `\n\nLab Report Text:\n${text}` });
     }
 
-    if (!text && !image) {
-      return NextResponse.json({ error: "No report data provided" }, { status: 400 });
-    }
-
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      return NextResponse.json({ error: "AI analysis failed" }, { status: 500 });
-    }
-
-    const result = await response.json();
-    const content = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
-    let parsed;
     try {
-      const firstBrace = content.indexOf("{");
-      const lastBrace = content.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        parsed = JSON.parse(content.substring(firstBrace, lastBrace + 1));
-      } else {
-        parsed = { markers: [], summary: content };
-      }
-    } catch {
-      parsed = { markers: [], summary: content };
+      const response = await callGemini(parts);
+      const parsed = parseJsonResponse(response);
+      if (!Array.isArray(parsed.markers)) parsed.markers = [];
+
+      return NextResponse.json(parsed);
+    } catch (err) {
+      console.error("Lab AI error:", err);
+      return NextResponse.json(
+        { error: `AI failed: ${err instanceof Error ? err.message : "Please try again"}` },
+        { status: 500 }
+      );
     }
-
-    if (!Array.isArray(parsed.markers)) parsed.markers = [];
-
-    return NextResponse.json(parsed);
   } catch (err) {
     console.error("Lab insights error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

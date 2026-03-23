@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 
 const MEDICINE_INFO_PROMPT = `You are a helpful Indian pharmacist assistant. A user has uploaded a photo of a medicine (tablet strip, bottle, syrup, etc).
 
@@ -38,14 +39,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { image, action, question, context } = body;
 
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "AI service not configured" },
-        { status: 500 }
-      );
-    }
-
     // === CHAT: Follow-up question about a medicine ===
     if (action === "chat") {
       if (!question || !context) {
@@ -66,29 +59,16 @@ Rules:
 - Keep answer concise (2-4 sentences)
 - Be helpful but responsible — don't replace a doctor's advice`;
 
-      const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: chatPrompt }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 512 },
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        return NextResponse.json({ error: "AI service error" }, { status: 500 });
+      try {
+        const answer = await callGemini(
+          [{ text: chatPrompt }],
+          { temperature: 0.3, maxOutputTokens: 512 }
+        );
+        return NextResponse.json({ answer });
+      } catch (err) {
+        console.error("Chat error:", err);
+        return NextResponse.json({ error: "AI service error. Please try again." }, { status: 500 });
       }
-
-      const result = await response.json();
-      const answer = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't answer that.";
-
-      return NextResponse.json({ answer });
     }
 
     // === IDENTIFY: Read medicine from image ===
@@ -96,7 +76,6 @@ Rules:
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
-    // image is base64 data URL — extract the base64 part
     const base64Match = image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
     if (!base64Match) {
       return NextResponse.json({ error: "Invalid image format. Please upload a JPG or PNG." }, { status: 400 });
@@ -104,73 +83,36 @@ Rules:
 
     let mimeType = `image/${base64Match[1]}`;
     const base64Data = base64Match[2];
-
-    // Normalize mime type
     if (mimeType === "image/jpg") mimeType = "image/jpeg";
 
-    // Check base64 size (Vercel limit ~4.5MB, Gemini limit ~20MB)
+    // Check size
     const sizeInBytes = Math.ceil(base64Data.length * 0.75);
     if (sizeInBytes > 4 * 1024 * 1024) {
-      return NextResponse.json({ error: "Image too large. Please use a smaller photo (under 4MB)." }, { status: 400 });
+      return NextResponse.json({ error: "Image too large (max 4MB). Please use a smaller photo." }, { status: 400 });
     }
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: MEDICINE_INFO_PROMPT },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gemini Vision error:", response.status, errText);
-      if (response.status === 400) {
-        return NextResponse.json({ error: "Image could not be processed. Try a clearer photo." }, { status: 400 });
-      }
-      if (response.status === 429) {
-        return NextResponse.json({ error: "AI rate limit reached. Please wait a minute and try again." }, { status: 429 });
-      }
-      return NextResponse.json({ error: `AI service error (${response.status}). Please try again.` }, { status: 500 });
-    }
-
-    const result = await response.json();
-    const content = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
-    // Parse JSON from response
-    let parsed;
     try {
-      const firstBrace = content.indexOf("{");
-      const lastBrace = content.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        parsed = JSON.parse(content.substring(firstBrace, lastBrace + 1));
-      } else {
-        parsed = { name: "Unknown", uses: ["Could not identify medicine from image"], summary_hindi: "Dawai pehchaan nahi paaye" };
-      }
-    } catch {
-      parsed = { name: "Unknown", uses: ["Could not parse medicine info"], summary_hindi: "Dawai ki jaankari nahi mil payi" };
-    }
+      const text = await callGemini([
+        { text: MEDICINE_INFO_PROMPT },
+        { inlineData: { mimeType, data: base64Data } },
+      ]);
 
-    return NextResponse.json(parsed);
+      const parsed = parseJsonResponse(text);
+      if (!parsed.name) {
+        parsed.name = "Unknown";
+        parsed.uses = ["Could not identify medicine from image"];
+        parsed.summary_hindi = "Dawai pehchaan nahi paaye";
+      }
+      if (!Array.isArray(parsed.medicines)) delete parsed.medicines;
+
+      return NextResponse.json(parsed);
+    } catch (err) {
+      console.error("Medicine identify error:", err);
+      return NextResponse.json(
+        { error: `AI failed: ${err instanceof Error ? err.message : "Please try again"}` },
+        { status: 500 }
+      );
+    }
   } catch (err) {
     console.error("Medicine info error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
