@@ -66,6 +66,7 @@ export default function MedicinePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatting, setIsChatting] = useState(false);
+  const [isHindi, setIsHindi] = useState(false);
 
   const processImage = async (imageDataUrl: string) => {
     setIsAnalyzing(true);
@@ -138,36 +139,43 @@ export default function MedicinePage() {
     setChatMessages((prev) => [...prev, { role: "user", text: question }]);
     setIsChatting(true);
 
+    // Add timeout controller (15 seconds max)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     try {
+      const langHint = isHindi ? " Answer ONLY in Hindi (Devanagari script)." : "";
       const res = await fetch("/api/medicine-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "chat",
-          question,
+          question: question + langHint,
           context: {
             name: medicineInfo.name,
             generic_name: medicineInfo.generic_name,
             uses: medicineInfo.uses,
           },
         }),
+        signal: controller.signal,
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.answer) {
         setChatMessages((prev) => [...prev, { role: "ai", text: data.answer }]);
       } else {
         setChatMessages((prev) => [
           ...prev,
-          { role: "ai", text: "Sorry, couldn't get an answer. Please try again." },
+          { role: "ai", text: data.error || "Sorry, couldn't get an answer. Please try again." },
         ]);
       }
-    } catch {
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "ai", text: "Network error. Please check your connection." },
-      ]);
+    } catch (err) {
+      const msg = err instanceof Error && err.name === "AbortError"
+        ? "Request timed out. Please try again."
+        : "Network error. Please check your connection.";
+      setChatMessages((prev) => [...prev, { role: "ai", text: msg }]);
     } finally {
+      clearTimeout(timeout);
       setIsChatting(false);
       setTimeout(() => chatInputRef.current?.focus(), 100);
     }
@@ -182,14 +190,23 @@ export default function MedicinePage() {
     stop();
   };
 
-  const suggestedQuestions = [
-    "Can I give this to a child?",
-    "Can I take this empty stomach?",
-    "Any food to avoid with this?",
-    "Is there a cheaper alternative?",
-    "Can I take this during pregnancy?",
-    "How long can I take this medicine?",
-  ];
+  const suggestedQuestions = isHindi
+    ? [
+        "क्या बच्चों को दे सकते हैं?",
+        "खाली पेट ले सकते हैं?",
+        "किस खाने से परहेज करें?",
+        "सस्ता विकल्प क्या है?",
+        "प्रेगनेंसी में ले सकते हैं?",
+        "कितने दिन तक ले सकते हैं?",
+      ]
+    : [
+        "Can I give this to a child?",
+        "Can I take this empty stomach?",
+        "Any food to avoid with this?",
+        "Is there a cheaper alternative?",
+        "Can I take this during pregnancy?",
+        "How long can I take this medicine?",
+      ];
 
   // === CAMERA VIEW ===
   if (isActive) {
@@ -481,10 +498,22 @@ export default function MedicinePage() {
             {/* Chat Section */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-primary" />
-                  Ask about this medicine
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    {isHindi ? "दवाई के बारे में पूछें" : "Ask about this medicine"}
+                  </CardTitle>
+                  <button
+                    onClick={() => setIsHindi(!isHindi)}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                      isHindi
+                        ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900 dark:text-orange-300"
+                        : "bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    {isHindi ? "हिंदी ✓" : "अ Hindi"}
+                  </button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Suggested Questions */}
