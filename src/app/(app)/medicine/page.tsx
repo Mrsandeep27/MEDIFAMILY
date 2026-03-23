@@ -224,31 +224,28 @@ export default function MedicinePage() {
     return (
       <div>
         <AppHeader title="Scan Medicine" showBack />
-        <div className="p-4">
-          <div className="relative rounded-2xl overflow-hidden bg-black aspect-square">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="rounded-full h-14 w-14"
-                onClick={() => stop()}
-              >
-                <X className="h-6 w-6" />
-              </Button>
-              <Button
-                size="lg"
-                className="rounded-full h-16 w-16 bg-white text-black hover:bg-white/90"
-                onClick={handleCapture}
-              >
-                <Camera className="h-7 w-7" />
-              </Button>
+        <div className="relative bg-black" style={{ height: "calc(100vh - 8rem)" }}>
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-6 left-6 w-12 h-12 border-t-3 border-l-3 border-white/70 rounded-tl-lg" />
+            <div className="absolute top-6 right-6 w-12 h-12 border-t-3 border-r-3 border-white/70 rounded-tr-lg" />
+            <div className="absolute bottom-28 left-6 w-12 h-12 border-b-3 border-l-3 border-white/70 rounded-bl-lg" />
+            <div className="absolute bottom-28 right-6 w-12 h-12 border-b-3 border-r-3 border-white/70 rounded-br-lg" />
+            <div className="absolute top-10 left-0 right-0 text-center">
+              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">Point at medicine strip & tap capture</span>
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-4">
+            <div className="flex items-center justify-center gap-6">
+              <button onClick={() => stop()} className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+                <X className="h-5 w-5 text-white" />
+              </button>
+              <button onClick={handleCapture} className="rounded-full bg-white flex items-center justify-center shadow-lg" style={{ width: "72px", height: "72px" }}>
+                <div className="h-16 w-16 rounded-full border-4 border-black/10 flex items-center justify-center">
+                  <Camera className="h-7 w-7 text-black" />
+                </div>
+              </button>
+              <div className="h-12 w-12" />
             </div>
           </div>
         </div>

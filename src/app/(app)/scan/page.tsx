@@ -243,69 +243,101 @@ export default function ScanPage() {
     return (
       <div>
         <AppHeader title="Scan Prescription" showBack />
-        <div className="p-4 space-y-4">
-          {/* Camera viewfinder — always rendered so videoRef is available */}
-          <div className="relative rounded-2xl overflow-hidden bg-black aspect-[3/4]">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            {!isActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-                <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
-                <p className="text-white text-sm">Opening camera...</p>
-                {cameraError && (
-                  <div className="mt-4 text-center px-4">
-                    <p className="text-red-400 text-sm mb-3">{cameraError}</p>
-                    <Button size="sm" variant="secondary" onClick={start}>
-                      Retry Camera
-                    </Button>
+
+        {/* Full camera viewfinder */}
+        <div className="relative bg-black" style={{ height: "calc(100vh - 8rem)" }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+
+          {/* Loading / Error overlay */}
+          {!isActive && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black">
+              {cameraError ? (
+                <div className="text-center px-6 space-y-4">
+                  <div className="h-20 w-20 rounded-full bg-white/10 flex items-center justify-center mx-auto">
+                    <Upload className="h-10 w-10 text-white/70" />
                   </div>
-                )}
-              </div>
-            )}
-            <div className="absolute inset-0 border-2 border-white/30 rounded-2xl m-4 pointer-events-none" />
-            {isActive && (
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4">
-                <Button
-                  size="lg"
-                  className="rounded-full h-16 w-16 bg-white text-black hover:bg-white/90"
-                  onClick={handleCapture}
-                >
-                  <Camera className="h-7 w-7" />
-                </Button>
-              </div>
-            )}
+                  <p className="text-white text-base font-medium">No camera available</p>
+                  <p className="text-white/50 text-xs">{cameraError}</p>
+                  <Button
+                    size="lg"
+                    className="bg-white text-black hover:bg-white/90"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Prescription Photo
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-white/50" onClick={start}>
+                    Retry Camera
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
+                  <p className="text-white/70 text-sm">Opening camera...</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Scan frame overlay */}
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Corner marks */}
+            <div className="absolute top-6 left-6 w-12 h-12 border-t-3 border-l-3 border-white/70 rounded-tl-lg" />
+            <div className="absolute top-6 right-6 w-12 h-12 border-t-3 border-r-3 border-white/70 rounded-tr-lg" />
+            <div className="absolute bottom-28 left-6 w-12 h-12 border-b-3 border-l-3 border-white/70 rounded-bl-lg" />
+            <div className="absolute bottom-28 right-6 w-12 h-12 border-b-3 border-r-3 border-white/70 rounded-br-lg" />
+
+            {/* Hint text */}
+            <div className="absolute top-10 left-0 right-0 text-center">
+              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                Point at prescription & tap capture
+              </span>
+            </div>
           </div>
 
-          {/* Upload fallback — always visible below camera */}
-          <Card
-            className="cursor-pointer hover:border-primary transition-colors"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <CardContent className="flex items-center gap-3 py-3">
-              <Upload className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <h3 className="text-sm font-medium">Upload from Gallery</h3>
-                <p className="text-xs text-muted-foreground">
-                  Select an existing photo instead
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Bottom controls */}
+          {isActive && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-4">
+              <div className="flex items-center justify-center gap-6">
+                {/* Upload button */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center"
+                >
+                  <Upload className="h-5 w-5 text-white" />
+                </button>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+                {/* Capture button */}
+                <button
+                  onClick={handleCapture}
+                  className="h-18 w-18 rounded-full bg-white flex items-center justify-center shadow-lg"
+                  style={{ width: "72px", height: "72px" }}
+                >
+                  <div className="h-16 w-16 rounded-full border-4 border-black/10 flex items-center justify-center">
+                    <Camera className="h-7 w-7 text-black" />
+                  </div>
+                </button>
+
+                {/* Placeholder for symmetry */}
+                <div className="h-12 w-12" />
+              </div>
+            </div>
+          )}
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
       </div>
     );
   }
