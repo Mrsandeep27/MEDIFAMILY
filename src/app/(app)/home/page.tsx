@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ScanLine, Plus, AlertTriangle, Bell, FileText } from "lucide-react";
+import { ScanLine, Plus, AlertTriangle, Bell, FileText, Pill } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MemberSelector } from "@/components/family/member-selector";
@@ -61,16 +61,19 @@ export default function HomePage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           <Link href="/scan">
             <QuickAction icon={ScanLine} label="Scan Prescription" />
+          </Link>
+          <Link href="/medicine">
+            <QuickAction icon={Pill} label="Medicine Info" />
           </Link>
           <Link href="/records/add">
             <QuickAction icon={Plus} label="Add Record" />
           </Link>
           {selfMember && (
             <Link href={`/family/${selfMember.id}/emergency`}>
-              <QuickAction icon={AlertTriangle} label="Emergency Card" />
+              <QuickAction icon={AlertTriangle} label="Emergency" />
             </Link>
           )}
         </div>
