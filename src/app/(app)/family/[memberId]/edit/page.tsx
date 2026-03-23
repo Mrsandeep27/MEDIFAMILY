@@ -64,13 +64,13 @@ export default function EditMemberPage({
           defaultValues={{
             name: member.name,
             relation: member.relation,
-            date_of_birth: member.date_of_birth,
-            blood_group: member.blood_group,
-            gender: member.gender,
+            date_of_birth: member.date_of_birth || "",
+            blood_group: (member.blood_group || undefined) as "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-" | undefined,
+            gender: (member.gender || undefined) as "male" | "female" | "other" | undefined,
             allergies: member.allergies,
             chronic_conditions: member.chronic_conditions,
-            emergency_contact_name: member.emergency_contact_name,
-            emergency_contact_phone: member.emergency_contact_phone,
+            emergency_contact_name: member.emergency_contact_name || "",
+            emergency_contact_phone: member.emergency_contact_phone || "",
           }}
         />
       </div>

@@ -35,12 +35,10 @@ export const memberSchema = z.object({
   ]),
   date_of_birth: z.string().min(1, "Date of birth is required"),
   blood_group: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], {
-    required_error: "Blood group is required",
-    invalid_type_error: "Select a blood group",
+    message: "Select a blood group",
   }),
   gender: z.enum(["male", "female", "other"], {
-    required_error: "Gender is required",
-    invalid_type_error: "Select gender",
+    message: "Select gender",
   }),
   allergies: z.array(z.string()),
   chronic_conditions: z.array(z.string()),
