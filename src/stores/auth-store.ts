@@ -12,7 +12,6 @@ interface AuthState {
   user: AppUser | null;
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
-  _onboardedUserId: string | null;
   _hasHydrated: boolean;
   setUser: (user: AppUser | null) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
@@ -22,33 +21,23 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       isAuthenticated: false,
       hasCompletedOnboarding: false,
-      _onboardedUserId: null,
       _hasHydrated: false,
-      setUser: (user) => {
-        const lastId = get()._onboardedUserId;
-        const newId = user?.id ?? null;
-        // If a different user logs in, reset onboarding
-        const switchedUser = lastId && newId && lastId !== newId;
+      setUser: (user) =>
         set({
           user,
           isAuthenticated: !!user,
-          ...(switchedUser ? { hasCompletedOnboarding: false, _onboardedUserId: null } : {}),
-        });
-      },
-      setHasCompletedOnboarding: (value) =>
-        set({
-          hasCompletedOnboarding: value,
-          _onboardedUserId: value ? get().user?.id ?? null : null,
         }),
+      setHasCompletedOnboarding: (value) =>
+        set({ hasCompletedOnboarding: value }),
       logout: () =>
         set({
           user: null,
           isAuthenticated: false,
-          // Keep hasCompletedOnboarding + _onboardedUserId so same user skips onboarding on re-login
+          // Keep hasCompletedOnboarding so returning user skips onboarding
         }),
       setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
@@ -58,10 +47,10 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
-        _onboardedUserId: state._onboardedUserId,
       }),
       onRehydrateStorage: () => {
         return () => {
+          // This callback fires AFTER persist has finished hydrating from localStorage
           useAuthStore.getState().setHasHydrated(true);
         };
       },

@@ -88,15 +88,8 @@ export default function LoginPage() {
             email: result.user.email || "",
             name: result.user.user_metadata?.name || "",
           });
-
-          // Check if this user already completed onboarding (persisted in Zustand)
-          const { hasCompletedOnboarding } = useAuthStore.getState();
-          if (hasCompletedOnboarding) {
-            toast.success("Welcome back!");
-            window.location.href = "/home";
-          } else {
-            window.location.href = "/onboarding";
-          }
+          toast.success("Welcome back!");
+          router.push("/home");
         }
       }
     } catch {

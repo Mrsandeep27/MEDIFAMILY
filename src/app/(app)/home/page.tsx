@@ -178,6 +178,39 @@ export default function HomePage() {
       </div>
 
       <div className="px-4 space-y-6">
+        {/* ABHA Health ID Banner */}
+        {selfMember && (
+          <Link href="/abha">
+            {selfMember.abha_number ? (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
+                  <Shield className="h-5 w-5 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-300">ABHA Linked</p>
+                  <p className="text-xs text-green-600 dark:text-green-400 truncate">
+                    {selfMember.abha_address || selfMember.abha_number}
+                  </p>
+                </div>
+                <span className="text-xs text-green-600 font-medium">View &rarr;</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 border border-blue-200 dark:border-blue-800">
+                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
+                  <Shield className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-blue-800 dark:text-blue-200">Get your ABHA Health ID</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">Create or link your Ayushman Bharat account</p>
+                </div>
+                <div className="shrink-0 bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                  Link
+                </div>
+              </div>
+            )}
+          </Link>
+        )}
+
         {/* Family Members */}
         {members.length > 0 && (
           <section>
