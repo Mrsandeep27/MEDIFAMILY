@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, Component, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, Component, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { OfflineIndicator } from "@/components/layout/offline-indicator";
@@ -51,23 +50,38 @@ class ErrorBoundary extends Component<
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
   useAuth();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const didRedirect = useRef(false);
 
+  // Handle redirects — use window.location for reliability (router.replace can silently fail)
   useEffect(() => {
-    if (!hasHydrated) return;
+    if (!hasHydrated || didRedirect.current) return;
 
     if (!isAuthenticated) {
-      router.replace("/login");
+      didRedirect.current = true;
+      window.location.href = "/login";
     } else if (!hasCompletedOnboarding) {
-      router.replace("/onboarding");
+      didRedirect.current = true;
+      window.location.href = "/onboarding";
     }
-  }, [isAuthenticated, hasCompletedOnboarding, hasHydrated, router]);
+  }, [isAuthenticated, hasCompletedOnboarding, hasHydrated]);
 
-  // Block rendering until hydrated AND authenticated AND onboarded
+  // Safety timeout — if still on spinner after 3 seconds, force redirect
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const state = useAuthStore.getState();
+      if (!state._hasHydrated || !state.isAuthenticated) {
+        window.location.href = "/login";
+      } else if (!state.hasCompletedOnboarding) {
+        window.location.href = "/onboarding";
+      }
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, []);
+
   if (!hasHydrated || !isAuthenticated || !hasCompletedOnboarding) {
     return (
       <div className="min-h-screen flex items-center justify-center">

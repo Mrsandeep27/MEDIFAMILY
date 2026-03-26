@@ -93,9 +93,9 @@ export default function LoginPage() {
           const { hasCompletedOnboarding } = useAuthStore.getState();
           if (hasCompletedOnboarding) {
             toast.success("Welcome back!");
-            router.replace("/home");
+            window.location.href = "/home";
           } else {
-            router.replace("/onboarding");
+            window.location.href = "/onboarding";
           }
         }
       }

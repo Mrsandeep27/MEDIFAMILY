@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 
 export default function RootPage() {
-  const router = useRouter();
   const { setUser } = useAuthStore();
   const didRun = useRef(false);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
@@ -20,13 +18,11 @@ export default function RootPage() {
       const { hasCompletedOnboarding, isAuthenticated } =
         useAuthStore.getState();
 
-      // Already authenticated in Zustand — route immediately
       if (isAuthenticated) {
-        router.replace(hasCompletedOnboarding ? "/home" : "/onboarding");
+        window.location.href = hasCompletedOnboarding ? "/home" : "/onboarding";
         return;
       }
 
-      // Not in Zustand — check Supabase session
       try {
         const supabase = createClient();
         const {
@@ -51,17 +47,25 @@ export default function RootPage() {
             name: user.user_metadata?.name || "",
           });
           const onboarded = useAuthStore.getState().hasCompletedOnboarding;
-          router.replace(onboarded ? "/home" : "/onboarding");
+          window.location.href = onboarded ? "/home" : "/onboarding";
         } else {
-          router.replace("/login");
+          window.location.href = "/login";
         }
       } catch {
-        router.replace("/login");
+        window.location.href = "/login";
       }
     };
 
     init();
-  }, [hasHydrated, router, setUser]);
+  }, [hasHydrated, setUser]);
+
+  // Safety timeout
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      window.location.href = "/login";
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
