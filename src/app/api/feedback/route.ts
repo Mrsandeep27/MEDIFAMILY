@@ -32,14 +32,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Feedback insert error:", error);
-      return NextResponse.json({ error: "Failed to submit feedback", detail: error.message, code: error.code }, { status: 500 });
+      return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 });
     }
 
     return NextResponse.json({ id: data.id, success: true });
   } catch (err) {
     console.error("Feedback POST error:", err);
-    const detail = err instanceof Error ? err.message : JSON.stringify(err);
-    return NextResponse.json({ error: "Failed to submit feedback", detail }, { status: 500 });
+    return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 });
   }
 }
 
