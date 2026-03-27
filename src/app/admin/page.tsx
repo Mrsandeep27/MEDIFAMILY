@@ -31,6 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import { PWAInstallButton } from "@/components/pwa/install-button";
 
 type Tab = "overview" | "feedback" | "users" | "families" | "records" | "api-usage";
 
@@ -191,9 +192,7 @@ export default function AdminPage() {
             <Button className="w-full" onClick={handleLogin} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login as Admin"}
             </Button>
-            <p className="text-[10px] text-muted-foreground text-center">
-              Only emails listed in ADMIN_EMAILS env var can access this panel.
-            </p>
+            <PWAInstallButton />
           </CardContent>
         </Card>
       </div>
