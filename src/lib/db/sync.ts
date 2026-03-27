@@ -2,11 +2,13 @@
 
 import { db } from "./dexie";
 import type { SyncStatus } from "./schema";
+import { createClient } from "@/lib/supabase/client";
 
 export interface SyncResult {
   pushed: number;
   pulled: number;
   errors: string[];
+  hasMore?: boolean;
 }
 
 const TABLES_TO_SYNC = [
@@ -40,12 +42,25 @@ export async function syncAll(): Promise<SyncResult> {
   }
 }
 
+// Get Supabase access token for authenticated API calls
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function _doSync(): Promise<SyncResult> {
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
+  const token = await getAuthToken();
 
   try {
     // ── PUSH: Collect all pending items across all tables ──
     const pushPayload: Record<string, Record<string, unknown>[]> = {};
+    const pushTimestamps = new Map<string, string>();
 
     for (const { local, remote } of TABLES_TO_SYNC) {
       const dexieTable = db.table(local);
@@ -55,11 +70,13 @@ async function _doSync(): Promise<SyncResult> {
         .toArray();
 
       if (pendingItems.length > 0) {
-        pushPayload[remote] = pendingItems.map((item: Record<string, unknown>) => {
+        // Cap at 100 to match server limit — remainder syncs next cycle
+        pushPayload[remote] = pendingItems.slice(0, 100).map((item: Record<string, unknown>) => {
           const clean: Record<string, unknown> = {};
           for (const [key, value] of Object.entries(item)) {
             if (!LOCAL_ONLY_FIELDS.has(key)) clean[key] = value;
           }
+          pushTimestamps.set(item.id as string, item.updated_at as string);
           return clean;
         });
       }
@@ -68,9 +85,11 @@ async function _doSync(): Promise<SyncResult> {
     // Single POST for all tables with pending data
     if (Object.keys(pushPayload).length > 0) {
       try {
+        const pushHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) pushHeaders["Authorization"] = `Bearer ${token}`;
         const response = await fetch("/api/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: pushHeaders,
           body: JSON.stringify({ tables: pushPayload }),
         });
 
@@ -79,14 +98,22 @@ async function _doSync(): Promise<SyncResult> {
           result.pushed = data.pushed || 0;
           if (data.errors) result.errors.push(...data.errors);
 
-          // Mark synced locally
-          if (result.pushed > 0) {
-            const now = new Date().toISOString();
-            for (const { local, remote } of TABLES_TO_SYNC) {
-              if (pushPayload[remote]) {
-                const dexieTable = db.table(local);
-                const ids = pushPayload[remote].map((i) => i.id as string);
-                for (const id of ids) {
+          // Mark synced — skip failed items and guard against mid-sync edits
+          const failedIds = new Set(
+            (data.errors || [])
+              .map((e: string) => e.split(":")[0]?.trim())
+              .filter(Boolean)
+          );
+          const now = new Date().toISOString();
+          for (const { local, remote } of TABLES_TO_SYNC) {
+            if (pushPayload[remote]) {
+              const dexieTable = db.table(local);
+              const ids = pushPayload[remote].map((i) => i.id as string);
+              for (const id of ids) {
+                if (failedIds.has(id)) continue;
+                // Only mark synced if item wasn't edited while push was in-flight
+                const current = await dexieTable.get(id);
+                if (current && current.updated_at === pushTimestamps.get(id)) {
                   await dexieTable.update(id, { sync_status: "synced", synced_at: now });
                 }
               }
@@ -107,9 +134,11 @@ async function _doSync(): Promise<SyncResult> {
     }
 
     try {
+      const pullHeaders: Record<string, string> = {};
+      if (token) pullHeaders["Authorization"] = `Bearer ${token}`;
       const response = await fetch("/api/sync?" + new URLSearchParams({
         tables: JSON.stringify(sinceMap),
-      }));
+      }), { headers: pullHeaders });
 
       if (response.ok) {
         const { data } = await response.json();
@@ -122,12 +151,23 @@ async function _doSync(): Promise<SyncResult> {
             const dexieTable = db.table(local);
             for (const serverItem of serverItems) {
               const localItem = await dexieTable.get(serverItem.id);
+
+              // Never overwrite local pending changes — they haven't pushed yet
+              if (localItem?.sync_status === "pending") continue;
+
               if (
                 !localItem ||
                 new Date(serverItem.updated_at) > new Date(localItem.updated_at)
               ) {
+                // Preserve local-only fields the server doesn't have
+                const preserved: Record<string, unknown> = {};
+                if (localItem?.local_image_blobs) {
+                  preserved.local_image_blobs = localItem.local_image_blobs;
+                }
+
                 await dexieTable.put({
                   ...serverItem,
+                  ...preserved,
                   sync_status: "synced" as SyncStatus,
                   synced_at: new Date().toISOString(),
                 });
@@ -150,6 +190,14 @@ async function _doSync(): Promise<SyncResult> {
     }
   } catch (err) {
     result.errors.push(`Sync: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // If we pushed items but there are still pending ones, schedule an immediate follow-up
+  if (result.pushed > 0) {
+    const remaining = await getPendingCount();
+    if (remaining > 0) {
+      result.hasMore = true;
+    }
   }
 
   return result;

@@ -24,16 +24,41 @@ export function useSync() {
     isSyncingRef.current = true;
     setIsSyncing(true);
     try {
-      const result = await syncAll();
+      let result = await syncAll();
+
+      // If partial push (>100 items), retry immediately up to 5 times
+      let retries = 0;
+      while (result.hasMore && retries < 5) {
+        retries++;
+        const more = await syncAll();
+        result = {
+          pushed: result.pushed + more.pushed,
+          pulled: result.pulled + more.pulled,
+          errors: [...result.errors, ...more.errors],
+          hasMore: more.hasMore,
+        };
+      }
+
       setLastResult(result);
       const count = await getPendingCount();
       setPendingCount(count);
 
       // Notify user if sync had errors and data is stuck locally
       if (result.errors.length > 0 && count > 0) {
-        toast.error("Some data failed to sync and is only stored on this device.", {
-          duration: 5000,
-        });
+        const isAuthError = result.errors.some(e => e.includes("401") || e.includes("Unauthorized"));
+        if (isAuthError) {
+          toast.error("Session expired. Please re-login to backup your data.", {
+            duration: 10000,
+            action: {
+              label: "Re-login",
+              onClick: () => { window.location.href = "/login"; },
+            },
+          });
+        } else {
+          toast.error("Some data failed to sync and is only stored on this device.", {
+            duration: 5000,
+          });
+        }
       }
     } catch (err) {
       console.error("Sync failed:", err);

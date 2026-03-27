@@ -55,6 +55,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    // Request persistent storage so browser won't auto-purge IndexedDB
+    if (navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
     // One-time session check — if no session, kick to login
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string> } } | null } }) => {
