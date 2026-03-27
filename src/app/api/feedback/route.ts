@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: feedback.id, success: true });
   } catch (err) {
     console.error("Feedback POST error:", err);
-    return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to submit feedback", detail: message }, { status: 500 });
   }
 }
 
