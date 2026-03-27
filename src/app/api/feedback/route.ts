@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // POST: Submit feedback
 export async function POST(request: NextRequest) {
@@ -11,21 +16,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message is required (min 3 characters)" }, { status: 400 });
     }
 
-    const feedback = await prisma.feedback.create({
-      data: {
-        user_id: user_id || null,
-        user_email: user_email || null,
-        user_name: user_name || null,
-        category: category || "review",
-        rating: rating ? Math.min(5, Math.max(1, Number(rating))) : null,
-        message: message.trim().slice(0, 2000),
-        page: page || null,
-        device: device || null,
-        status: "new",
-      },
-    });
+    const { data, error } = await supabase.from("feedback").insert({
+      user_id: user_id || null,
+      user_email: user_email || null,
+      user_name: user_name || null,
+      category: category || "review",
+      rating: rating ? Math.min(5, Math.max(1, Number(rating))) : null,
+      message: message.trim().slice(0, 2000),
+      page: page || null,
+      device: device || null,
+      status: "new",
+    }).select("id").single();
 
-    return NextResponse.json({ id: feedback.id, success: true });
+    if (error) throw error;
+
+    return NextResponse.json({ id: data.id, success: true });
   } catch (err) {
     console.error("Feedback POST error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -39,7 +44,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const adminKey = searchParams.get("key");
 
-    // Simple admin auth — use JWT_SECRET as admin key
     if (adminKey !== process.env.JWT_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -47,22 +51,20 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || undefined;
     const category = searchParams.get("category") || undefined;
 
-    const feedback = await prisma.feedback.findMany({
-      where: {
-        ...(status ? { status } : {}),
-        ...(category ? { category } : {}),
-      },
-      orderBy: { created_at: "desc" },
-      take: 100,
+    let query = supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(100);
+    if (status) query = query.eq("status", status);
+    if (category) query = query.eq("category", category);
+
+    const { data: feedback, error } = await query;
+    if (error) throw error;
+
+    const { count: total } = await supabase.from("feedback").select("*", { count: "exact", head: true });
+    const { count: newCount } = await supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new");
+
+    return NextResponse.json({
+      feedback,
+      stats: { total: total || 0, new: newCount || 0 },
     });
-
-    const stats = {
-      total: await prisma.feedback.count(),
-      new: await prisma.feedback.count({ where: { status: "new" } }),
-      avgRating: await prisma.feedback.aggregate({ _avg: { rating: true } }),
-    };
-
-    return NextResponse.json({ feedback, stats });
   } catch (err) {
     console.error("Feedback GET error:", err);
     return NextResponse.json({ error: "Failed to fetch feedback" }, { status: 500 });
@@ -83,15 +85,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Feedback ID required" }, { status: 400 });
     }
 
-    const updated = await prisma.feedback.update({
-      where: { id },
-      data: {
-        ...(status ? { status } : {}),
-        ...(admin_note !== undefined ? { admin_note } : {}),
-      },
-    });
+    const updateData: Record<string, string> = {};
+    if (status) updateData.status = status;
+    if (admin_note !== undefined) updateData.admin_note = admin_note;
 
-    return NextResponse.json({ success: true, feedback: updated });
+    const { data, error } = await supabase.from("feedback").update(updateData).eq("id", id).select().single();
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, feedback: data });
   } catch (err) {
     console.error("Feedback PATCH error:", err);
     return NextResponse.json({ error: "Failed to update feedback" }, { status: 500 });
