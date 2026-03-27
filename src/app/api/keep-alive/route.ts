@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 // This endpoint is called by Vercel Cron every 5 days
 // to prevent Supabase free tier from pausing
 export async function GET() {
   try {
-    const { count } = await supabase
+    const { count } = await supabaseAdmin
       .from("members")
       .select("*", { count: "exact", head: true });
 

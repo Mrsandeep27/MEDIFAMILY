@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
+const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    const { data, error } = await supabase.auth.getUser(authHeader.slice(7));
+    const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
     if (error || !data.user) {
       return NextResponse.json({ user: null }, { status: 401 });
     }

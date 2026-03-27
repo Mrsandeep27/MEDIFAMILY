@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
-const supabase = createClient(
+const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
@@ -36,7 +37,7 @@ async function getUser(request: NextRequest): Promise<{ userId: string } | null>
   // Try Authorization header first (Supabase access token)
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    const { data, error } = await supabase.auth.getUser(authHeader.slice(7));
+    const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
     if (!error && data.user) return { userId: data.user.id };
   }
 
@@ -48,7 +49,7 @@ async function getUser(request: NextRequest): Promise<{ userId: string } | null>
       const parsed = JSON.parse(decodeURIComponent(accessTokenMatch[1]));
       const token = Array.isArray(parsed) ? parsed[0] : parsed?.access_token;
       if (token) {
-        const { data, error } = await supabase.auth.getUser(token);
+        const { data, error } = await supabaseAuth.auth.getUser(token);
         if (!error && data.user) return { userId: data.user.id };
       }
     } catch { /* ignore parse errors */ }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
     const results = { pushed: 0, errors: [] as string[] };
 
     // Get user's member IDs for ownership validation
-    const { data: userMembers } = await supabase
+    const { data: userMembers } = await supabaseAdmin
       .from("members")
       .select("id")
       .eq("user_id", user.userId);
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const { error } = await supabase.from(table).upsert(data, { onConflict: "id" });
+          const { error } = await supabaseAdmin.from(table).upsert(data, { onConflict: "id" });
           if (error) {
             results.errors.push(`${item.id}: ${error.message}`);
           } else {
@@ -155,7 +156,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's member IDs
-    const { data: userMembers } = await supabase
+    const { data: userMembers } = await supabaseAdmin
       .from("members")
       .select("id")
       .eq("user_id", user.userId);
@@ -168,25 +169,25 @@ export async function GET(request: NextRequest) {
 
       let query;
       if (table === "members") {
-        query = supabase.from("members")
+        query = supabaseAdmin.from("members")
           .select("*")
           .eq("user_id", user.userId)
           .gt("updated_at", since);
       } else if (table === "reminder_logs") {
         // Get reminder IDs for this user's members
-        const { data: reminders } = await supabase
+        const { data: reminders } = await supabaseAdmin
           .from("reminders")
           .select("id")
           .in("member_id", memberIds);
         const reminderIds = (reminders || []).map((r: { id: string }) => r.id);
         if (reminderIds.length === 0) { data[table] = []; continue; }
-        query = supabase.from("reminder_logs")
+        query = supabaseAdmin.from("reminder_logs")
           .select("*")
           .in("reminder_id", reminderIds)
           .gt("updated_at", since);
       } else {
         if (memberIds.length === 0) { data[table] = []; continue; }
-        query = supabase.from(table)
+        query = supabaseAdmin.from(table)
           .select("*")
           .in("member_id", memberIds)
           .gt("updated_at", since);

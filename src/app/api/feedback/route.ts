@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 // POST: Submit feedback
 export async function POST(request: NextRequest) {
@@ -28,7 +23,7 @@ export async function POST(request: NextRequest) {
       status: "new",
     };
 
-    const { data, error } = await supabase.from("feedback").insert(row).select("id").single();
+    const { data, error } = await supabaseAdmin.from("feedback").insert(row).select("id").single();
 
     if (error) {
       console.error("Feedback insert error:", error);
@@ -55,15 +50,15 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || undefined;
     const category = searchParams.get("category") || undefined;
 
-    let query = supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(100);
+    let query = supabaseAdmin.from("feedback").select("*").order("created_at", { ascending: false }).limit(100);
     if (status) query = query.eq("status", status);
     if (category) query = query.eq("category", category);
 
     const { data: feedback, error } = await query;
     if (error) throw error;
 
-    const { count: total } = await supabase.from("feedback").select("*", { count: "exact", head: true });
-    const { count: newCount } = await supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new");
+    const { count: total } = await supabaseAdmin.from("feedback").select("*", { count: "exact", head: true });
+    const { count: newCount } = await supabaseAdmin.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new");
 
     return NextResponse.json({
       feedback,
@@ -93,7 +88,7 @@ export async function PATCH(request: NextRequest) {
     if (status) updateData.status = status;
     if (admin_note !== undefined) updateData.admin_note = admin_note;
 
-    const { data, error } = await supabase.from("feedback").update(updateData).eq("id", id).select().single();
+    const { data, error } = await supabaseAdmin.from("feedback").update(updateData).eq("id", id).select().single();
     if (error) throw error;
 
     return NextResponse.json({ success: true, feedback: data });

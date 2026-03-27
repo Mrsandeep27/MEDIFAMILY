@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
-const supabase = createClient(
+const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
@@ -18,7 +19,7 @@ async function verifyAdmin(request: NextRequest): Promise<{ email: string } | nu
   if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.slice(7);
-  const { data, error } = await supabase.auth.getUser(token);
+  const { data, error } = await supabaseAuth.auth.getUser(token);
   if (error || !data.user?.email) return null;
 
   const email = data.user.email.toLowerCase();
@@ -34,7 +35,7 @@ async function verifyAdmin(request: NextRequest): Promise<{ email: string } | nu
 // Helper: count rows in a table with optional filter
 async function countRows(table: string, filter?: Record<string, unknown>): Promise<number> {
   try {
-    let query = supabase.from(table).select("*", { count: "exact", head: true });
+    let query = supabaseAdmin.from(table).select("*", { count: "exact", head: true });
     if (filter) {
       for (const [key, value] of Object.entries(filter)) {
         query = query.eq(key, value);
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
         countRows("families"),
       ]);
 
-      const { data: recentFeedback } = await supabase
+      const { data: recentFeedback } = await supabaseAdmin
         .from("feedback")
         .select("*")
         .order("created_at", { ascending: false })
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (section === "users") {
-      const { data: members } = await supabase
+      const { data: members } = await supabaseAdmin
         .from("members")
         .select("id, name, relation, gender, blood_group, user_id, created_at")
         .eq("is_deleted", false)
@@ -104,13 +105,13 @@ export async function GET(request: NextRequest) {
       const category = searchParams.get("category") || undefined;
 
       // Single query with count — avoids 2 extra count queries
-      let query = supabase.from("feedback").select("*", { count: "exact" }).order("created_at", { ascending: false }).limit(100);
+      let query = supabaseAdmin.from("feedback").select("*", { count: "exact" }).order("created_at", { ascending: false }).limit(100);
       if (status) query = query.eq("status", status);
       if (category) query = query.eq("category", category);
 
       const [{ data: feedback, count: total }, { count: newCount }] = await Promise.all([
         query,
-        supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new"),
+        supabaseAdmin.from("feedback").select("*", { count: "exact", head: true }).eq("status", "new"),
       ]);
 
       return NextResponse.json({
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (section === "families") {
-      const { data: families } = await supabase
+      const { data: families } = await supabaseAdmin
         .from("families")
         .select("*, family_members(*, users(email, name))")
         .order("created_at", { ascending: false });
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (section === "records") {
-      const { data: records } = await supabase
+      const { data: records } = await supabaseAdmin
         .from("health_records")
         .select("*, members(name)")
         .eq("is_deleted", false)
@@ -148,10 +149,10 @@ export async function GET(request: NextRequest) {
         { count: successCalls },
         { data: recentCalls },
       ] = await Promise.all([
-        supabase.from("api_usage").select("*", { count: "exact", head: true }),
-        supabase.from("api_usage").select("*", { count: "exact", head: true }).gte("created_at", today.toISOString()),
-        supabase.from("api_usage").select("*", { count: "exact", head: true }).eq("success", true),
-        supabase.from("api_usage").select("*").order("created_at", { ascending: false }).limit(20),
+        supabaseAdmin.from("api_usage").select("*", { count: "exact", head: true }),
+        supabaseAdmin.from("api_usage").select("*", { count: "exact", head: true }).gte("created_at", today.toISOString()),
+        supabaseAdmin.from("api_usage").select("*", { count: "exact", head: true }).eq("success", true),
+        supabaseAdmin.from("api_usage").select("*").order("created_at", { ascending: false }).limit(20),
       ]);
 
       const total = totalCalls || 0;
@@ -193,7 +194,7 @@ export async function PATCH(request: NextRequest) {
       if (status) updateData.status = status;
       if (admin_note !== undefined) updateData.admin_note = admin_note;
 
-      const { data, error } = await supabase.from("feedback").update(updateData).eq("id", id).select().single();
+      const { data, error } = await supabaseAdmin.from("feedback").update(updateData).eq("id", id).select().single();
       if (error) throw error;
 
       return NextResponse.json({ success: true, feedback: data });

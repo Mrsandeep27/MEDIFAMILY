@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +13,7 @@ export async function GET(
 
   try {
     // Find active, non-expired share link
-    const { data: shareLink } = await supabase
+    const { data: shareLink } = await supabaseAdmin
       .from("share_links")
       .select("*")
       .eq("token", token)
@@ -36,7 +31,7 @@ export async function GET(
     }
 
     // Get member
-    const { data: member } = await supabase
+    const { data: member } = await supabaseAdmin
       .from("members")
       .select("name, blood_group, allergies, chronic_conditions, date_of_birth, gender")
       .eq("id", shareLink.member_id)
@@ -47,7 +42,7 @@ export async function GET(
     }
 
     // Get records
-    let recordQuery = supabase
+    let recordQuery = supabaseAdmin
       .from("health_records")
       .select("id, type, title, doctor_name, hospital_name, visit_date, diagnosis, notes")
       .eq("member_id", shareLink.member_id)
@@ -62,14 +57,14 @@ export async function GET(
     const { data: records } = await recordQuery;
 
     // Get medicines
-    const { data: medicines } = await supabase
+    const { data: medicines } = await supabaseAdmin
       .from("medicines")
       .select("name, dosage, frequency, is_active")
       .eq("member_id", shareLink.member_id)
       .eq("is_deleted", false);
 
     // Log access (non-critical, fire-and-forget)
-    supabase
+    supabaseAdmin
       .from("share_access_logs")
       .insert({ share_link_id: shareLink.id })
       .then(() => {});
