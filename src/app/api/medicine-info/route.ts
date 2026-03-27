@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+
+const supabaseAuth = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const MEDICINE_INFO_PROMPT = `You are a helpful Indian pharmacist assistant. A user has uploaded a photo of a medicine (tablet strip, bottle, syrup, etc).
 
@@ -36,6 +42,15 @@ Rules:
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
+    if (authError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { image, action, question, context } = body;
 

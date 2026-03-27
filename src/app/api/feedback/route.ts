@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
 // GET: Admin — list all feedback
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const adminKey = searchParams.get("key");
-
-    if (adminKey !== process.env.JWT_SECRET) {
+    // Admin key via Authorization header — never in URL (query params leak in logs)
+    const adminKey = request.headers.get("x-admin-key");
+    if (!adminKey || adminKey !== process.env.JWT_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { searchParams } = new URL(request.url);
 
     const status = searchParams.get("status") || undefined;
     const category = searchParams.get("category") || undefined;
@@ -74,9 +75,11 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, admin_note, key } = body;
+    const { id, status, admin_note } = body;
 
-    if (key !== process.env.JWT_SECRET) {
+    // Admin key via header — never in request body (may be logged)
+    const adminKey = request.headers.get("x-admin-key");
+    if (!adminKey || adminKey !== process.env.JWT_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

@@ -1,5 +1,5 @@
 # MediLog — CLAUDE.md
-
+## Project Overview
 -Codex will review your output once you are done
 -cursor will review your output once you are done
 ## What is this?

@@ -124,9 +124,15 @@ Return ONLY valid JSON:
   "lifestyle_tips": ["tip1", "tip2", "tip3"]
 }`;
 
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+
       const res = await fetch("/api/ai-doctor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ message: prompt, language: "en" }),
       });
 

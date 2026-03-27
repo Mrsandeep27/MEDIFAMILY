@@ -28,9 +28,15 @@ export async function extractPrescription(
   const endpoint = apiEndpoint || "/api/extract";
 
   try {
+    const { createClient } = await import("@/lib/supabase/client");
+    const { data: { session } } = await createClient().auth.getSession();
+
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
       body: JSON.stringify({ text: ocrText }),
     });
 

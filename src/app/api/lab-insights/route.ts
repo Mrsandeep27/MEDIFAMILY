@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+
+const supabaseAuth = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const LAB_INSIGHT_PROMPT = `You are a friendly Indian doctor explaining lab results to a patient's family.
 
@@ -32,6 +38,15 @@ Rules:
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
+    if (authError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { text, image } = body;
 

@@ -70,9 +70,15 @@ export default function LabInsightsPage() {
       // Compress before sending
       const compressed = await compressDataUrl(imageDataUrl, 1400, 0.75);
 
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+
       const res = await fetch("/api/lab-insights", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ image: compressed }),
       });
 

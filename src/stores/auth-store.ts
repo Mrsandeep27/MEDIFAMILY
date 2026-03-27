@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           isAuthenticated: false,
-          // Keep hasCompletedOnboarding so returning user skips onboarding
+          hasCompletedOnboarding: false,
         }),
     }),
     {

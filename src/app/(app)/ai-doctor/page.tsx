@@ -111,9 +111,15 @@ export default function AIDoctorPage() {
       const langHint = isHindi ? " Reply ONLY in Hindi (Devanagari script)." : "";
       const activeMeds = medicines.filter((m) => m.is_active).map((m) => m.name);
 
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+
       const res = await fetch("/api/ai-doctor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           message: msg + langHint,
           patient: selectedMember ? {

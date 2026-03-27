@@ -74,9 +74,14 @@ export default function MedicinePage() {
       // Compress image before sending (max 1200px, JPEG 0.7 quality)
       const compressed = await compressDataUrl(imageDataUrl, 1200, 0.7);
 
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+
       const res = await fetch("/api/medicine-info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ image: compressed }),
       });
 
@@ -150,9 +155,14 @@ export default function MedicinePage() {
 
     try {
       const langHint = isHindi ? " Answer ONLY in Hindi (Devanagari script)." : "";
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+      const chatHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) chatHeaders["Authorization"] = `Bearer ${session.access_token}`;
+
       const res = await fetch("/api/medicine-info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: chatHeaders,
         body: JSON.stringify({
           action: "chat",
           question: question + langHint,

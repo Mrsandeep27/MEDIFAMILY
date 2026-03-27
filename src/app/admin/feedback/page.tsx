@@ -74,11 +74,13 @@ export default function AdminFeedbackPage() {
   const fetchFeedback = async (key: string) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ key });
+      const params = new URLSearchParams();
       if (filter !== "all") params.set("status", filter);
       if (categoryFilter !== "all") params.set("category", categoryFilter);
 
-      const res = await fetch(`/api/feedback?${params}`);
+      const res = await fetch(`/api/feedback?${params}`, {
+        headers: { "x-admin-key": key },
+      });
       if (res.ok) {
         const data = await res.json();
         setFeedback(data.feedback);
@@ -97,8 +99,8 @@ export default function AdminFeedbackPage() {
   const updateStatus = async (id: string, status: string) => {
     await fetch("/api/feedback", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status, key: adminKey }),
+      headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+      body: JSON.stringify({ id, status }),
     });
     fetchFeedback(adminKey);
   };

@@ -119,13 +119,36 @@ export async function POST(request: NextRequest) {
       userReminderIds = new Set((userReminders || []).map((r: { id: string }) => r.id));
     }
 
-    for (const [table, items] of Object.entries(tablesPayload)) {
-      if (!ALLOWED_TABLES.includes(table) || !Array.isArray(items)) continue;
+    // Process tables in fixed order (members first) — never trust client payload order
+    for (const table of ALLOWED_TABLES) {
+      const items = tablesPayload[table];
+      if (!Array.isArray(items) || items.length === 0) continue;
 
-      // Phase 1: Validate ownership, collect valid items (no DB calls)
+      const sliced = items.slice(0, 100);
+
+      // Pre-fetch existing records to prevent cross-user overwrites
+      const itemIds = sliced
+        .map((i) => i.id)
+        .filter((id): id is string => typeof id === "string");
+
+      const existingOwner = new Map<string, string>();
+      if (itemIds.length > 0) {
+        if (table === "members") {
+          const { data: rows } = await supabaseAdmin.from("members").select("id, user_id").in("id", itemIds);
+          for (const r of rows || []) existingOwner.set(r.id, r.user_id);
+        } else if (table === "reminder_logs") {
+          const { data: rows } = await supabaseAdmin.from("reminder_logs").select("id, reminder_id").in("id", itemIds);
+          for (const r of rows || []) if (r.reminder_id) existingOwner.set(r.id, r.reminder_id);
+        } else {
+          const { data: rows } = await supabaseAdmin.from(table).select("id, member_id").in("id", itemIds);
+          for (const r of rows || []) if (r.member_id) existingOwner.set(r.id, r.member_id);
+        }
+      }
+
+      // Phase 1: Validate ownership — no inBatch bypass, DB-verified only
       const validItems: { data: Record<string, unknown>; id: string }[] = [];
 
-      for (const item of items.slice(0, 100)) {
+      for (const item of sliced) {
         if (!item.id || typeof item.id !== "string") {
           results.errors.push("Item missing valid id");
           continue;
@@ -134,29 +157,41 @@ export async function POST(request: NextRequest) {
         const data = sanitizeItem(table, item);
         data.id = item.id;
 
-        // Ownership
         if (table === "members") {
+          // Block takeover: existing member must belong to this user
+          const existingUserId = existingOwner.get(item.id);
+          if (existingUserId && existingUserId !== user.userId) {
+            results.errors.push(`${item.id}: forbidden`);
+            results.failedIds.push(item.id);
+            continue;
+          }
           data.user_id = user.userId;
         } else if (table === "reminder_logs") {
           const rid = data.reminder_id as string;
           if (!rid || !userReminderIds.has(rid)) {
-            const batchedReminders = tablesPayload["reminders"] || [];
-            const inBatch = batchedReminders.some((r) => r.id === rid);
-            if (!inBatch) {
-              results.errors.push(`${item.id}: unauthorized reminder_id`);
-              results.failedIds.push(item.id);
-              continue;
-            }
+            results.errors.push(`${item.id}: unauthorized`);
+            results.failedIds.push(item.id);
+            continue;
+          }
+          // Existing log must also reference user's reminder
+          const existingRid = existingOwner.get(item.id);
+          if (existingRid && !userReminderIds.has(existingRid)) {
+            results.errors.push(`${item.id}: forbidden`);
+            results.failedIds.push(item.id);
+            continue;
           }
         } else if ("member_id" in data && data.member_id) {
           if (!memberIds.has(data.member_id as string)) {
-            const batchedMembers = tablesPayload["members"] || [];
-            const inBatch = batchedMembers.some((m) => m.id === data.member_id);
-            if (!inBatch) {
-              results.errors.push(`${item.id}: unauthorized member_id`);
-              results.failedIds.push(item.id);
-              continue;
-            }
+            results.errors.push(`${item.id}: unauthorized`);
+            results.failedIds.push(item.id);
+            continue;
+          }
+          // Existing record must also belong to user's member
+          const existingMid = existingOwner.get(item.id);
+          if (existingMid && !memberIds.has(existingMid)) {
+            results.errors.push(`${item.id}: forbidden`);
+            results.failedIds.push(item.id);
+            continue;
           }
         }
 
@@ -183,14 +218,16 @@ export async function POST(request: NextRequest) {
             try {
               const { error } = await supabaseAdmin.from(table).upsert(data, { onConflict: "id" });
               if (error) {
-                results.errors.push(`${id}: ${error.message}`);
+                console.error(`Sync upsert ${id}:`, error.message);
+                results.errors.push(`${id}: sync failed`);
                 results.failedIds.push(id);
               } else {
                 results.pushed++;
                 if (table === "members") memberIds.add(data.id as string);
               }
             } catch (err) {
-              results.errors.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+              console.error(`Sync upsert ${id}:`, err);
+              results.errors.push(`${id}: sync failed`);
               results.failedIds.push(id);
             }
           }
@@ -198,7 +235,17 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         // Entire batch call failed (network, etc.) — mark all as failed
         for (const { id } of validItems) results.failedIds.push(id);
-        results.errors.push(`${table}: ${err instanceof Error ? err.message : String(err)}`);
+        console.error(`Sync batch ${table}:`, err);
+        results.errors.push(`${table}: sync failed`);
+      }
+
+      // After reminders are upserted, rebuild userReminderIds for reminder_logs phase
+      if (table === "reminders" && memberIds.size > 0) {
+        const { data: allReminders } = await supabaseAdmin
+          .from("reminders")
+          .select("id")
+          .in("member_id", [...memberIds]);
+        userReminderIds = new Set((allReminders || []).map((r: { id: string }) => r.id));
       }
     }
 

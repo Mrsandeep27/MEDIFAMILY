@@ -160,14 +160,20 @@ async function _doSync(): Promise<SyncResult> {
 
             const dexieTable = db.table(local);
             let latestProcessed = sinceMap[remote];
+            let minSkippedTimestamp: string | null = null;
 
             for (const serverItem of serverItems) {
               try {
                 const localItem = await dexieTable.get(serverItem.id);
 
                 // Never overwrite local pending changes — they haven't pushed yet
-                // Don't advance watermark past them so they're re-fetched next cycle
-                if (localItem?.sync_status === "pending") continue;
+                // Track skipped timestamps so watermark doesn't advance past them
+                if (localItem?.sync_status === "pending") {
+                  if (!minSkippedTimestamp || serverItem.updated_at < minSkippedTimestamp) {
+                    minSkippedTimestamp = serverItem.updated_at;
+                  }
+                  continue;
+                }
 
                 if (
                   !localItem ||
@@ -188,7 +194,6 @@ async function _doSync(): Promise<SyncResult> {
                   result.pulled++;
                 }
 
-                // Advance watermark only for non-skipped items
                 if (serverItem.updated_at > latestProcessed) {
                   latestProcessed = serverItem.updated_at;
                 }
@@ -197,10 +202,16 @@ async function _doSync(): Promise<SyncResult> {
               }
             }
 
-            // Only advance timestamp based on items actually processed
-            setSyncTimestamp(remote, latestProcessed);
+            // Cap watermark at earliest skipped pending item so it's re-fetched next cycle
+            const finalWatermark = minSkippedTimestamp && minSkippedTimestamp < latestProcessed
+              ? minSkippedTimestamp
+              : latestProcessed;
+            setSyncTimestamp(remote, finalWatermark);
           }
         }
+      } else {
+        result.errors.push(`Pull failed: HTTP ${response.status}`);
+        if (response.status === 401 || response.status === 403) return result;
       }
     } catch (err) {
       result.errors.push(`Pull: ${err instanceof Error ? err.message : String(err)}`);
