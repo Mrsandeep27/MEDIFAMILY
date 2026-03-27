@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message is required (min 3 characters)" }, { status: 400 });
     }
 
-    const { data, error } = await supabase.from("feedback").insert({
+    const row = {
       user_id: user_id || null,
       user_email: user_email || null,
       user_name: user_name || null,
@@ -26,15 +26,20 @@ export async function POST(request: NextRequest) {
       page: page || null,
       device: device || null,
       status: "new",
-    }).select("id").single();
+    };
 
-    if (error) throw error;
+    const { data, error } = await supabase.from("feedback").insert(row).select("id").single();
+
+    if (error) {
+      console.error("Feedback insert error:", error);
+      return NextResponse.json({ error: "Failed to submit feedback", detail: error.message, code: error.code }, { status: 500 });
+    }
 
     return NextResponse.json({ id: data.id, success: true });
   } catch (err) {
     console.error("Feedback POST error:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to submit feedback", detail: message }, { status: 500 });
+    const detail = err instanceof Error ? err.message : JSON.stringify(err);
+    return NextResponse.json({ error: "Failed to submit feedback", detail }, { status: 500 });
   }
 }
 
