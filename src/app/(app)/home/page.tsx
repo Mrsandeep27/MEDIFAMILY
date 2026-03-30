@@ -48,20 +48,27 @@ const moodOptions = [
   { value: "terrible", icon: AlertCircle, label: "Terrible", color: "text-red-500", bg: "bg-red-500/20" },
 ];
 
+// Primary actions — shown as top row on dashboard
+const quickActions = [
+  { href: "/scan", icon: ScanLine, label: "Scan Rx" },
+  { href: "/records/add", icon: Plus, label: "Add Record" },
+  { href: "/symptom-tracker", icon: HeartPulse, label: "Log Symptoms" },
+  { href: "/reminders", icon: Bell, label: "Reminders" },
+];
+
+// Full menu — shown in hamburger drawer
 const shortcutItems = [
   { href: "/scan", icon: ScanLine, label: "Scan Prescription" },
-  { href: "/smart-records", icon: Activity, label: "My Health" },
   { href: "/records/add", icon: Plus, label: "Add Record" },
-  { href: "/symptom-tracker", icon: HeartPulse, label: "Feeling Today" },
-  { href: "/doctor-report", icon: FileDown, label: "Doctor PDF" },
+  { href: "/symptom-tracker", icon: HeartPulse, label: "Log Symptoms" },
   { href: "/reminders", icon: Bell, label: "Reminders" },
-  { href: "/family", icon: Users, label: "Family Members" },
-  { href: "/more/shared-links", icon: Share2, label: "Shared Links" },
-  { href: "/more/export", icon: Download, label: "Export Report" },
-  { href: "/abha", icon: Shield, label: "ABHA (Health ID)" },
+  { href: "/smart-records", icon: Activity, label: "Health Overview" },
   { href: "/health-risk", icon: AlertTriangle, label: "Risk Assessment" },
-  { href: "/more/feedback", icon: MessageSquare, label: "Feedback" },
+  { href: "/more/export", icon: Download, label: "Download Report" },
+  { href: "/more/shared-links", icon: Share2, label: "Share with Doctor" },
+  { href: "/abha", icon: Shield, label: "ABHA Health ID" },
   { href: "/more/settings", icon: Settings, label: "Settings" },
+  { href: "/more/feedback", icon: MessageSquare, label: "Feedback" },
 ];
 
 export default function HomePage() {
