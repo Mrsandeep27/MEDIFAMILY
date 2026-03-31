@@ -50,25 +50,37 @@ export default function LabInsightsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [insights, setInsights] = useState<LabInsight | null>(null);
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPreviewUrl(dataUrl);
-      analyzeReport(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    if (file.type === "application/pdf") {
+      // PDF: extract text using pdf.js or send raw base64
+      setPreviewUrl(null); // No image preview for PDFs
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        analyzeReport(dataUrl, true);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Image: show preview and analyze
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setPreviewUrl(dataUrl);
+        analyzeReport(dataUrl, false);
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = "";
   };
 
-  const analyzeReport = async (imageDataUrl: string) => {
+  const analyzeReport = async (dataUrl: string, isPdf = false) => {
     setIsAnalyzing(true);
     try {
-      // Compress before sending
-      const compressed = await compressDataUrl(imageDataUrl, 1400, 0.75);
+      // Compress images before sending (PDFs sent as-is)
+      const payload = isPdf ? dataUrl : await compressDataUrl(dataUrl, 1400, 0.75);
 
       const { createClient } = await import("@/lib/supabase/client");
       const { data: { session } } = await createClient().auth.getSession();
@@ -79,7 +91,7 @@ export default function LabInsightsPage() {
           "Content-Type": "application/json",
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ image: compressed }),
+        body: JSON.stringify({ image: payload }),
       });
 
       if (!res.ok) {
@@ -138,7 +150,7 @@ export default function LabInsightsPage() {
                 </div>
                 <h3 className="font-semibold text-lg mb-1">Upload Lab Report</h3>
                 <p className="text-sm text-muted-foreground text-center">
-                  Take a photo or upload an image of your blood test, thyroid, sugar, or any lab report
+                  Upload a photo or PDF of your blood test, thyroid, sugar, or any lab report
                 </p>
               </CardContent>
             </Card>
@@ -146,7 +158,7 @@ export default function LabInsightsPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               onChange={handleUpload}
               className="hidden"
             />
@@ -156,9 +168,13 @@ export default function LabInsightsPage() {
         {/* Loading */}
         {isAnalyzing && (
           <div className="flex flex-col items-center py-16 space-y-4">
-            {previewUrl && (
+            {previewUrl ? (
               <div className="w-24 h-32 rounded-xl overflow-hidden border shadow">
                 <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-24 h-32 rounded-xl border shadow flex items-center justify-center bg-muted">
+                <FileText className="h-10 w-10 text-muted-foreground" />
               </div>
             )}
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -409,44 +409,43 @@ export default function MedicinePage() {
               </Card>
             )}
 
-            {/* Side Effects */}
+            {/* Side Effects — hidden by default, shown on tap */}
             {medicineInfo.common_side_effects && medicineInfo.common_side_effects.length > 0 && (
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    Side Effects
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="space-y-1">
-                    {(showAllSideEffects
-                      ? medicineInfo.common_side_effects
-                      : medicineInfo.common_side_effects.slice(0, 3)
-                    ).map((se, i) => (
-                      <p key={i} className="text-sm flex items-start gap-2">
-                        <span className="text-yellow-600 mt-1">•</span>
-                        {se}
-                      </p>
-                    ))}
-                  </div>
-                  {medicineInfo.common_side_effects.length > 3 && (
-                    <button
-                      onClick={() => setShowAllSideEffects(!showAllSideEffects)}
-                      className="text-xs text-primary flex items-center gap-1"
-                    >
+                <CardContent className="py-3">
+                  <button
+                    onClick={() => setShowAllSideEffects(!showAllSideEffects)}
+                    className="flex items-center justify-between w-full"
+                  >
+                    <span className="text-sm font-semibold flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      Side Effects
+                    </span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      {showAllSideEffects ? "Hide" : "Tap to view"}
                       {showAllSideEffects ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      {showAllSideEffects ? "Show less" : `+${medicineInfo.common_side_effects!.length - 3} more`}
-                    </button>
-                  )}
-                  {medicineInfo.serious_side_effects && medicineInfo.serious_side_effects.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-950 p-2 rounded-lg mt-2">
-                      <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-1">
-                        Serious (consult doctor immediately):
-                      </p>
-                      {medicineInfo.serious_side_effects.map((se, i) => (
-                        <p key={i} className="text-xs text-red-600 dark:text-red-400">• {se}</p>
-                      ))}
+                    </span>
+                  </button>
+                  {showAllSideEffects && (
+                    <div className="mt-3 space-y-2">
+                      <div className="space-y-1">
+                        {medicineInfo.common_side_effects.map((se, i) => (
+                          <p key={i} className="text-sm flex items-start gap-2">
+                            <span className="text-yellow-600 mt-1">•</span>
+                            {se}
+                          </p>
+                        ))}
+                      </div>
+                      {medicineInfo.serious_side_effects && medicineInfo.serious_side_effects.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-950 p-2 rounded-lg">
+                          <p className="text-xs font-medium text-red-700 dark:text-red-400 mb-1">
+                            Serious (consult doctor immediately):
+                          </p>
+                          {medicineInfo.serious_side_effects.map((se, i) => (
+                            <p key={i} className="text-xs text-red-600 dark:text-red-400">• {se}</p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
