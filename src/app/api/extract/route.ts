@@ -7,40 +7,60 @@ const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const VISION_PROMPT = `You are an expert medical prescription reader for Indian prescriptions. You can read handwritten and printed prescriptions accurately.
+const VISION_PROMPT = `You are an expert Indian medical prescription reader. You can accurately read handwritten doctor prescriptions, even messy cursive handwriting.
 
-Look at this prescription image carefully. Extract ALL information you can see.
+IMPORTANT: Read the prescription image with extreme care. Extract EVERY piece of information visible.
 
 Return JSON in this exact format (no markdown, no code blocks, just raw JSON):
 {
+  "patient_name": "string or null",
   "doctor_name": "string or null",
   "hospital_name": "string or null",
   "visit_date": "YYYY-MM-DD or null",
-  "diagnosis": "string or null",
+  "diagnosis": "string or null — include chief complaints (c/o) and impressions (Imp:)",
+  "vitals": "string or null — e.g. BP: 110/70, PR: 60bpm, Temp: 98.6°F",
   "medicines": [
     {
-      "name": "full medicine name (include brand name + generic if visible)",
-      "dosage": "e.g. 500mg, 10ml, 1 tablet",
-      "frequency": "once_daily|twice_daily|thrice_daily|weekly|as_needed|custom",
-      "duration": "e.g. 5 days, 2 weeks",
-      "before_food": true or false
+      "name": "full medicine name with formulation (e.g. Tab Paracetamol, Syr Amoxicillin, Inj 5% Dextrose)",
+      "dosage": "e.g. 500mg, 10ml, 1 tablet, stat",
+      "frequency": "once_daily|twice_daily|thrice_daily|four_times_daily|weekly|as_needed|stat|custom",
+      "duration": "e.g. 5 days, 2 weeks, stat, continuous",
+      "before_food": true or false,
+      "route": "oral|iv|im|topical|inhaled or null"
     }
   ],
-  "notes": "any other important notes, follow-up dates, or instructions"
+  "instructions": ["list of non-medicine advice like 'Adequate fluid intake', 'Rest for 3 days', 'Follow up after 1 week'"],
+  "notes": "any other important information visible on the prescription"
 }
 
-Rules for reading Indian prescriptions:
-- Read handwritten text carefully — doctors often write in cursive/shorthand
-- Common abbreviations: OD/QD = once_daily, BD/BID = twice_daily, TDS/TID = thrice_daily, QID = four times daily, SOS = as_needed, HS = at bedtime
-- AC = before food (ante cibum), PC = after food (post cibum), empty stomach = before_food: true
-- If unclear whether before/after food, default to false (after food)
-- Tab/Tab. = tablet, Cap/Cap. = capsule, Syr/Syr. = syrup, Inj = injection, Oint = ointment
-- Read Hindi/Hinglish text too (common in Indian prescriptions)
-- Rx symbol (℞) marks the start of the prescription section
-- Extract ALL medicines — look for names that start with capital letters after Rx
-- Dates in DD/MM/YYYY should be converted to YYYY-MM-DD
-- If you can partially read a medicine name, include your best interpretation
-- Look for dosage numbers near medicine names (e.g. 500, 250, 10mg)`;
+CRITICAL RULES for reading Indian prescriptions:
+1. Read EVERY line of handwritten text. Do NOT skip anything after the Rx symbol.
+2. Items after arrows (→), dashes (-), or bullet points are usually instructions or medicines.
+3. "Adv:" or "Advice:" sections contain instructions — extract these into the "instructions" array.
+4. Include IV fluids (e.g. "5% Dextrose IV stat", "NS drip", "RL") as medicines with route: "iv".
+5. Include ORS, supplements, and non-drug items (e.g. "ORS 2 sachets") as medicines too.
+6. "Adequate fluid intake", "bed rest", "soft diet" etc. go into "instructions" array, NOT medicines.
+
+ABBREVIATION GUIDE:
+- Rx/℞ = prescription starts here
+- c/o = complaints of, Imp = impression/diagnosis
+- Tab = tablet, Cap = capsule, Syr = syrup, Inj = injection, Oint = ointment, Drops = drops
+- OD/QD = once_daily, BD/BID = twice_daily, TDS/TID = thrice_daily, QID = four_times_daily
+- SOS = as_needed, HS = at bedtime, stat = immediately (one time)
+- AC = before food (before_food: true), PC = after food (before_food: false)
+- IV = intravenous, IM = intramuscular, SC = subcutaneous
+- BP = blood pressure, PR = pulse rate, Temp = temperature, SpO2 = oxygen saturation
+- # = number, /7 = for 7 days, /52 = for a week
+- DD/MM/YY or DD/MM/YYYY for dates → convert to YYYY-MM-DD
+
+HANDWRITING TIPS:
+- Doctors often write brand names in CAPITALS or with first letter capitalized
+- Numbers near medicine names are usually dosages (500 = 500mg, 250 = 250mg)
+- "1-0-1" means twice daily (morning-afternoon-night), "1-1-1" means thrice daily
+- "1+1+1" is same as "1-1-1" = thrice_daily
+- If you can partially read a word, give your best interpretation
+- Read Hindi/Hinglish/Kannada/Telugu text — regional languages are common
+- Look for text in ALL areas: header, body, margins, and footer`;
 
 const TEXT_ONLY_PROMPT = `You are a medical prescription parser for Indian prescriptions. Extract structured data from the OCR text below.
 

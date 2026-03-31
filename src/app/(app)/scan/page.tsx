@@ -422,11 +422,32 @@ export default function ScanPage() {
                   <span className="font-medium">{extraction.diagnosis}</span>
                 </div>
               )}
+              {extraction.vitals && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vitals</span>
+                  <span className="font-medium">{extraction.vitals}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {/* OCR text hidden — Gemini Vision reads the image directly */}
+        {/* Instructions */}
+        {extraction?.instructions && extraction.instructions.length > 0 && (
+          <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
+            <CardContent className="py-3">
+              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1.5">Instructions</p>
+              <ul className="space-y-1">
+                {extraction.instructions.map((inst, i) => (
+                  <li key={i} className="text-sm flex items-start gap-2">
+                    <span className="text-blue-500 mt-0.5">•</span>
+                    <span>{inst}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Medicines */}
         <Card>

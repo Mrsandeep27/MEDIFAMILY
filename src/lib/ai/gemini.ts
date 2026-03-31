@@ -7,11 +7,12 @@
 
 import { prisma } from "@/lib/db/prisma";
 
+// Vision: accuracy-first order (prescriptions need sharp reading)
 const VISION_MODELS = [
-  "gemini-3.1-flash-lite-preview",
-  "gemini-2.5-flash-lite",
-  "gemini-3-flash-preview",
   "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-3-flash-preview",
+  "gemini-2.5-flash-lite",
 ];
 
 const TEXT_MODELS = [
