@@ -128,7 +128,7 @@ export function GlobalSearch() {
           }}
           onFocus={() => query && setOpen(true)}
           placeholder="Search records, members, medicines..."
-          className="pl-9 pr-8 bg-muted/50 border-0 h-10 rounded-xl"
+          className="pl-9 pr-8 h-11 rounded-xl text-sm bg-card border border-border placeholder:text-muted-foreground"
         />
         {query && (
           <button
