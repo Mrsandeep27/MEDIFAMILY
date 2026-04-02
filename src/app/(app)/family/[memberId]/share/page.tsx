@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import { toast } from "sonner";
 import { Share2, Copy, Clock, Link2, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,14 +118,7 @@ export default function SharePage({
             {/* QR Code display */}
             {qrUrl && (
               <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-lg border">
-                <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <QrCode className="h-16 w-16 text-primary mx-auto mb-2" />
-                    <p className="text-xs text-muted-foreground">
-                      QR Code Generated
-                    </p>
-                  </div>
-                </div>
+                <QRCodeSVG value={qrUrl} size={192} level="H" includeMargin />
                 <div className="flex gap-2 w-full">
                   <Button
                     variant="outline"

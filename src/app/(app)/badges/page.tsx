@@ -197,7 +197,8 @@ export default function BadgesPage() {
       const streak = getStreak(logs);
 
       const sympRaw = localStorage.getItem(`medilog_symptoms_${user.id}`);
-      const symptoms = sympRaw ? JSON.parse(sympRaw) : [];
+      let symptoms: Array<{ date: string }> = [];
+      try { symptoms = sympRaw ? JSON.parse(sympRaw) : []; } catch { /* ignore */ }
 
       const scans = records.filter((r) => r.raw_ocr_text || r.ai_extracted);
 

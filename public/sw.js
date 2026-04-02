@@ -1,4 +1,4 @@
-const CACHE_NAME = "medilog-v3";
+const CACHE_NAME = "medilog-v4";
 const STATIC_ASSETS = [
   "/login",
   "/manifest.json",
@@ -40,6 +40,44 @@ self.addEventListener("activate", (event) => {
     )
   );
   self.clients.claim();
+});
+
+// Push — show notification when server sends push
+self.addEventListener("push", (event) => {
+  let data = { title: "MediLog", body: "You have a new notification", url: "/home" };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch { /* use defaults */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/logo.png",
+      badge: "/logo.png",
+      tag: data.tag || "medilog-notification",
+      data: { url: data.url || "/home" },
+      requireInteraction: data.requireInteraction || false,
+    })
+  );
+});
+
+// Notification click — open or focus the app
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/home";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Focus existing tab if open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // Otherwise open new tab
+      return self.clients.openWindow(url);
+    })
+  );
 });
 
 // Fetch — network first, fallback to cache

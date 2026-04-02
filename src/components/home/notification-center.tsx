@@ -127,7 +127,8 @@ export function NotificationCenter() {
     const today = new Date().toISOString().split("T")[0];
     const sympKey = `medilog_symptoms_${user.id}`;
     const sympRaw = localStorage.getItem(sympKey);
-    const symptoms = sympRaw ? JSON.parse(sympRaw) : [];
+    let symptoms: Array<{ date: string }> = [];
+    try { symptoms = sympRaw ? JSON.parse(sympRaw) : []; } catch { /* ignore */ }
     const todayEntry = symptoms.find((e: { date: string }) => e.date === today);
     if (!todayEntry) {
       notifs.push({

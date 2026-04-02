@@ -184,7 +184,8 @@ export default function HomePage() {
     localStorage.setItem("medilog_feeling_shown", today);
     const userId = user?.id || "anon";
     const key = `medilog_symptoms_${userId}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    let existing: Array<{ date: string }> = [];
+    try { existing = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* corrupted data */ }
     const entry = {
       id: Date.now().toString(),
       date: today,

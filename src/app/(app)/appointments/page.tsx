@@ -67,6 +67,7 @@ function loadAppointments(userId: string): Appointment[] {
 }
 
 function saveAppointments(userId: string, appointments: Appointment[]) {
+  if (typeof window === "undefined") return;
   localStorage.setItem(getStorageKey(userId), JSON.stringify(appointments));
 }
 

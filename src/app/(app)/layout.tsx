@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Component, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useNotificationChecker } from "@/hooks/use-notification-checker";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { OfflineIndicator } from "@/components/layout/offline-indicator";
 import { PinLockScreen } from "@/components/layout/pin-lock-screen";
@@ -52,6 +53,7 @@ class ErrorBoundary extends Component<
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   useAuth();
+  useNotificationChecker();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -61,9 +63,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
 
     // One-time session check — if no session, kick to login
+    // Falls back to cached Zustand session when offline
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; user_metadata?: Record<string, string> } } | null } }) => {
       if (!data.session) {
+        // No active session — but check if we're offline with cached auth
+        if (!navigator.onLine && useAuthStore.getState().user) {
+          setChecked(true);
+          return;
+        }
         window.location.replace("/login");
       } else {
         // Sync store with real session — fix stale/missing user data
@@ -94,6 +102,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }
       }
     }).catch(() => {
+      // Network error — if we have cached user, let them use the app offline
+      if (!navigator.onLine && useAuthStore.getState().user) {
+        setChecked(true);
+        return;
+      }
       window.location.replace("/login");
     });
   }, []);

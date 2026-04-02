@@ -13,6 +13,7 @@ import { hashPin } from "@/lib/auth/pin";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { requestNotificationPermission } from "@/lib/notifications/web-push";
 
 export default function SettingsPage() {
   const {
@@ -137,9 +138,16 @@ export default function SettingsPage() {
               <Button
                 variant={notificationsEnabled ? "default" : "outline"}
                 size="sm"
-                onClick={() =>
-                  setNotificationsEnabled(!notificationsEnabled)
-                }
+                onClick={async () => {
+                  if (!notificationsEnabled) {
+                    const granted = await requestNotificationPermission();
+                    if (!granted) {
+                      toast.error(t("common.error"));
+                      return;
+                    }
+                  }
+                  setNotificationsEnabled(!notificationsEnabled);
+                }}
               >
                 {notificationsEnabled ? t("settings.on") : t("settings.off")}
               </Button>
