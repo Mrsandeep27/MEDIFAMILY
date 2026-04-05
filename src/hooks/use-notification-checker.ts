@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
-import { requestNotificationPermission, showReminderNotification } from "@/lib/notifications/web-push";
+import {
+  requestNotificationPermission,
+  showReminderNotification,
+} from "@/lib/notifications/web-push";
 
 const CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
 
@@ -11,6 +14,7 @@ const CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
  * 1. Requests notification permission on first app load (if enabled in settings)
  * 2. Checks reminders every minute and fires browser notifications at the right time
  * 3. Respects quiet hours and notification toggle
+ * 4. Listens for SW messages (e.g. "Taken" action from notification)
  */
 export function useNotificationChecker() {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
@@ -18,6 +22,46 @@ export function useNotificationChecker() {
   const quietHoursStart = useSettingsStore((s) => s.quietHoursStart);
   const quietHoursEnd = useSettingsStore((s) => s.quietHoursEnd);
   const firedRef = useRef<Set<string>>(new Set());
+
+  // Handle "Taken" action from SW notification button
+  const handleSWMessage = useCallback(async (event: MessageEvent) => {
+    if (event.data?.type !== "REMINDER_ACTION") return;
+
+    const { action, reminderId } = event.data;
+
+    if (action === "taken" && reminderId) {
+      try {
+        const { db } = await import("@/lib/db/dexie");
+        const { v4: uuidv4 } = await import("uuid");
+        const now = new Date();
+
+        await db.reminderLogs.add({
+          id: uuidv4(),
+          reminder_id: reminderId,
+          scheduled_at: now.toISOString(),
+          acted_at: now.toISOString(),
+          status: "taken",
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+          sync_status: "pending",
+          is_deleted: false,
+        });
+      } catch (err) {
+        console.error("Failed to log taken action:", err);
+      }
+    }
+  }, []);
+
+  // Listen for SW messages
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
+      return;
+
+    navigator.serviceWorker.addEventListener("message", handleSWMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+    };
+  }, [handleSWMessage]);
 
   // Request permission once on mount (if notifications are enabled)
   useEffect(() => {
@@ -29,23 +73,24 @@ export function useNotificationChecker() {
   useEffect(() => {
     if (!notificationsEnabled) return;
 
-    const checkReminders = async () => {
-      // Check quiet hours
-      if (quietHoursEnabled) {
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-        const [startH, startM] = quietHoursStart.split(":").map(Number);
-        const [endH, endM] = quietHoursEnd.split(":").map(Number);
-        const startMinutes = startH * 60 + startM;
-        const endMinutes = endH * 60 + endM;
+    const isInQuietHours = (): boolean => {
+      if (!quietHoursEnabled) return false;
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const [startH, startM] = quietHoursStart.split(":").map(Number);
+      const [endH, endM] = quietHoursEnd.split(":").map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
 
-        // Handle overnight quiet hours (e.g. 22:00 - 07:00)
-        if (startMinutes > endMinutes) {
-          if (currentMinutes >= startMinutes || currentMinutes < endMinutes) return;
-        } else {
-          if (currentMinutes >= startMinutes && currentMinutes < endMinutes) return;
-        }
+      // Handle overnight quiet hours (e.g. 22:00 - 07:00)
+      if (startMinutes > endMinutes) {
+        return currentMinutes >= startMinutes || currentMinutes < endMinutes;
       }
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    };
+
+    const checkReminders = async () => {
+      if (isInQuietHours()) return;
 
       try {
         const { db } = await import("@/lib/db/dexie");
@@ -57,7 +102,15 @@ export function useNotificationChecker() {
 
         const now = new Date();
         const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
-        const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+        const dayMap = [
+          "sun",
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+        ] as const;
         const today = dayMap[now.getDay()];
         const todayDate = now.toISOString().split("T")[0];
 
@@ -83,13 +136,14 @@ export function useNotificationChecker() {
 
           if (logs.length > 0) continue;
 
-          // Fire notification
+          // Fire notification via Service Worker
           firedRef.current.add(firedKey);
           showReminderNotification(
             reminder.medicine_name,
             reminder.member_name || "",
             reminder.dosage,
-            reminder.before_food
+            reminder.before_food,
+            reminder.id
           );
         }
       } catch (err) {
@@ -101,5 +155,10 @@ export function useNotificationChecker() {
     checkReminders();
     const interval = setInterval(checkReminders, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [notificationsEnabled, quietHoursEnabled, quietHoursStart, quietHoursEnd]);
+  }, [
+    notificationsEnabled,
+    quietHoursEnabled,
+    quietHoursStart,
+    quietHoursEnd,
+  ]);
 }
