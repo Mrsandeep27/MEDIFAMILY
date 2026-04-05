@@ -175,12 +175,32 @@ export async function callGemini(
 }
 
 export function parseJsonResponse(text: string): Record<string, unknown> {
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
+  // Strip markdown code blocks if present (```json ... ```)
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     try {
-      return JSON.parse(text.substring(firstBrace, lastBrace + 1));
-    } catch {}
+      return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+    } catch {
+      // JSON might be truncated — try to repair by closing open strings/arrays/objects
+      let partial = cleaned.substring(firstBrace, lastBrace + 1);
+      // Close any unclosed strings
+      const quoteCount = (partial.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) partial += '"';
+      // Close unclosed arrays and objects
+      const openBrackets = (partial.match(/\[/g) || []).length - (partial.match(/]/g) || []).length;
+      const openBraces = (partial.match(/\{/g) || []).length - (partial.match(/}/g) || []).length;
+      for (let i = 0; i < openBrackets; i++) partial += "]";
+      for (let i = 0; i < openBraces; i++) partial += "}";
+      try {
+        return JSON.parse(partial);
+      } catch {
+        // Still failed — return empty
+      }
+    }
   }
   return {};
 }

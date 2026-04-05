@@ -109,14 +109,20 @@ export async function POST(request: NextRequest) {
     try {
       const response = await callGemini(
         [{ text: prompt }],
-        { temperature: 0.3, maxOutputTokens: 1500, feature: "ai-doctor" }
+        { temperature: 0.3, maxOutputTokens: 2500, feature: "ai-doctor" }
       );
 
       const parsed = parseJsonResponse(response);
 
       // Ensure required fields
       if (!parsed.urgency) parsed.urgency = "yellow";
-      if (!parsed.reply) parsed.reply = response;
+      if (!parsed.reply) {
+        // Don't show raw JSON to user — extract something readable or use fallback
+        const text = response.replace(/[{}\[\]"]/g, "").trim();
+        parsed.reply = text.length > 20 && text.length < 500
+          ? text
+          : "Apni symptoms ke baare mein thoda aur detail mein batayein taaki main aapki madad kar sakun.";
+      }
       if (!Array.isArray(parsed.possible_causes)) parsed.possible_causes = [];
       if (!Array.isArray(parsed.what_to_do)) parsed.what_to_do = [];
       if (!Array.isArray(parsed.home_remedies)) parsed.home_remedies = [];
