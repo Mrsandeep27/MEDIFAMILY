@@ -27,7 +27,7 @@ import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Activity as BarChart3 } from "lucide-react";
-import { shareMediLog } from "@/lib/utils/share-app";
+import { shareMediFamily } from "@/lib/utils/share-app";
 
 const menuSections = [
   {
@@ -121,11 +121,11 @@ export default function MorePage() {
           </div>
         ))}
 
-        {/* Share MediLog */}
+        {/* Share MediFamily */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-0">
             <button
-              onClick={shareMediLog}
+              onClick={shareMediFamily}
               className="flex items-center gap-3 p-4 w-full hover:bg-primary/10 transition-colors"
             >
               <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -157,7 +157,7 @@ export default function MorePage() {
         <div className="text-center pt-4">
           <div className="flex items-center justify-center gap-1 text-muted-foreground">
             <Shield className="h-3.5 w-3.5" />
-            <span className="text-xs">MediLog v1.0 — Your data stays private</span>
+            <span className="text-xs">MediFamily v1.0 — Your data stays private</span>
           </div>
         </div>
       </div>

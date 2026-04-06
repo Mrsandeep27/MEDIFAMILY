@@ -23,7 +23,7 @@ export function PWAInstallBanner() {
                 <Download className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-sm">Install MediLog</p>
+                <p className="font-medium text-sm">Install MediFamily</p>
                 <p className="text-xs text-muted-foreground">
                   Tap <Share className="h-3 w-3 inline" /> then &quot;Add to Home Screen&quot;
                 </p>
@@ -49,7 +49,7 @@ export function PWAInstallBanner() {
                 <Download className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-sm">Install MediLog</p>
+                <p className="font-medium text-sm">Install MediFamily</p>
                 <p className="text-xs text-muted-foreground">
                   Add to home screen for quick access
                 </p>
@@ -72,7 +72,7 @@ export function PWAInstallBanner() {
   return null;
 }
 
-export function PWAInstallButton({ label = "Install MediLog App" }: { label?: string }) {
+export function PWAInstallButton({ label = "Install MediFamily App" }: { label?: string }) {
   const { canInstall, isInstalled, isIOS, install } = usePWAInstall();
 
   if (isInstalled) return null;

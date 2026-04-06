@@ -10,7 +10,7 @@ function getJwtSecret(): string {
 }
 
 const TOKEN_EXPIRY = "7d";
-const COOKIE_NAME = "medilog-token";
+const COOKIE_NAME = "medifamily-token";
 
 export interface JWTPayload {
   userId: string;

@@ -1,8 +1,8 @@
-# MediLog — Go-To-Market Strategy
+# MediFamily — Go-To-Market Strategy
 
 ## Market Position
 
-**MediLog** is India's first offline-first, AI-powered family health record manager.
+**MediFamily** is India's first offline-first, AI-powered family health record manager.
 
 We don't compete with Eka Care. We serve the 65Cr+ Indians they can't reach.
 
@@ -25,7 +25,7 @@ We don't compete with Eka Care. We serve the 65Cr+ Indians they can't reach.
 
 ## Competitor Analysis
 
-| Feature | Eka Care | Practo | Ayu | **MediLog** |
+| Feature | Eka Care | Practo | Ayu | **MediFamily** |
 |---------|----------|--------|-----|-------------|
 | Family profiles | Yes | No | No | **Yes** |
 | ABHA integration | Yes | No | Yes | **Yes** |
@@ -101,7 +101,7 @@ Every competitor translates English UI to Hindi. We build Hindi as the default e
 
 ### 4. No Download (PWA vs App Store)
 
-Eka Care: 45MB download from Play Store. MediLog: open a link in WhatsApp, start using. No download, no signup wall, no OTP.
+Eka Care: 45MB download from Play Store. MediFamily: open a link in WhatsApp, start using. No download, no signup wall, no OTP.
 
 **Key:** Let users USE the app before asking for account creation. Local storage handles everything until they choose to sync.
 
@@ -120,7 +120,7 @@ Target user is 50-year-old parent, not 25-year-old tech user. Giant buttons (56p
 | Fix 5 bugs (QR, push notifications, localStorage, Hindi, SW) | Production-ready |
 | Add landing page at `/` route (currently shows login wall) | Visitors don't bounce |
 | Add screenshots + 60-sec demo video | Visual proof |
-| Custom domain (medilog.in or medilog.app) | Credibility |
+| Custom domain (medifamily.in or medifamily.app) | Credibility |
 | Google Analytics | Track everything |
 | Build share prompts into every feature | Viral loops |
 
@@ -206,7 +206,7 @@ Mom asks AI Doctor about child's fever
 ### Loop 3: Prescription Share
 ```
 User scans prescription → shares with family member
-→ family member clicks link → sees MediLog branding
+→ family member clicks link → sees MediFamily branding
 → installs to store their own prescriptions
 ```
 
@@ -268,7 +268,7 @@ Month 24:   5,00,000 users (ABDM certified + partnerships)
 
 ## The One Line That Defines Us
 
-> **"Eka Care serves 1.5 Crore urban Indians. MediLog serves the other 65 Crore."**
+> **"Eka Care serves 1.5 Crore urban Indians. MediFamily serves the other 65 Crore."**
 
 ---
 

@@ -112,7 +112,7 @@ export default function SharedRecordPage({
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-2 mb-1 text-primary-foreground/70 text-xs">
             <Shield className="h-3 w-3" />
-            <span>Securely shared via MediLog</span>
+            <span>Securely shared via MediFamily</span>
           </div>
           <h1 className="text-2xl font-bold">{member.name}</h1>
           <div className="flex items-center gap-3 mt-2 text-sm text-primary-foreground/80">
@@ -257,7 +257,7 @@ export default function SharedRecordPage({
 
         {/* Footer */}
         <p className="text-xs text-center text-muted-foreground py-4">
-          Shared via MediLog — India&apos;s family health record manager
+          Shared via MediFamily — India&apos;s family health record manager
         </p>
       </div>
     </div>

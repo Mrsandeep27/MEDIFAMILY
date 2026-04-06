@@ -55,7 +55,7 @@ const bodyAreas = [
 ];
 
 function getStorageKey(userId: string) {
-  return `medilog_symptoms_${userId}`;
+  return `medifamily_symptoms_${userId}`;
 }
 
 function getEntries(userId: string): SymptomEntry[] {

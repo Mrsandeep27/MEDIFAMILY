@@ -236,14 +236,14 @@ async function _doSync(): Promise<SyncResult> {
 function getSyncTimestamp(table: string): string {
   if (typeof window === "undefined") return new Date(0).toISOString();
   const userId = useAuthStore.getState().user?.id;
-  const key = userId ? `medilog_sync_${userId}_${table}` : `medilog_sync_${table}`;
+  const key = userId ? `medifamily_sync_${userId}_${table}` : `medifamily_sync_${table}`;
   return localStorage.getItem(key) || new Date(0).toISOString();
 }
 
 function setSyncTimestamp(table: string, timestamp: string): void {
   if (typeof window !== "undefined") {
     const userId = useAuthStore.getState().user?.id;
-    const key = userId ? `medilog_sync_${userId}_${table}` : `medilog_sync_${table}`;
+    const key = userId ? `medifamily_sync_${userId}_${table}` : `medifamily_sync_${table}`;
     localStorage.setItem(key, timestamp);
   }
 }

@@ -19,7 +19,7 @@ import {
 
 describe("App Configuration", () => {
   it("has correct app name", () => {
-    expect(APP_NAME).toBe("MediLog");
+    expect(APP_NAME).toBe("MediFamily");
   });
 
   it("PIN config is valid", () => {

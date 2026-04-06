@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "MediLog Admin",
-  description: "Admin dashboard for MediLog",
+  title: "MediFamily Admin",
+  description: "Admin dashboard for MediFamily",
   manifest: "/manifest-admin.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MediLog Admin",
+    title: "MediFamily Admin",
   },
 };
 

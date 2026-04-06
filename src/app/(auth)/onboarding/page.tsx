@@ -724,10 +724,10 @@ export default function OnboardingPage() {
           <div className="flex justify-center mb-4">
             <Image
               src="/logo.png"
-              alt="MediLog"
+              alt="MediFamily"
               width={160}
               height={48}
-              className="object-contain"
+              className="object-contain rounded-xl dark:bg-white dark:p-1.5"
               priority
             />
           </div>

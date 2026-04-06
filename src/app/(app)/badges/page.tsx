@@ -196,7 +196,7 @@ export default function BadgesPage() {
       const logs = await db.reminderLogs.toArray();
       const streak = getStreak(logs);
 
-      const sympRaw = localStorage.getItem(`medilog_symptoms_${user.id}`);
+      const sympRaw = localStorage.getItem(`medifamily_symptoms_${user.id}`);
       let symptoms: Array<{ date: string }> = [];
       try { symptoms = sympRaw ? JSON.parse(sympRaw) : []; } catch { /* ignore */ }
 

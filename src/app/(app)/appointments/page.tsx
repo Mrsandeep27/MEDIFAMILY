@@ -53,7 +53,7 @@ interface Appointment {
 }
 
 function getStorageKey(userId: string) {
-  return `medilog_appointments_${userId}`;
+  return `medifamily_appointments_${userId}`;
 }
 
 function loadAppointments(userId: string): Appointment[] {

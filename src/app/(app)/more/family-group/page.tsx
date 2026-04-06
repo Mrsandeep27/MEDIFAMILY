@@ -92,8 +92,8 @@ export default function FamilyGroupPage() {
   const shareInviteCode = async (name: string, code: string) => {
     if (navigator.share) {
       await navigator.share({
-        title: `Join ${name} on MediLog`,
-        text: `Join our family health group on MediLog! Use invite code: ${code}`,
+        title: `Join ${name} on MediFamily`,
+        text: `Join our family health group on MediFamily! Use invite code: ${code}`,
         url: "https://medi--log.vercel.app",
       });
     } else {

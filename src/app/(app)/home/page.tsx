@@ -152,7 +152,7 @@ export default function HomePage() {
   // Load upcoming appointments
   useEffect(() => {
     if (!user) return;
-    const raw = localStorage.getItem(`medilog_appointments_${user.id}`);
+    const raw = localStorage.getItem(`medifamily_appointments_${user.id}`);
     if (raw) {
       try {
         const all = JSON.parse(raw);
@@ -172,7 +172,7 @@ export default function HomePage() {
   // Show "Feeling Today" popup once per day
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    const lastShown = localStorage.getItem("medilog_feeling_shown");
+    const lastShown = localStorage.getItem("medifamily_feeling_shown");
     if (lastShown !== today) {
       const timer = setTimeout(() => setShowFeeling(true), 1500);
       return () => clearTimeout(timer);
@@ -181,9 +181,9 @@ export default function HomePage() {
 
   const handleFeelingSelect = (mood: string) => {
     const today = new Date().toISOString().split("T")[0];
-    localStorage.setItem("medilog_feeling_shown", today);
+    localStorage.setItem("medifamily_feeling_shown", today);
     const userId = user?.id || "anon";
-    const key = `medilog_symptoms_${userId}`;
+    const key = `medifamily_symptoms_${userId}`;
     let existing: Array<{ date: string }> = [];
     try { existing = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* corrupted data */ }
     const entry = {
@@ -204,7 +204,7 @@ export default function HomePage() {
 
   const dismissFeeling = () => {
     const today = new Date().toISOString().split("T")[0];
-    localStorage.setItem("medilog_feeling_shown", today);
+    localStorage.setItem("medifamily_feeling_shown", today);
     setShowFeeling(false);
   };
 
@@ -221,7 +221,7 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
-              alt="MediLog"
+              alt="MediFamily"
               width={36}
               height={36}
               className="rounded-lg bg-white p-0.5"

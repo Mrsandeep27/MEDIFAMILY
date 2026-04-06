@@ -215,7 +215,7 @@ export default function TimelinePage() {
   useEffect(() => {
     if (!user) return;
     try {
-      const key = `medilog_symptoms_${user.id}`;
+      const key = `medifamily_symptoms_${user.id}`;
       const data = localStorage.getItem(key);
       if (data) {
         const parsed = JSON.parse(data);

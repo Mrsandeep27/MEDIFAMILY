@@ -10,7 +10,7 @@ import type {
   HealthMetric,
 } from "./schema";
 
-class MediLogDB extends Dexie {
+class MediFamilyDB extends Dexie {
   members!: Table<Member>;
   records!: Table<HealthRecord>;
   medicines!: Table<Medicine>;
@@ -21,7 +21,7 @@ class MediLogDB extends Dexie {
   healthMetrics!: Table<HealthMetric>;
 
   constructor() {
-    super("medilog");
+    super("medifamily");
 
     this.version(1).stores({
       members: "id, user_id, name, relation, sync_status, is_deleted",
@@ -40,4 +40,4 @@ class MediLogDB extends Dexie {
   }
 }
 
-export const db = new MediLogDB();
+export const db = new MediFamilyDB();

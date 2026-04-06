@@ -2,15 +2,15 @@
 
 const APP_URL = "https://medi--log.vercel.app";
 const SHARE_TEXT =
-  "MediLog — Free AI-powered health record manager for your family. Works offline! Try it:";
+  "MediFamily — Free AI-powered health record manager for your family. Works offline! Try it:";
 
 /**
- * Share MediLog using Web Share API (native share sheet on mobile).
+ * Share MediFamily using Web Share API (native share sheet on mobile).
  * Falls back to clipboard copy on desktop.
  */
-export async function shareMediLog(): Promise<void> {
+export async function shareMediFamily(): Promise<void> {
   const shareData = {
-    title: "MediLog — Family Health Record Manager",
+    title: "MediFamily — Family Health Record Manager",
     text: SHARE_TEXT,
     url: APP_URL,
   };

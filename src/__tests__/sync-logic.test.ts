@@ -8,7 +8,7 @@ describe("Sync Logic", () => {
   describe("Sync Timestamp Storage", () => {
     it("stores and retrieves sync timestamps", () => {
       const table = "members";
-      const key = `medilog_sync_${table}`;
+      const key = `medifamily_sync_${table}`;
       const timestamp = new Date().toISOString();
 
       localStorage.setItem(key, timestamp);
@@ -16,7 +16,7 @@ describe("Sync Logic", () => {
     });
 
     it("returns epoch for unknown tables", () => {
-      const key = "medilog_sync_nonexistent";
+      const key = "medifamily_sync_nonexistent";
       const result = localStorage.getItem(key) || new Date(0).toISOString();
       expect(result).toBe(new Date(0).toISOString());
     });

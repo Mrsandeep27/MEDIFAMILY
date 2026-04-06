@@ -100,7 +100,7 @@ export function NotificationCenter() {
 
     // Check upcoming appointments
     try {
-      const raw = localStorage.getItem(`medilog_appointments_${user.id}`);
+      const raw = localStorage.getItem(`medifamily_appointments_${user.id}`);
       if (raw) {
         const appointments = JSON.parse(raw);
         const tomorrow = new Date();
@@ -125,7 +125,7 @@ export function NotificationCenter() {
 
     // Check if symptom logging is pending today
     const today = new Date().toISOString().split("T")[0];
-    const sympKey = `medilog_symptoms_${user.id}`;
+    const sympKey = `medifamily_symptoms_${user.id}`;
     const sympRaw = localStorage.getItem(sympKey);
     let symptoms: Array<{ date: string }> = [];
     try { symptoms = sympRaw ? JSON.parse(sympRaw) : []; } catch { /* ignore */ }

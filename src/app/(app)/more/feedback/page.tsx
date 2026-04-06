@@ -81,7 +81,7 @@ export default function FeedbackPage() {
           </div>
           <h2 className="text-xl font-bold">Thank You!</h2>
           <p className="text-sm text-muted-foreground text-center">
-            Your feedback has been received. We read every single one and use it to make MediLog better.
+            Your feedback has been received. We read every single one and use it to make MediFamily better.
           </p>
           <Button variant="outline" onClick={() => { setSubmitted(false); setMessage(""); setRating(0); }}>
             Send Another
@@ -98,7 +98,7 @@ export default function FeedbackPage() {
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3">
             <p className="text-sm text-muted-foreground">
-              Your feedback helps us improve MediLog. Report bugs, suggest features, or just tell us what you think!
+              Your feedback helps us improve MediFamily. Report bugs, suggest features, or just tell us what you think!
             </p>
           </CardContent>
         </Card>
@@ -171,7 +171,7 @@ export default function FeedbackPage() {
               category === "bug"
                 ? "I was trying to... and it showed..."
                 : category === "feature"
-                ? "I wish MediLog could..."
+                ? "I wish MediFamily could..."
                 : "Your feedback here..."
             }
             rows={4}

@@ -84,7 +84,7 @@ export function PinLockScreen() {
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6">
       <Shield className="h-12 w-12 text-primary mb-4" />
-      <h2 className="text-xl font-semibold mb-1">MediLog is Locked</h2>
+      <h2 className="text-xl font-semibold mb-1">MediFamily is Locked</h2>
       <p className="text-sm text-muted-foreground mb-8">
         Enter your PIN to unlock
       </p>

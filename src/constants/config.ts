@@ -1,4 +1,4 @@
-export const APP_NAME = "MediLog";
+export const APP_NAME = "MediFamily";
 export const APP_DESCRIPTION =
   "India's first offline-first, AI-powered family health record manager";
 

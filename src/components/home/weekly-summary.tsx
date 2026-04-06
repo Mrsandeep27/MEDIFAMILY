@@ -44,7 +44,7 @@ export function WeeklySummary() {
       // Symptoms logged
       let symptomsLogged = 0;
       try {
-        const raw = localStorage.getItem(`medilog_symptoms_${user.id}`);
+        const raw = localStorage.getItem(`medifamily_symptoms_${user.id}`);
         if (raw) {
           const entries = JSON.parse(raw);
           symptomsLogged = entries.filter(
@@ -56,7 +56,7 @@ export function WeeklySummary() {
       // Appointments
       let appointmentCount = 0;
       try {
-        const raw = localStorage.getItem(`medilog_appointments_${user.id}`);
+        const raw = localStorage.getItem(`medifamily_appointments_${user.id}`);
         if (raw) {
           const apts = JSON.parse(raw);
           const weekFromNow = new Date();

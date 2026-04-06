@@ -1,4 +1,4 @@
-const CACHE_NAME = "medilog-v5";
+const CACHE_NAME = "medifamily-v5";
 const STATIC_ASSETS = ["/login", "/manifest.json"];
 const IS_LOCALHOST =
   self.location.hostname === "localhost" ||
@@ -35,7 +35,7 @@ self.addEventListener("activate", (event) => {
 // ─── Push — show notification from server push ──────────────────────
 self.addEventListener("push", (event) => {
   let data = {
-    title: "MediLog",
+    title: "MediFamily",
     body: "You have a new notification",
     url: "/home",
   };
@@ -49,7 +49,7 @@ self.addEventListener("push", (event) => {
     body: data.body,
     icon: "/logo.png",
     badge: "/logo.png",
-    tag: data.tag || "medilog-notification",
+    tag: data.tag || "medifamily-notification",
     data: { url: data.url || "/home", type: data.type || "general" },
     requireInteraction: data.requireInteraction || false,
   };

@@ -1,4 +1,4 @@
-# MediLog — Legal & Policy Context for Landing Page
+# MediFamily — Legal & Policy Context for Landing Page
 
 Use this document to generate: Privacy Policy, Terms of Service, About Us, Contact, and Advisory sections.
 
@@ -6,20 +6,20 @@ Use this document to generate: Privacy Policy, Terms of Service, About Us, Conta
 
 ## Company / Founder Info
 
-- **Product:** MediLog — India's first offline-first, AI-powered family health record manager
+- **Product:** MediFamily — India's first offline-first, AI-powered family health record manager
 - **Founder:** Sandeep Pandey
 - **Company:** 2XG (not yet formally registered — pre-revenue side project)
 - **Location:** Bangalore, Karnataka, India
-- **Contact Email:** sandeep@2xg.in (or use a medilog-specific email)
+- **Contact Email:** sandeep@2xg.in (or use a medifamily-specific email)
 - **Website:** https://medi--log.vercel.app
-- **GitHub:** https://github.com/Mrsandeep27/MEDILOG
+- **GitHub:** https://github.com/Mrsandeep27/MEDIFAMILY
 - **Status:** Open source, free to use, no paid plan yet
 
 ---
 
-## What MediLog Does
+## What MediFamily Does
 
-MediLog helps Indian families store, manage, and share health records digitally. It works offline (no internet needed) and uses AI to scan prescriptions, identify medicines, and answer health questions.
+MediFamily helps Indian families store, manage, and share health records digitally. It works offline (no internet needed) and uses AI to scan prescriptions, identify medicines, and answer health questions.
 
 **Key features:**
 - Family health profiles (unlimited members)
@@ -235,7 +235,7 @@ MediLog helps Indian families store, manage, and share health records digitally.
 - Users can withdraw consent by deleting their account
 
 ### HIPAA (US)
-- MediLog does NOT claim HIPAA compliance
+- MediFamily does NOT claim HIPAA compliance
 - No BAA (Business Associate Agreement) with Supabase or Google
 - Not intended for use by US healthcare providers as an EHR system
 
@@ -243,13 +243,13 @@ MediLog helps Indian families store, manage, and share health records digitally.
 - AI features are for informational purposes only
 - AI Doctor is NOT a substitute for professional medical advice
 - AI prescriptions/lab analysis should be verified by a qualified doctor
-- MediLog is a health record manager, NOT a medical diagnostic tool
+- MediFamily is a health record manager, NOT a medical diagnostic tool
 
 ---
 
 ## Children's Privacy
 
-- MediLog does not knowingly collect data from children under 13
+- MediFamily does not knowingly collect data from children under 13
 - Family members (children) are added by the parent/guardian who manages the account
 - Children's health records are managed by and accessible only to the account holder
 
@@ -258,7 +258,7 @@ MediLog helps Indian families store, manage, and share health records digitally.
 ## Contact for Legal/Privacy Matters
 
 - **Email:** sandeep@2xg.in
-- **GitHub Issues:** https://github.com/Mrsandeep27/MEDILOG/issues
+- **GitHub Issues:** https://github.com/Mrsandeep27/MEDIFAMILY/issues
 - **Location:** Bangalore, Karnataka, India
 - **Response time:** Within 72 hours for privacy-related requests
 
@@ -299,7 +299,7 @@ Key clauses:
 
 ### 4. Contact Page
 - Email: sandeep@2xg.in
-- GitHub: https://github.com/Mrsandeep27/MEDILOG
+- GitHub: https://github.com/Mrsandeep27/MEDIFAMILY
 - Location: Bangalore, India
 - For: Privacy requests, bug reports, feature suggestions, partnerships
 
@@ -314,4 +314,4 @@ Key clauses:
 
 *Document created: April 2026*
 *For: Landing page legal pages generation*
-*Author: Sandeep Pandey / MediLog Team*
+*Author: Sandeep Pandey / MediFamily Team*

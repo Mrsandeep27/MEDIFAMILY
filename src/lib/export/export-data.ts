@@ -43,7 +43,7 @@ export async function exportAllData(): Promise<ExportData> {
 export function downloadJSON(data: ExportData): void {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: "application/json" });
-  triggerDownload(blob, `medilog-export-${new Date().toISOString().split("T")[0]}.json`);
+  triggerDownload(blob, `medifamily-export-${new Date().toISOString().split("T")[0]}.json`);
 }
 
 export function downloadCSV(data: ExportData): void {
@@ -90,7 +90,7 @@ export function downloadCSV(data: ExportData): void {
   // Add UTF-8 BOM for Excel compatibility with Hindi text
   const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  triggerDownload(blob, `medilog-records-${new Date().toISOString().split("T")[0]}.csv`);
+  triggerDownload(blob, `medifamily-records-${new Date().toISOString().split("T")[0]}.csv`);
 }
 
 /** Prevent CSV formula injection */

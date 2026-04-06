@@ -1,5 +1,5 @@
 // ============================================================
-// MediLog Database Schema — TypeScript Interfaces
+// MediFamily Database Schema — TypeScript Interfaces
 // All tables use SyncMeta for offline-first sync tracking
 // ============================================================
 

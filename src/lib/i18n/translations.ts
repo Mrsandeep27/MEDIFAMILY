@@ -237,7 +237,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "more.share_doctor": "Share with Doctor",
     "more.abha": "ABHA Health ID",
     "more.family_group": "Family Group",
-    "more.share_app": "Share MediLog",
+    "more.share_app": "Share MediFamily",
     "more.share_app_desc": "Help your friends & family manage health records",
     "more.settings": "Settings",
     "more.feedback": "Feedback",
@@ -281,11 +281,11 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // AI Doctor
     "ai_doctor.title": "AI Health Assistant",
-    "ai_doctor.welcome": "Hi! I'm Dr. MediLog",
+    "ai_doctor.welcome": "Hi! I'm Dr. MediFamily",
     "ai_doctor.welcome_desc": "Tell me your symptoms, I'll guide you on what to do",
     "ai_doctor.patient": "Patient",
     "ai_doctor.select_patient": "Select patient",
-    "ai_doctor.thinking": "Dr. MediLog is thinking...",
+    "ai_doctor.thinking": "Dr. MediFamily is thinking...",
     "ai_doctor.analyzing": "Analyzing your symptoms...",
     "ai_doctor.placeholder": "Describe your symptoms...",
     "ai_doctor.disclaimer": "AI guidance only — not a substitute for a real doctor. For emergencies, visit a hospital immediately.",
@@ -299,7 +299,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "ai_doctor.see_doctor": "See",
     "ai_doctor.network_error": "Network error. Please check your internet connection.",
     "ai_doctor.error": "Sorry, couldn't process your request. Please try again.",
-    "ai_doctor.share_app": "Found this helpful? Share MediLog with family",
+    "ai_doctor.share_app": "Found this helpful? Share MediFamily with family",
 
     // Medicine Info
     "medicine.title": "Medicine Info",
@@ -721,7 +721,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "more.share_doctor": "डॉक्टर से शेयर करें",
     "more.abha": "ABHA स्वास्थ्य ID",
     "more.family_group": "परिवार समूह",
-    "more.share_app": "MediLog शेयर करें",
+    "more.share_app": "MediFamily शेयर करें",
     "more.share_app_desc": "अपने परिवार और दोस्तों को हेल्थ रिकॉर्ड मैनेज करने में मदद करें",
     "more.settings": "सेटिंग्स",
     "more.feedback": "फीडबैक",
@@ -765,11 +765,11 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // AI Doctor
     "ai_doctor.title": "AI स्वास्थ्य सहायक",
-    "ai_doctor.welcome": "नमस्ते! मैं Dr. MediLog हूँ",
+    "ai_doctor.welcome": "नमस्ते! मैं Dr. MediFamily हूँ",
     "ai_doctor.welcome_desc": "अपने लक्षण बताइए, मैं बताऊंगा क्या करना चाहिए",
     "ai_doctor.patient": "मरीज",
     "ai_doctor.select_patient": "मरीज चुनें",
-    "ai_doctor.thinking": "Dr. MediLog सोच रहा है...",
+    "ai_doctor.thinking": "Dr. MediFamily सोच रहा है...",
     "ai_doctor.analyzing": "आपके लक्षणों का विश्लेषण हो रहा है...",
     "ai_doctor.placeholder": "अपने लक्षण बताइए...",
     "ai_doctor.disclaimer": "⚠️ यह AI सलाह है, डॉक्टर की जगह नहीं। गंभीर स्थिति में तुरंत डॉक्टर से मिलें।",
@@ -783,7 +783,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "ai_doctor.see_doctor": "दिखाएं",
     "ai_doctor.network_error": "नेटवर्क त्रुटि। कृपया इंटरनेट जांचें।",
     "ai_doctor.error": "माफ़ कीजिए, अनुरोध प्रोसेस नहीं हो सका। कृपया फिर से प्रयास करें।",
-    "ai_doctor.share_app": "मददगार लगा? परिवार के साथ MediLog शेयर करें",
+    "ai_doctor.share_app": "मददगार लगा? परिवार के साथ MediFamily शेयर करें",
 
     // Medicine Info
     "medicine.title": "दवाई जानकारी",

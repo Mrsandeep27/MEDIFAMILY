@@ -361,7 +361,7 @@ export async function requestConsent(
         patient: { id: patientId },
         hiu: { id: hiuId },
         requester: {
-          name: "MediLog",
+          name: "MediFamily",
           identifier: {
             type: "REGNO",
             value: hiuId,

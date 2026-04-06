@@ -1,13 +1,13 @@
-# MediLog — CLAUDE.md
+# MediFamily — CLAUDE.md
 ## Project Overview
 -Codex will review your output once you are done
 -cursor will review your output once you are done
 ## What is this?
 
-MediLog is an offline-first, AI-powered family health record manager PWA for Indian families. Built with Next.js 16, it works without internet using Dexie.js (IndexedDB) and syncs to Supabase PostgreSQL when online.
+MediFamily is an offline-first, AI-powered family health record manager PWA for Indian families. Built with Next.js 16, it works without internet using Dexie.js (IndexedDB) and syncs to Supabase PostgreSQL when online.
 
 **Live:** https://medi--log.vercel.app
-**Repo:** https://github.com/Mrsandeep27/MEDILOG
+**Repo:** https://github.com/Mrsandeep27/MEDIFAMILY
 
 ---
 

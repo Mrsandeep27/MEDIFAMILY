@@ -65,7 +65,7 @@ export const useSettingsStore = create<SettingsState>()(
       setSyncCursor: (cursor) => set({ syncCursor: cursor }),
     }),
     {
-      name: "medilog-settings",
+      name: "medifamily-settings",
     }
   )
 );

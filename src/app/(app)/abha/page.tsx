@@ -290,7 +290,7 @@ export default function AbhaPage() {
                 {/* Status */}
                 <div className="flex items-center gap-2 px-1">
                   <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700 font-medium">ABHA linked to MediLog</span>
+                  <span className="text-sm text-green-700 font-medium">ABHA linked to MediFamily</span>
                 </div>
               </div>
             ) : (
@@ -620,7 +620,7 @@ export default function AbhaPage() {
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Your ABHA is now linked to MediLog. Hospital records will be automatically pulled when available.
+              Your ABHA is now linked to MediFamily. Hospital records will be automatically pulled when available.
             </p>
 
             <Link

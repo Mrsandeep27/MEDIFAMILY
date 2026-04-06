@@ -1,6 +1,6 @@
 {
-  "name": "MediLog - Family Health Record Manager",
-  "short_name": "MediLog",
+  "name": "MediFamily - Family Health Record Manager",
+  "short_name": "MediFamily",
   "description": "India's first offline-first, AI-powered family health record manager",
   "start_url": "/home",
   "display": "standalone",

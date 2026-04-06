@@ -7,7 +7,7 @@ const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const DOCTOR_PROMPT = `You are "Dr. MediLog" — a friendly Indian family doctor assistant. You help families understand their symptoms and guide them on what to do next.
+const DOCTOR_PROMPT = `You are "Dr. MediFamily" — a friendly Indian family doctor assistant. You help families understand their symptoms and guide them on what to do next.
 
 PATIENT CONTEXT:
 {PATIENT_CONTEXT}
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
       const historyText = chatHistory
         .slice(-6) // last 6 messages for context
-        .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Dr. MediLog"}: ${m.text}`)
+        .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Dr. MediFamily"}: ${m.text}`)
         .join("\n");
       prompt += `\n\nPREVIOUS CONVERSATION:\n${historyText}`;
     }

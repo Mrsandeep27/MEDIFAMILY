@@ -166,7 +166,7 @@ export default function AdminPage() {
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
             <Lock className="h-10 w-10 mx-auto text-primary mb-2" />
-            <CardTitle className="text-xl">MediLog Admin</CardTitle>
+            <CardTitle className="text-xl">MediFamily Admin</CardTitle>
             <p className="text-sm text-muted-foreground">Login with your admin email</p>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -192,7 +192,7 @@ export default function AdminPage() {
             <Button className="w-full" onClick={handleLogin} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login as Admin"}
             </Button>
-            <PWAInstallButton label="Install MediLog Admin" />
+            <PWAInstallButton label="Install MediFamily Admin" />
           </CardContent>
         </Card>
       </div>
@@ -221,7 +221,7 @@ export default function AdminPage() {
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            <h1 className="font-bold text-lg">MediLog Admin</h1>
+            <h1 className="font-bold text-lg">MediFamily Admin</h1>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{email}</span>

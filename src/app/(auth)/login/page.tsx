@@ -164,7 +164,7 @@ export default function LoginPage() {
         <div className="mx-auto">
           <Image
             src="/logo.png"
-            alt="MediLog"
+            alt="MediFamily"
             width={240}
             height={72}
             className="mx-auto object-contain rounded-2xl dark:bg-white dark:p-2"

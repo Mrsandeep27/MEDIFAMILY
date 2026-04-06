@@ -379,8 +379,8 @@ export default function AIDoctorPage() {
                 {idx === messages.length - 1 && (
                   <button
                     onClick={async () => {
-                      const { shareMediLog } = await import("@/lib/utils/share-app");
-                      shareMediLog();
+                      const { shareMediFamily } = await import("@/lib/utils/share-app");
+                      shareMediFamily();
                     }}
                     className="text-[11px] text-primary hover:underline ml-1 mt-1"
                   >

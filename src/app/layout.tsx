@@ -10,11 +10,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MediLog - Family Health Record Manager",
+  title: "MediFamily - Family Health Record Manager",
   description:
     "India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors.",
   keywords: [
-    "MediLog", "health records", "medical records", "family health",
+    "MediFamily", "health records", "medical records", "family health",
     "prescription scanner", "medicine tracker", "health app India",
     "offline health app", "AI prescription", "digital health records",
   ],
@@ -26,19 +26,19 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "MediLog",
+    title: "MediFamily",
   },
   openGraph: {
-    title: "MediLog - Family Health Record Manager",
+    title: "MediFamily - Family Health Record Manager",
     description: "India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors.",
     url: "https://medi--log.vercel.app",
-    siteName: "MediLog",
+    siteName: "MediFamily",
     type: "website",
     locale: "en_IN",
   },
   twitter: {
     card: "summary",
-    title: "MediLog - Family Health Record Manager",
+    title: "MediFamily - Family Health Record Manager",
     description: "Offline-first AI health record manager for Indian families",
   },
   metadataBase: new URL("https://medi--log.vercel.app"),
