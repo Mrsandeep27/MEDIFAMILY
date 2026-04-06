@@ -10,7 +10,7 @@ Use this document to generate: Privacy Policy, Terms of Service, About Us, Conta
 - **Founder:** Sandeep Pandey
 - **Company:** 2XG (not yet formally registered — pre-revenue side project)
 - **Location:** Bangalore, Karnataka, India
-- **Contact Email:** sandeep@2xg.in (or use a medifamily-specific email)
+- **Contact Email:** support@medifamily.in (or use a medifamily-specific email)
 - **Website:** https://medifamily.in
 - **GitHub:** https://github.com/Mrsandeep27/MEDIFAMILY
 - **Status:** Open source, free to use, no paid plan yet
@@ -257,7 +257,7 @@ MediFamily helps Indian families store, manage, and share health records digital
 
 ## Contact for Legal/Privacy Matters
 
-- **Email:** sandeep@2xg.in
+- **Email:** support@medifamily.in
 - **GitHub Issues:** https://github.com/Mrsandeep27/MEDIFAMILY/issues
 - **Location:** Bangalore, Karnataka, India
 - **Response time:** Within 72 hours for privacy-related requests
@@ -298,7 +298,7 @@ Key clauses:
 - Hindi-first design for Indian families
 
 ### 4. Contact Page
-- Email: sandeep@2xg.in
+- Email: support@medifamily.in
 - GitHub: https://github.com/Mrsandeep27/MEDIFAMILY
 - Location: Bangalore, India
 - For: Privacy requests, bug reports, feature suggestions, partnerships
