@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "MediFamily - Family Health Record Manager",
     description: "India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors.",
-    url: "https://medi--log.vercel.app",
+    url: "https://medifamily.in",
     siteName: "MediFamily",
     type: "website",
     locale: "en_IN",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: "MediFamily - Family Health Record Manager",
     description: "Offline-first AI health record manager for Indian families",
   },
-  metadataBase: new URL("https://medi--log.vercel.app"),
+  metadataBase: new URL("https://medifamily.in"),
 };
 
 export const viewport: Viewport = {

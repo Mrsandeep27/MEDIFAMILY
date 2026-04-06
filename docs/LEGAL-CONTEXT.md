@@ -11,7 +11,7 @@ Use this document to generate: Privacy Policy, Terms of Service, About Us, Conta
 - **Company:** 2XG (not yet formally registered — pre-revenue side project)
 - **Location:** Bangalore, Karnataka, India
 - **Contact Email:** sandeep@2xg.in (or use a medifamily-specific email)
-- **Website:** https://medi--log.vercel.app
+- **Website:** https://medifamily.in
 - **GitHub:** https://github.com/Mrsandeep27/MEDIFAMILY
 - **Status:** Open source, free to use, no paid plan yet
 

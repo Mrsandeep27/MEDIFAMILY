@@ -1,6 +1,6 @@
 "use client";
 
-const APP_URL = "https://medi--log.vercel.app";
+const APP_URL = "https://medifamily.in";
 const SHARE_TEXT =
   "MediFamily — Free AI-powered health record manager for your family. Works offline! Try it:";
 

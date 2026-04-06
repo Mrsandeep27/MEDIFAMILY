@@ -329,7 +329,7 @@ const ALLOWED_DATA_PUSH_DOMAINS = [
   "abha.abdm.gov.in",
   "live.abdm.gov.in",
   "dev.abdm.gov.in",
-  "medi--log.vercel.app",
+  "medifamily.in",
 ];
 
 function validateDataPushUrl(url: string): boolean {
@@ -365,7 +365,7 @@ export async function requestConsent(
           identifier: {
             type: "REGNO",
             value: hiuId,
-            system: "https://medi--log.vercel.app",
+            system: "https://medifamily.in",
           },
         },
         hiTypes: [

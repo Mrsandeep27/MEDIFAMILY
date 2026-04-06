@@ -94,7 +94,7 @@ export default function FamilyGroupPage() {
       await navigator.share({
         title: `Join ${name} on MediFamily`,
         text: `Join our family health group on MediFamily! Use invite code: ${code}`,
-        url: "https://medi--log.vercel.app",
+        url: "https://medifamily.in",
       });
     } else {
       copyInviteCode(code);

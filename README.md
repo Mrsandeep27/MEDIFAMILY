@@ -2,7 +2,7 @@
 
 > India's first offline-first, AI-powered family health record manager. Scan prescriptions, track medicines, and share records with doctors — all from your browser.
 
-**Live Demo:** [medi--log.vercel.app](https://medi--log.vercel.app)
+**Live Demo:** [medifamily.in](https://medifamily.in)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
