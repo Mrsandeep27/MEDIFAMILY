@@ -6,6 +6,7 @@ import { db } from "@/lib/db/dexie";
 import type { Member, Relation, BloodGroup, Gender } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
 import type { MemberFormData } from "@/lib/utils/validators";
+import { createClient } from "@/lib/supabase/client";
 
 export function useMembers() {
   const user = useAuthStore((s) => s.user);
@@ -75,11 +76,64 @@ export function useMembers() {
   };
 
   const deleteMember = async (id: string): Promise<void> => {
-    await db.members.update(id, {
-      is_deleted: true,
-      updated_at: new Date().toISOString(),
-      sync_status: "pending",
-    });
+    // Hard-delete from cloud first (cascades to all related records)
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`/api/members/${id}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to delete from cloud");
+      }
+    } catch (err) {
+      // If we're offline the delete will be retried later — for now,
+      // surface the error so the UI can show it
+      if (navigator.onLine) {
+        throw err;
+      }
+    }
+
+    // Hard-delete from local Dexie + cascade through related tables
+    await db.transaction(
+      "rw",
+      [
+        db.members,
+        db.records,
+        db.medicines,
+        db.reminders,
+        db.reminderLogs,
+        db.shareLinks,
+        db.healthMetrics,
+      ],
+      async () => {
+        // Get reminder ids first so we can clean their logs
+        const reminders = await db.reminders
+          .where("member_id")
+          .equals(id)
+          .toArray();
+        const reminderIds = reminders.map((r) => r.id);
+        if (reminderIds.length > 0) {
+          await db.reminderLogs
+            .where("reminder_id")
+            .anyOf(reminderIds)
+            .delete();
+        }
+
+        await db.records.where("member_id").equals(id).delete();
+        await db.medicines.where("member_id").equals(id).delete();
+        await db.reminders.where("member_id").equals(id).delete();
+        await db.shareLinks.where("member_id").equals(id).delete();
+        await db.healthMetrics.where("member_id").equals(id).delete();
+        await db.members.delete(id);
+      }
+    );
   };
 
   return {

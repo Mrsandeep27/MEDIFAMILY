@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 
 const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,23 +47,17 @@ function pruneAuthCache() {
 }
 
 // Get Supabase user from cookie/session
-async function getUser(request: NextRequest): Promise<{ userId: string } | null> {
+async function getUser(request: NextRequest): Promise<{ userId: string; email: string } | null> {
   // Try Authorization header first (Supabase access token)
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
 
-    // Check cache — same token verified in last 30s
-    const cached = authCache.get(token);
-    if (cached && cached.expires > Date.now()) {
-      return { userId: cached.userId };
-    }
-
     const { data, error } = await supabaseAuth.auth.getUser(token);
     if (!error && data.user) {
       authCache.set(token, { userId: data.user.id, expires: Date.now() + AUTH_CACHE_TTL_MS });
       pruneAuthCache();
-      return { userId: data.user.id };
+      return { userId: data.user.id, email: data.user.email || "" };
     }
   }
 
@@ -76,7 +70,7 @@ async function getUser(request: NextRequest): Promise<{ userId: string } | null>
       const token = Array.isArray(parsed) ? parsed[0] : parsed?.access_token;
       if (token) {
         const { data, error } = await supabaseAuth.auth.getUser(token);
-        if (!error && data.user) return { userId: data.user.id };
+        if (!error && data.user) return { userId: data.user.id, email: data.user.email || "" };
       }
     } catch { /* ignore parse errors */ }
   }
@@ -84,13 +78,48 @@ async function getUser(request: NextRequest): Promise<{ userId: string } | null>
   return null;
 }
 
+// Ensure a row exists in public.users for this auth user.
+// members.user_id has a FK to public.users — without this, member upserts fail.
+async function ensureUserRow(userId: string, email: string): Promise<void> {
+  try {
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (existing) return;
+
+    await supabaseAdmin.from("users").insert({
+      id: userId,
+      email: email || `${userId}@medifamily.local`,
+      password_hash: "supabase-auth",
+      name: email ? email.split("@")[0] : "User",
+    });
+  } catch (err) {
+    console.error("[ensureUserRow] failed:", err);
+  }
+}
+
 // POST: Push — client sends { tables: { members: [...], health_records: [...] } }
 export async function POST(request: NextRequest) {
   try {
+    if (!isSupabaseAdminConfigured) {
+      return NextResponse.json(
+        {
+          error:
+            "Server not configured: SUPABASE_SERVICE_ROLE_KEY is missing. Add it to .env.local (dev) or Vercel env (prod).",
+        },
+        { status: 503 }
+      );
+    }
+
     const user = await getUser(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Ensure public.users row exists — members FK requires it
+    await ensureUserRow(user.userId, user.email);
 
     const body = await request.json();
     const tablesPayload: Record<string, Record<string, unknown>[]> = body.tables || {};
@@ -251,14 +280,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(results);
   } catch (err) {
-    console.error("Sync push error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Sync push error:", message, err);
+    return NextResponse.json(
+      { error: "Sync push failed", detail: message },
+      { status: 500 }
+    );
   }
 }
 
 // GET: Pull — client sends ?tables={"members":"2000-01-01T00:00:00Z",...}
 export async function GET(request: NextRequest) {
   try {
+    if (!isSupabaseAdminConfigured) {
+      return NextResponse.json(
+        {
+          error:
+            "Server not configured: SUPABASE_SERVICE_ROLE_KEY is missing. Add it to .env.local (dev) or Vercel env (prod).",
+        },
+        { status: 503 }
+      );
+    }
+
     const user = await getUser(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -326,7 +369,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data });
   } catch (err) {
-    console.error("Sync pull error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Sync pull error:", message, err);
+    return NextResponse.json(
+      { error: "Sync pull failed", detail: message },
+      { status: 500 }
+    );
   }
 }

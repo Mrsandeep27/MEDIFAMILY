@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { AppHeader } from "@/components/layout/app-header";
@@ -11,15 +11,12 @@ import { useMedicines } from "@/hooks/use-medicines";
 import {
   Heart,
   AlertTriangle,
-  Phone,
-  Pill,
   Share2,
-  Shield,
-  Plus,
-  Activity,
   Pencil,
+  Plus,
   QrCode,
   X,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,21 +44,20 @@ function formatRelation(relation: string): string {
 
 export default function EmergencyCardPage() {
   const router = useRouter();
-  const { members, isLoading: membersLoading } = useMembers();
+  const { members, isLoading: membersLoading, deleteMember } = useMembers();
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
   const [showQR, setShowQR] = useState(false);
 
-  // Default to self member, or first member if no self exists
-  useEffect(() => {
-    if (selectedMemberId || members.length === 0) return;
-    const self = members.find((m) => m.relation === "self");
-    setSelectedMemberId(self?.id || members[0].id);
+  // Pick the active member: explicitly selected → self → first available
+  const selfMember = useMemo(() => {
+    if (selectedMemberId) {
+      const found = members.find((m) => m.id === selectedMemberId);
+      if (found) return found;
+    }
+    return (
+      members.find((m) => m.relation === "self") || members[0] || undefined
+    );
   }, [members, selectedMemberId]);
-
-  const selfMember = useMemo(
-    () => members.find((m) => m.id === selectedMemberId),
-    [members, selectedMemberId]
-  );
 
   const { activeMedicines, isLoading: medsLoading } = useMedicines(
     selfMember?.id
@@ -125,6 +121,32 @@ export default function EmergencyCardPage() {
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       toast.error("Failed to share");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selfMember) return;
+    if (
+      !confirm(
+        `Delete ${selfMember.name}'s emergency card? This will remove their profile.`
+      )
+    )
+      return;
+    try {
+      await deleteMember(selfMember.id);
+      toast.success(`${selfMember.name}'s card deleted`);
+      // Pick another member if any remain
+      const next = members.find((m) => m.id !== selfMember.id);
+      if (next) {
+        setSelectedMemberId(next.id);
+      } else {
+        router.replace("/family");
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete profile"
+      );
     }
   };
 
@@ -234,20 +256,8 @@ export default function EmergencyCardPage() {
                 Emergency Health Card
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
-                <QrCode className="h-3.5 w-3.5 text-white" />
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  router.push(`/family/${selfMember.id}/edit`);
-                }}
-                className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
-                aria-label="Edit profile"
-              >
-                <Pencil className="h-3.5 w-3.5 text-white" />
-              </button>
+            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
+              <QrCode className="h-3.5 w-3.5 text-white" />
             </div>
           </div>
 
@@ -322,140 +332,23 @@ export default function EmergencyCardPage() {
           </CardContent>
         </Card>
 
-        {/* ─── Chronic Conditions ───────────────────────────────── */}
-        <Card>
-          <CardContent className="p-4">
-            <SectionHeader
-              icon={<Activity className="h-4 w-4 text-orange-600" />}
-              title="Chronic Conditions"
-              count={selfMember.chronic_conditions?.length || 0}
-            />
-            {selfMember.chronic_conditions?.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {selfMember.chronic_conditions.map((condition, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium border border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800"
-                  >
-                    {condition}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <EmptyRow
-                text="None recorded"
-                action="Add"
-                onClick={() => router.push(`/family/${selfMember.id}/edit`)}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ─── Current Medications ──────────────────────────────── */}
-        <Card>
-          <CardContent className="p-4">
-            <SectionHeader
-              icon={<Pill className="h-4 w-4 text-blue-600" />}
-              title="Current Medications"
-              count={activeMedicines.length}
-            />
-            {activeMedicines.length > 0 ? (
-              <div className="space-y-1.5">
-                {activeMedicines.map((med) => (
-                  <div
-                    key={med.id}
-                    className="flex items-center justify-between rounded-lg bg-blue-50 dark:bg-blue-950/20 px-3 py-2.5 border border-blue-100 dark:border-blue-900"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                        <Pill className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <span className="text-sm font-medium">{med.name}</span>
-                    </div>
-                    {med.dosage && (
-                      <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">
-                        {med.dosage}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyRow
-                text="No active medicines"
-                action="Add"
-                onClick={() => router.push("/reminders")}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ─── Emergency Contact ────────────────────────────────── */}
-        <Card>
-          <CardContent className="p-4">
-            <SectionHeader
-              icon={<Phone className="h-4 w-4 text-green-600" />}
-              title="Emergency Contact"
-            />
-            {selfMember.emergency_contact_name ||
-            selfMember.emergency_contact_phone ? (
-              <a
-                href={
-                  selfMember.emergency_contact_phone
-                    ? `tel:${selfMember.emergency_contact_phone}`
-                    : "#"
-                }
-                className="flex items-center justify-between rounded-lg bg-green-50 dark:bg-green-950/20 px-3 py-3 border border-green-200 dark:border-green-900 hover:bg-green-100 dark:hover:bg-green-950/30 transition"
-              >
-                <div>
-                  {selfMember.emergency_contact_name && (
-                    <p className="text-sm font-semibold">
-                      {selfMember.emergency_contact_name}
-                    </p>
-                  )}
-                  {selfMember.emergency_contact_phone && (
-                    <p className="text-xs text-green-700 dark:text-green-400 font-medium mt-0.5">
-                      {selfMember.emergency_contact_phone}
-                    </p>
-                  )}
-                </div>
-                {selfMember.emergency_contact_phone && (
-                  <div className="h-9 w-9 rounded-full bg-green-600 flex items-center justify-center shadow-md">
-                    <Phone className="h-4 w-4 text-white fill-white" />
-                  </div>
-                )}
-              </a>
-            ) : (
-              <EmptyRow
-                text="No emergency contact"
-                action="Add"
-                onClick={() => router.push(`/family/${selfMember.id}/edit`)}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ─── ABHA ID (only if exists) ─────────────────────────── */}
-        {selfMember.abha_number && (
-          <Card>
-            <CardContent className="p-4">
-              <SectionHeader
-                icon={<Shield className="h-4 w-4 text-purple-600" />}
-                title="ABHA Health ID"
-              />
-              <div className="rounded-lg bg-purple-50 dark:bg-purple-950/20 px-3 py-2.5 border border-purple-100 dark:border-purple-900">
-                <p className="text-sm font-mono font-semibold text-purple-900 dark:text-purple-300">
-                  {selfMember.abha_number}
-                </p>
-                {selfMember.abha_address && (
-                  <p className="text-xs text-purple-700 dark:text-purple-400 mt-0.5">
-                    {selfMember.abha_address}
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Compact action row — Edit + Delete */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => router.push(`/family/${selfMember.id}/edit`)}
+            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-border bg-background hover:bg-muted/50 text-sm font-medium transition"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit Profile
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-sm font-medium text-red-600 transition"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </button>
+        </div>
 
         {/* Branding footer */}
         <div className="text-center pt-2">
@@ -575,51 +468,3 @@ export default function EmergencyCardPage() {
   );
 }
 
-// ─── Helper components ──────────────────────────────────────────────
-
-function SectionHeader({
-  icon,
-  title,
-  count,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  count?: number;
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h3 className="text-sm font-semibold">{title}</h3>
-      </div>
-      {count !== undefined && count > 0 && (
-        <span className="text-xs font-medium text-muted-foreground">
-          {count}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function EmptyRow({
-  text,
-  action,
-  onClick,
-}: {
-  text: string;
-  action: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center justify-between rounded-lg border border-dashed px-3 py-3 text-left hover:border-primary/50 hover:bg-muted/30 transition group"
-    >
-      <span className="text-sm text-muted-foreground">{text}</span>
-      <span className="flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
-        <Plus className="h-3 w-3" />
-        {action}
-      </span>
-    </button>
-  );
-}
