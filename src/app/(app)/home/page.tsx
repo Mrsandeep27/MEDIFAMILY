@@ -216,7 +216,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="px-4 space-y-5">
+      <div className="px-4 space-y-4">
         {/* Health Tip — compact icon strip, rotates each visit */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-amber-50 border border-amber-200">
           <Lightbulb className="h-4 w-4 text-amber-600 shrink-0" />
@@ -289,32 +289,22 @@ export default function HomePage() {
         {/* Weekly Summary */}
         <WeeklySummary />
 
-        {/* ABHA Banner */}
+        {/* ABHA Banner — coming soon (ABDM sandbox onboarding in progress) */}
         <Link href="/abha">
-          {selfMember?.abha_number ? (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
-                <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-green-800 dark:text-green-300">{t("home.abha_linked")}</p>
-                <p className="text-xs text-green-600 dark:text-green-400 truncate">
-                  {selfMember.abha_address || selfMember.abha_number}
-                </p>
-              </div>
-              <span className="text-xs text-green-600 dark:text-green-400 font-medium">View &rarr;</span>
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+              <Shield className="h-5 w-5 text-green-600" />
             </div>
-          ) : (
-            <div className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border border-green-200 dark:border-green-800">
-              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center shrink-0">
-                <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-green-800">{t("home.link_abha")}</p>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-green-800 dark:text-green-200">{t("home.link_abha")}</p>
-                <p className="text-xs text-green-600 dark:text-green-400">{t("home.abha_desc")}</p>
-              </div>
+              <p className="text-xs text-green-600 truncate">{t("home.abha_desc")}</p>
             </div>
-          )}
+          </div>
         </Link>
 
         {/* Upcoming Appointments */}

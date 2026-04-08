@@ -193,6 +193,56 @@ export default function AbhaPage() {
     );
   }
 
+  // ─── Coming Soon gate ──────────────────────────────────────────────────
+  // ABDM sandbox onboarding is in progress. Show a placeholder until our
+  // production credentials are approved — flip COMING_SOON to false to
+  // re-enable the full integration flow below.
+  const COMING_SOON = true;
+  if (COMING_SOON) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="sticky top-0 z-10 bg-background border-b px-4 py-3 flex items-center gap-3">
+          <Link href="/home">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-bold">ABHA Health ID</h1>
+        </div>
+        <div className="px-6 py-12 max-w-md mx-auto text-center space-y-5">
+          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto shadow-lg">
+            <Shield className="h-10 w-10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full">
+              Coming Soon
+            </span>
+            <h2 className="text-2xl font-bold">ABHA integration is on the way</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              We&apos;re onboarding with the National Health Authority&apos;s ABDM
+              sandbox. Once approved, you&apos;ll be able to link your ABHA Health
+              ID and pull verified records from any participating hospital
+              right into MediFamily.
+            </p>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-left">
+            <p className="text-xs font-semibold text-green-800 mb-1">What you&apos;ll get</p>
+            <ul className="text-xs text-green-700 space-y-1 list-disc list-inside">
+              <li>14-digit ABHA number + abha.address handle</li>
+              <li>Auto-import of records from linked hospitals</li>
+              <li>Aadhaar + mobile OTP verification</li>
+              <li>Privacy-first consent flow</li>
+            </ul>
+          </div>
+          <Link
+            href="/home"
+            className="inline-block text-sm font-medium text-primary hover:underline"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
