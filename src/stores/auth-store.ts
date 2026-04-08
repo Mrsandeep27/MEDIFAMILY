@@ -36,10 +36,13 @@ export const useAuthStore = create<AuthState>()(
       setHasCompletedOnboarding: (value) =>
         set({ hasCompletedOnboarding: value }),
       logout: () =>
+        // Keep hasCompletedOnboarding so the same user logging back in
+        // doesn't have to re-onboard. The setUser logic above resets it
+        // when a different user logs in. Cross-device cases are handled
+        // by the login flow's API check.
         set({
           user: null,
           isAuthenticated: false,
-          hasCompletedOnboarding: false,
         }),
     }),
     {

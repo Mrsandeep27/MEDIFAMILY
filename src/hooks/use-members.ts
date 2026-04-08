@@ -24,21 +24,25 @@ export function useMembers() {
     useLiveQuery(() => db.members.get(id), [id]);
 
   const addMember = async (data: MemberFormData): Promise<string> => {
-    if (!user) throw new Error("Not authenticated");
+    if (!user?.id) {
+      throw new Error("Please sign in again to add a family member");
+    }
     const id = uuidv4();
     const now = new Date().toISOString();
     const member: Member = {
       id,
       user_id: user.id,
-      name: data.name,
-      relation: data.relation as Relation,
-      date_of_birth: data.date_of_birth,
-      blood_group: (data.blood_group || "") as BloodGroup,
-      gender: (data.gender || "") as Gender,
-      allergies: data.allergies,
-      chronic_conditions: data.chronic_conditions,
-      emergency_contact_name: data.emergency_contact_name,
-      emergency_contact_phone: data.emergency_contact_phone,
+      name: data.name.trim(),
+      relation: (data.relation || "self") as Relation,
+      date_of_birth: data.date_of_birth || undefined,
+      blood_group: ((data.blood_group as string) || "") as BloodGroup,
+      gender: ((data.gender as string) || "") as Gender,
+      allergies: Array.isArray(data.allergies) ? data.allergies : [],
+      chronic_conditions: Array.isArray(data.chronic_conditions)
+        ? data.chronic_conditions
+        : [],
+      emergency_contact_name: data.emergency_contact_name || undefined,
+      emergency_contact_phone: data.emergency_contact_phone || undefined,
       avatar_url: undefined,
       created_at: now,
       updated_at: now,

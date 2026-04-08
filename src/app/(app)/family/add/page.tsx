@@ -18,9 +18,16 @@ export default function AddMemberPage() {
     try {
       await addMember(data);
       toast.success(`${data.name} added to your family!`);
-      router.back();
-    } catch {
-      toast.error("Failed to add family member.");
+      // Navigate to family list explicitly so the page re-mounts and useLiveQuery
+      // sees the new row immediately. router.back() can land on a stale cached page.
+      router.replace("/family");
+    } catch (err) {
+      console.error("addMember failed:", err);
+      toast.error(
+        err instanceof Error
+          ? `Failed to add: ${err.message}`
+          : "Failed to add family member."
+      );
     } finally {
       setLoading(false);
     }

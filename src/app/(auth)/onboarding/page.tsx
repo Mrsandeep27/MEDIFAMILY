@@ -591,54 +591,78 @@ export default function OnboardingPage() {
   const [scannedMeds, setScannedMeds] = useState<ExtractedMed[]>([]);
   const [showBadge, setShowBadge] = useState<string | null>(null);
 
-  // ---- Session check (original logic preserved) ----
+  // ---- Session check + existing-member detection ----
   useEffect(() => {
-    if (hasCompletedOnboarding && user) {
-      window.location.replace("/home");
-      return;
-    }
+    let cancelled = false;
 
-    if (user) {
-      setReady(true);
-      return;
-    }
+    const verifyAndRoute = async () => {
+      // Fast path: local flag says onboarded
+      if (hasCompletedOnboarding && user) {
+        window.location.replace("/home");
+        return;
+      }
 
-    const supabase = createClient();
-    supabase.auth
-      .getSession()
-      .then(
-        ({
-          data,
-        }: {
-          data: {
-            session: {
-              user: {
-                id: string;
-                email?: string;
-                user_metadata?: Record<string, string>;
-              };
-            } | null;
-          };
-        }) => {
-          const sessionUser = data.session?.user;
-          if (sessionUser) {
-            setUser({
-              id: sessionUser.id,
-              email: sessionUser.email || "",
-              name:
-                (sessionUser.user_metadata as Record<string, string>)?.name ||
-                "",
-            });
-            setReady(true);
-          } else {
+      // Need a session before we can do anything
+      let sessionUser = user;
+      if (!sessionUser) {
+        const supabase = createClient();
+        try {
+          const { data } = await supabase.auth.getSession();
+          const su = data.session?.user;
+          if (!su) {
             window.location.replace("/login");
+            return;
           }
-        },
-      )
-      .catch(() => {
-        window.location.replace("/login");
-      });
-  }, [user, hasCompletedOnboarding, setUser]);
+          sessionUser = {
+            id: su.id,
+            email: su.email || "",
+            name: (su.user_metadata as Record<string, string>)?.name || "",
+          };
+          if (!cancelled) setUser(sessionUser);
+        } catch {
+          window.location.replace("/login");
+          return;
+        }
+      }
+
+      // Check Dexie locally first (fast, works offline)
+      try {
+        const { db } = await import("@/lib/db/dexie");
+        const localSelf = await db.members
+          .where({ user_id: sessionUser.id, relation: "self", is_deleted: false })
+          .first();
+        if (localSelf && !cancelled) {
+          setHasCompletedOnboarding(true);
+          window.location.replace("/home");
+          return;
+        }
+      } catch {
+        // ignore — fall through to server check
+      }
+
+      // Check server (for new device / fresh install)
+      try {
+        const res = await fetch("/api/check-onboarding");
+        if (res.ok) {
+          const { onboarded } = await res.json();
+          if (onboarded && !cancelled) {
+            setHasCompletedOnboarding(true);
+            window.location.replace("/home");
+            return;
+          }
+        }
+      } catch {
+        // ignore — show onboarding
+      }
+
+      if (!cancelled) setReady(true);
+    };
+
+    verifyAndRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, hasCompletedOnboarding, setUser, setHasCompletedOnboarding]);
 
   // ---- Step 1: Save self profile (MANDATORY — marks onboarding complete) ----
   const handleProfileSubmit = async (data: MemberFormData) => {
@@ -647,15 +671,24 @@ export default function OnboardingPage() {
       const id = await addMember({ ...data, relation: "self" });
       setSelfMemberId(id);
       setSelfMemberName(data.name);
+
+      // AWAIT sync — ensures the cloud has the self member before we mark
+      // onboarding complete. Otherwise the next login may not find them in
+      // the cloud and bounce back to onboarding.
+      try {
+        await syncAll();
+      } catch (err) {
+        // Don't block onboarding on sync failures (offline-first), but log it
+        console.warn("Sync after onboarding failed (will retry):", err);
+      }
+
       setHasCompletedOnboarding(true);
-
-      // Sync to Supabase immediately
-      syncAll().catch(() => {});
-
       setShowBadge("Profile Created");
     } catch (err) {
       console.error("Onboarding error:", err);
-      toast.error("Something went wrong. Please try again.");
+      toast.error(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
     } finally {
       setLoading(false);
     }

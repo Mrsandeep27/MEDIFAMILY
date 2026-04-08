@@ -15,23 +15,46 @@ function generateInviteCode(): string {
 }
 
 // Verify user from Supabase auth — NEVER trust client-provided headers for identity
-async function getUser(request: NextRequest): Promise<string | null> {
+async function getUser(request: NextRequest): Promise<{ id: string; email: string } | null> {
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (!error && data.user) return data.user.id;
+    if (!error && data.user) {
+      return { id: data.user.id, email: data.user.email || "" };
+    }
   }
 
   return null;
 }
 
+// Ensure a row exists in public.users for this auth user.
+// Supabase Auth uses auth.users (separate schema). Our family_members table
+// has a FK to public.users, so we must create the row lazily before any insert.
+async function ensureUserRow(userId: string, email: string): Promise<void> {
+  const { data: existing } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existing) return;
+
+  await supabaseAdmin.from("users").insert({
+    id: userId,
+    email,
+    password_hash: "supabase-auth", // placeholder — auth handled by Supabase Auth
+    name: email.split("@")[0],
+  });
+}
+
 // GET: Get user's family groups
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUser(req);
-    if (!userId) {
+    const auth = await getUser(req);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = auth.id;
 
     const { data: familyMembers } = await supabaseAdmin
       .from("family_members")
@@ -68,10 +91,14 @@ export async function GET(req: NextRequest) {
 // POST: Create or Join a family group
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUser(req);
-    if (!userId) {
+    const auth = await getUser(req);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = auth.id;
+
+    // Make sure public.users has a row for this user (FK requirement)
+    await ensureUserRow(userId, auth.email);
 
     const body = await req.json();
     const { action } = body;
@@ -82,12 +109,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Family name must be at least 2 characters" }, { status: 400 });
       }
 
-      // Generate unique invite code
+      // Generate unique invite code (use maybeSingle to avoid PGRST116 errors)
       let inviteCode = generateInviteCode();
-      let { data: existing } = await supabaseAdmin.from("families").select("id").eq("invite_code", inviteCode).single();
+      let { data: existing } = await supabaseAdmin
+        .from("families")
+        .select("id")
+        .eq("invite_code", inviteCode)
+        .maybeSingle();
       while (existing) {
         inviteCode = generateInviteCode();
-        ({ data: existing } = await supabaseAdmin.from("families").select("id").eq("invite_code", inviteCode).single());
+        ({ data: existing } = await supabaseAdmin
+          .from("families")
+          .select("id")
+          .eq("invite_code", inviteCode)
+          .maybeSingle());
       }
 
       // Create family
@@ -98,15 +133,32 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (famErr || !family) {
-        return NextResponse.json({ error: "Failed to create family" }, { status: 500 });
+        // Surface the actual error so we can debug
+        console.error("[family/create] families.insert failed:", famErr);
+        return NextResponse.json(
+          { error: famErr?.message || "Failed to create family" },
+          { status: 500 }
+        );
       }
 
       // Add creator as admin
-      await supabaseAdmin.from("family_members").insert({
-        family_id: family.id,
-        user_id: userId,
-        role: "admin",
-      });
+      const { error: memErr } = await supabaseAdmin
+        .from("family_members")
+        .insert({
+          family_id: family.id,
+          user_id: userId,
+          role: "admin",
+        });
+
+      if (memErr) {
+        // Roll back the family insert
+        console.error("[family/create] family_members.insert failed:", memErr);
+        await supabaseAdmin.from("families").delete().eq("id", family.id);
+        return NextResponse.json(
+          { error: `Failed to add you as admin: ${memErr.message}` },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         family: {
@@ -130,7 +182,7 @@ export async function POST(req: NextRequest) {
         .from("families")
         .select("id, name, invite_code, created_by")
         .eq("invite_code", invite_code.toUpperCase().trim())
-        .single();
+        .maybeSingle();
 
       if (!family) {
         return NextResponse.json({ error: "Invalid invite code" }, { status: 404 });
@@ -142,17 +194,27 @@ export async function POST(req: NextRequest) {
         .select("id")
         .eq("family_id", family.id)
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         return NextResponse.json({ error: "You are already a member of this family" }, { status: 400 });
       }
 
-      await supabaseAdmin.from("family_members").insert({
-        family_id: family.id,
-        user_id: userId,
-        role: "member",
-      });
+      const { error: memErr } = await supabaseAdmin
+        .from("family_members")
+        .insert({
+          family_id: family.id,
+          user_id: userId,
+          role: "member",
+        });
+
+      if (memErr) {
+        console.error("[family/join] family_members.insert failed:", memErr);
+        return NextResponse.json(
+          { error: `Failed to join: ${memErr.message}` },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         family: { ...family, role: "member", members: [] },
