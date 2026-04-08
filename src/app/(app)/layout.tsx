@@ -62,6 +62,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       navigator.storage.persist().catch(() => {});
     }
 
+    // One-time migration: copy data from old `medilog` Dexie DB to `medifamily`
+    // Runs once per device, guarded by a localStorage flag
+    import("@/lib/db/migrate-from-medilog").then(({ migrateFromMediLog }) => {
+      migrateFromMediLog().catch((err) => {
+        console.error("Migration failed:", err);
+      });
+    });
+
     // One-time session check — if no session, kick to login
     // Falls back to cached Zustand session when offline
     const supabase = createClient();

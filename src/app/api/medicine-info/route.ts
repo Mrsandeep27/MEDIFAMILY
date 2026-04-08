@@ -67,28 +67,27 @@ export async function POST(request: NextRequest) {
 
 Medicines: ${medicines.join(", ")}
 
-Return ONLY this JSON format (no markdown):
+Return ONLY this JSON format (no markdown, no extra text):
 {
   "interactions": [
     {
-      "medicine_a": "Medicine 1 name",
-      "medicine_b": "Medicine 2 name",
-      "severity": "mild|moderate|severe",
-      "description": "Simple explanation in plain English of what happens",
-      "recommendation": "What the patient should do"
+      "medicines": ["Medicine 1 name", "Medicine 2 name"],
+      "severity": "mild",
+      "description": "Simple explanation of what happens when these are combined, plus what the patient should do"
     }
   ],
   "overall_safe": true,
-  "summary": "One-line summary in simple English",
-  "summary_hindi": "Ek line ka summary Hindi mein"
+  "summary": "One-line summary in simple English"
 }
 
 Rules:
-- If NO interactions exist, return empty interactions array and overall_safe: true
-- Use simple language an Indian grandmother would understand
-- Severity: mild = generally OK with caution, moderate = needs doctor approval, severe = do NOT combine
-- Always recommend consulting a doctor for moderate/severe
-- If you don't recognize a medicine name, still try your best${locale === "hi" ? "\n- Write description, recommendation, summary in Hindi" : ""}`;
+- If NO interactions exist between the listed medicines, return interactions: [] and overall_safe: true
+- "medicines" field MUST be an array of EXACTLY 2 medicine names that interact
+- Severity must be exactly one of: mild, moderate, severe
+- mild = generally OK with caution, moderate = needs doctor approval, severe = do NOT combine
+- description should be simple, plain language an Indian grandmother understands
+- ALWAYS include "Please consult your doctor" for moderate/severe interactions
+- If you don't recognize a medicine name, still try your best${locale === "hi" ? "\n- Write description and summary in Hindi (Devanagari script)" : ""}`;
 
       try {
         const text = await callGemini(
@@ -98,9 +97,42 @@ Rules:
 
         const parsed = parseJsonResponse(text);
         if (!Array.isArray(parsed.interactions)) parsed.interactions = [];
-        const interactionsArr = parsed.interactions as unknown[];
+
+        // Normalize interaction shape to match what the page expects:
+        // { medicines: [name1, name2], severity, description }
+        const rawInteractions = parsed.interactions as Array<Record<string, unknown>>;
+        const normalized = rawInteractions
+          .map((i) => {
+            // Accept either { medicines: [a,b] } OR { medicine_a, medicine_b }
+            let meds: string[] = [];
+            if (Array.isArray(i.medicines)) {
+              meds = (i.medicines as unknown[]).filter(
+                (m): m is string => typeof m === "string"
+              );
+            } else if (i.medicine_a && i.medicine_b) {
+              meds = [String(i.medicine_a), String(i.medicine_b)];
+            }
+            if (meds.length < 2) return null;
+
+            const severity = ["mild", "moderate", "severe"].includes(i.severity as string)
+              ? (i.severity as string)
+              : "moderate";
+
+            const description = [i.description, i.recommendation]
+              .filter((v) => typeof v === "string" && v.trim().length > 0)
+              .join(" ");
+
+            return {
+              medicines: meds,
+              severity,
+              description: description || "Interaction detected — consult your doctor.",
+            };
+          })
+          .filter((i): i is { medicines: string[]; severity: string; description: string } => i !== null);
+
+        parsed.interactions = normalized;
         if (typeof parsed.overall_safe !== "boolean") {
-          parsed.overall_safe = interactionsArr.length === 0;
+          parsed.overall_safe = normalized.length === 0;
         }
 
         return NextResponse.json(parsed);
