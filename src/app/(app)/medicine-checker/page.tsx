@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useMedicines } from "@/hooks/use-medicines";
 import { useMembers } from "@/hooks/use-members";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 interface Interaction {
@@ -101,9 +102,19 @@ export default function MedicineCheckerPage() {
     setResult(null);
 
     try {
+      // Get Supabase access token for authenticated API call
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Please sign in to check interactions");
+      }
+
       const res = await fetch("/api/medicine-info", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           type: "interaction",
           medicines: selectedMedicines,
@@ -111,7 +122,8 @@ export default function MedicineCheckerPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to check interactions");
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "Failed to check interactions");
       }
 
       const data = await res.json();

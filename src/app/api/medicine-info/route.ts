@@ -52,7 +52,66 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { image, action, question, context, locale } = body;
+    const { image, action, question, context, locale, type, medicines } = body;
+
+    // === INTERACTION CHECK: Check if medicines can be safely combined ===
+    if (type === "interaction" || action === "interaction") {
+      if (!Array.isArray(medicines) || medicines.length < 2) {
+        return NextResponse.json(
+          { error: "At least 2 medicines required" },
+          { status: 400 }
+        );
+      }
+
+      const interactionPrompt = `You are an Indian pharmacist AI. Check if these medicines can be safely taken together by an Indian patient.
+
+Medicines: ${medicines.join(", ")}
+
+Return ONLY this JSON format (no markdown):
+{
+  "interactions": [
+    {
+      "medicine_a": "Medicine 1 name",
+      "medicine_b": "Medicine 2 name",
+      "severity": "mild|moderate|severe",
+      "description": "Simple explanation in plain English of what happens",
+      "recommendation": "What the patient should do"
+    }
+  ],
+  "overall_safe": true,
+  "summary": "One-line summary in simple English",
+  "summary_hindi": "Ek line ka summary Hindi mein"
+}
+
+Rules:
+- If NO interactions exist, return empty interactions array and overall_safe: true
+- Use simple language an Indian grandmother would understand
+- Severity: mild = generally OK with caution, moderate = needs doctor approval, severe = do NOT combine
+- Always recommend consulting a doctor for moderate/severe
+- If you don't recognize a medicine name, still try your best${locale === "hi" ? "\n- Write description, recommendation, summary in Hindi" : ""}`;
+
+      try {
+        const text = await callGemini(
+          [{ text: interactionPrompt }],
+          { temperature: 0.2, maxOutputTokens: 1500, feature: "medicine-interaction", jsonMode: true }
+        );
+
+        const parsed = parseJsonResponse(text);
+        if (!Array.isArray(parsed.interactions)) parsed.interactions = [];
+        const interactionsArr = parsed.interactions as unknown[];
+        if (typeof parsed.overall_safe !== "boolean") {
+          parsed.overall_safe = interactionsArr.length === 0;
+        }
+
+        return NextResponse.json(parsed);
+      } catch (err) {
+        console.error("Interaction check error:", err);
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : "Failed to check interactions" },
+          { status: 500 }
+        );
+      }
+    }
 
     // === CHAT: Follow-up question about a medicine ===
     if (action === "chat") {
