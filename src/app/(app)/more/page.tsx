@@ -10,12 +10,6 @@ import {
   Shield,
   Users,
   MessageSquare,
-  Activity,
-  AlertTriangle,
-  Clock,
-  CalendarDays,
-  Heart,
-  Zap,
   Award,
   Gift,
 } from "lucide-react";
@@ -27,30 +21,19 @@ import { useMembers } from "@/hooks/use-members";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Activity as BarChart3 } from "lucide-react";
 import { shareMediFamily } from "@/lib/utils/share-app";
 
+// Health tools (Vitals, Timeline, Medicine Checker, etc.) live in the
+// 'All Features' expandable section on the home page now — keep this
+// page focused on sharing + account.
 const menuSections = [
-  {
-    titleKey: "more.health_tools",
-    items: [
-      { href: "/smart-records", icon: Activity, labelKey: "more.health_overview" },
-      { href: "/vitals", icon: BarChart3, labelKey: "more.vitals" },
-      { href: "/timeline", icon: Clock, labelKey: "more.timeline" },
-      { href: "/appointments", icon: CalendarDays, labelKey: "more.appointments" },
-      { href: "/emergency-card", icon: Heart, labelKey: "more.emergency_card" },
-      { href: "/medicine-checker", icon: Zap, labelKey: "more.medicine_checker" },
-      { href: "/health-risk", icon: AlertTriangle, labelKey: "more.risk_assessment" },
-      { href: "/badges", icon: Award, labelKey: "more.badges" },
-      { href: "/more/export", icon: Download, labelKey: "more.download_report" },
-    ],
-  },
   {
     titleKey: "more.sharing",
     items: [
       { href: "/more/shared-links", icon: Share2, labelKey: "more.share_doctor" },
-      { href: "/abha", icon: Shield, labelKey: "more.abha" },
+      { href: "/more/export", icon: Download, labelKey: "more.download_report" },
       { href: "/more/family-group", icon: Users, labelKey: "more.family_group" },
+      { href: "/badges", icon: Award, labelKey: "more.badges" },
     ],
   },
   {
