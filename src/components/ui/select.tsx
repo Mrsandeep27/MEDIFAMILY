@@ -6,7 +6,46 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// Base UI's Select.Value renders the raw value string when no children
+// render function is provided. For id-based selects (member id, record id,
+// …) that meant the trigger showed a UUID instead of the friendly label.
+//
+// This context lets <SelectItem> register its rendered children against
+// its value, and lets <SelectValue> look the label up automatically — so
+// every call site can keep using the natural `<SelectItem value={id}>{name}</SelectItem>`
+// pattern with no per-site render-function boilerplate.
+type LabelMap = Map<string, React.ReactNode>
+const SelectLabelContext = React.createContext<{
+  register: (value: string, label: React.ReactNode) => void
+  unregister: (value: string) => void
+  get: (value: string) => React.ReactNode | undefined
+} | null>(null)
+
+// Generic wrapper that preserves base-ui's generic value typing while
+// providing a label registry for SelectValue auto-resolution.
+function Select<Value>(props: SelectPrimitive.Root.Props<Value>) {
+  const labelsRef = React.useRef<LabelMap>(new Map())
+  const [, force] = React.useReducer((n: number) => n + 1, 0)
+  const ctx = React.useMemo(
+    () => ({
+      register: (value: string, label: React.ReactNode) => {
+        labelsRef.current.set(value, label)
+        force()
+      },
+      unregister: (value: string) => {
+        labelsRef.current.delete(value)
+        force()
+      },
+      get: (value: string) => labelsRef.current.get(value),
+    }),
+    []
+  )
+  return (
+    <SelectLabelContext.Provider value={ctx}>
+      <SelectPrimitive.Root {...props} />
+    </SelectLabelContext.Provider>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -18,13 +57,42 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({
+  className,
+  children,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props) {
+  const ctx = React.useContext(SelectLabelContext)
+
+  // If caller passed a custom render function or static children, honor it.
+  if (children !== undefined) {
+    return (
+      <SelectPrimitive.Value
+        data-slot="select-value"
+        className={cn("flex flex-1 text-left", className)}
+        placeholder={placeholder}
+        {...props}
+      >
+        {children}
+      </SelectPrimitive.Value>
+    )
+  }
+
+  // Otherwise auto-resolve from the label registry populated by SelectItem.
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {(value) => {
+        if (value === null || value === undefined || value === "") return placeholder ?? null
+        const label = ctx?.get(String(value))
+        return label ?? placeholder ?? null
+      }}
+    </SelectPrimitive.Value>
   )
 }
 
@@ -111,11 +179,24 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  value,
   ...props
 }: SelectPrimitive.Item.Props) {
+  const ctx = React.useContext(SelectLabelContext)
+
+  // Register this item's children as the display label for its value, so
+  // <SelectValue> can resolve it without per-site boilerplate.
+  React.useEffect(() => {
+    if (!ctx || value === undefined || value === null) return
+    const key = String(value)
+    ctx.register(key, children)
+    return () => ctx.unregister(key)
+  }, [ctx, value, children])
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      value={value}
       className={cn(
         "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
