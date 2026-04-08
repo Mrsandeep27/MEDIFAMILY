@@ -263,10 +263,10 @@ export default function HomePage() {
               {selfMember && (
                 <Link
                   href="/emergency-card"
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-red-50 border border-red-200"
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-red-100 border border-red-300 shadow-sm hover:bg-red-200 transition-colors"
                 >
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <span className="text-[10px] font-medium text-center text-red-700 leading-tight">{t("home.emergency_card")}</span>
+                  <AlertTriangle className="h-5 w-5 text-red-700" />
+                  <span className="text-[10px] font-semibold text-center text-red-800 leading-tight">{t("home.emergency_card")}</span>
                 </Link>
               )}
               {shortcutDefs.map((item) => {
@@ -275,10 +275,10 @@ export default function HomePage() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/40 hover:bg-muted transition-colors"
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-sm hover:bg-slate-700 transition-colors"
                   >
-                    <Icon className="h-5 w-5 text-foreground" />
-                    <span className="text-[10px] font-medium text-center leading-tight">{t(item.labelKey)}</span>
+                    <Icon className="h-5 w-5 text-white" />
+                    <span className="text-[10px] font-medium text-center text-white leading-tight">{t(item.labelKey)}</span>
                   </Link>
                 );
               })}
