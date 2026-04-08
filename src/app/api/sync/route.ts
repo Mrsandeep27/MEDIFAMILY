@@ -81,22 +81,27 @@ async function getUser(request: NextRequest): Promise<{ userId: string; email: s
 // Ensure a row exists in public.users for this auth user.
 // members.user_id has a FK to public.users — without this, member upserts fail.
 async function ensureUserRow(userId: string, email: string): Promise<void> {
-  try {
-    const { data: existing } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
-    if (existing) return;
+  const { data: existing } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (existing) return;
 
-    await supabaseAdmin.from("users").insert({
-      id: userId,
-      email: email || `${userId}@medifamily.local`,
-      password_hash: "supabase-auth",
-      name: email ? email.split("@")[0] : "User",
-    });
-  } catch (err) {
-    console.error("[ensureUserRow] failed:", err);
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin.from("users").insert({
+    id: userId,
+    email: email || `${userId}@medifamily.local`,
+    password_hash: "supabase-auth",
+    name: email ? email.split("@")[0] : "User",
+    created_at: now,
+    updated_at: now,
+  });
+  if (error) {
+    // 23505 = unique violation (race) → row exists, fine
+    if (error.code === "23505") return;
+    console.error("[ensureUserRow] failed:", error.message, error.details, error.hint);
+    throw new Error(`ensureUserRow: ${error.message}`);
   }
 }
 
@@ -243,12 +248,13 @@ export async function POST(request: NextRequest) {
           }
         } else {
           // Batch failed (one bad row fails all) — fallback to per-item
+          console.error(`Sync batch ${table} failed:`, batchError.message, batchError.details, batchError.hint);
           for (const { data, id } of validItems) {
             try {
               const { error } = await supabaseAdmin.from(table).upsert(data, { onConflict: "id" });
               if (error) {
-                console.error(`Sync upsert ${id}:`, error.message);
-                results.errors.push(`${id}: sync failed`);
+                console.error(`Sync upsert ${table}/${id}:`, error.message, error.details, error.hint);
+                results.errors.push(`${id}: ${error.message}`);
                 results.failedIds.push(id);
               } else {
                 results.pushed++;

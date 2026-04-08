@@ -43,6 +43,11 @@ export function useSync() {
       const count = await getPendingCount();
       setPendingCount(count);
 
+      // Always log errors to console for diagnosis (even if no pending items)
+      if (result.errors.length > 0) {
+        console.error("[sync] errors:", result.errors);
+      }
+
       // Notify user if sync had errors and data is stuck locally
       if (result.errors.length > 0 && count > 0) {
         const isAuthError = result.errors.some(e => e.includes("401") || e.includes("Unauthorized"));
