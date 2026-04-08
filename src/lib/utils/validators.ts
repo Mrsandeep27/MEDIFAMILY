@@ -17,7 +17,7 @@ export const pinSchema = z
   .length(4, "PIN must be 4 digits")
   .regex(/^\d{4}$/, "PIN must contain only digits");
 
-// Family member
+// Family member — minimal: only name + relation required
 export const memberSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   relation: z.enum([
@@ -33,20 +33,23 @@ export const memberSchema = z.object({
     "sister",
     "other",
   ]),
-  date_of_birth: z.string().min(1, "Date of birth is required"),
-  blood_group: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"], {
-    message: "Select a blood group",
-  }),
-  gender: z.enum(["male", "female", "other"], {
-    message: "Select gender",
-  }),
+  date_of_birth: z.string().optional().or(z.literal("")),
+  blood_group: z
+    .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+    .optional()
+    .or(z.literal("")),
+  gender: z.enum(["male", "female", "other"]).optional().or(z.literal("")),
   allergies: z.array(z.string()),
   chronic_conditions: z.array(z.string()),
-  emergency_contact_name: z.string().min(1, "Emergency contact name is required"),
+  emergency_contact_name: z.string().optional().or(z.literal("")),
   emergency_contact_phone: z
     .string()
-    .min(1, "Emergency contact phone is required")
-    .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (v) => !v || /^[6-9]\d{9}$/.test(v),
+      "Enter a valid 10-digit mobile number"
+    ),
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;
