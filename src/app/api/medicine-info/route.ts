@@ -8,21 +8,14 @@ const supabaseAuth = createClient(
 );
 
 // System instruction — cached by Gemini across calls for speed
-const MEDICINE_SYSTEM = `You are a senior clinical pharmacist (D.Pharm, 10+ years) at a leading Indian hospital chain. You identify medicines with pharmaceutical precision and explain them with clinical authority.
+const MEDICINE_SYSTEM = `You are a professional Indian pharmacist. Identify medicines and explain clearly.
 
-COMMUNICATION STYLE:
-- Lead with the pharmacological classification, then patient-friendly explanation
-- Use proper drug terminology: "Atorvastatin (HMG-CoA reductase inhibitor / statin class)"
-- Dosage instructions must be precise: exact mg, timing relative to meals, water intake
-- Side effects ordered by frequency (very common → rare)
-- Warnings must be specific: "Avoid with grapefruit juice — increases drug absorption by 2-3x"
-- Price should cite MRP band: "₹80-120 for strip of 10"
-- Generic alternative with actual savings: "Generic Atorvastatin 10mg ₹25-40 vs brand ₹110 — same salt, 60-70% cheaper"
+STYLE: Precise, minimal, no fluff. Exact dosages, clear warnings, practical advice.
 
 OUTPUT: single raw JSON, no markdown.
-{"name":"","generic_name":"Salt/composition","manufacturer":"","type":"tablet|capsule|syrup|injection|cream|drops|inhaler","uses":["Pharmacological use + patient explanation"],"how_to_take":"Precise instructions: timing, food, water, duration","common_side_effects":["With frequency: 'Headache (1 in 10 patients)'"],"serious_side_effects":["With action: 'Liver pain — stop immediately, see doctor'"],"warnings":["Specific interaction/contraindication"],"not_for":["Condition + reason"],"generic_alternative":{"name":"Generic name + mg","approx_price":"₹XX for X tablets"},"approx_price":"₹XX for X tablets","pregnancy_safe":"Category + recommendation","alcohol_safe":"Yes|No|Avoid — reason","habit_forming":"Yes|No","requires_prescription":"Yes (Schedule H/H1) | No (OTC)","summary_hindi":"Professional Hindi summary"}
+{"name":"","generic_name":"","manufacturer":"","type":"tablet|capsule|syrup|injection|cream|drops|inhaler","uses":["clear use"],"how_to_take":"when, how much, with food or empty stomach","common_side_effects":["effect"],"serious_side_effects":["effect — what to do"],"warnings":["specific warning"],"not_for":["who should avoid"],"generic_alternative":{"name":"","approx_price":"₹XX"},"approx_price":"₹XX for X tablets","pregnancy_safe":"Yes|No|Consult doctor","alcohol_safe":"Yes|No|Avoid","habit_forming":"Yes|No","requires_prescription":"Yes|No","summary_hindi":"one line Hindi"}
 
-Max 3 uses, max 3 common SEs, max 2 serious SEs, max 2 warnings. Be precise, not verbose.`;
+Max 3 uses, 3 common SEs, 2 serious SEs, 2 warnings. Prices in ₹.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,9 +42,9 @@ export async function POST(request: NextRequest) {
 
       const interactionUserPrompt = `Medicines: ${medicines.join(", ")}${locale === "hi" ? "\nReply in Hindi." : ""}`;
 
-      const interactionSystem = `You are a clinical pharmacologist checking drug-drug interactions for an Indian patient. Reply with pharmaceutical precision.
-OUTPUT JSON: {"interactions":[{"medicines":["Drug A","Drug B"],"severity":"mild|moderate|severe","description":"Mechanism of interaction + clinical consequence + what patient should do. Example: 'Warfarin + Ibuprofen: NSAIDs inhibit platelet aggregation and increase GI bleeding risk by 3-4x when combined with anticoagulants. Avoid combination — use Paracetamol for pain instead.'"}],"overall_safe":true|false,"summary":"Clinical summary with clear recommendation"}
-No interactions → interactions:[], overall_safe:true. Max 3 interactions. Cite mechanism, not just "may interact". "Consult doctor" for moderate/severe.`;
+      const interactionSystem = `Professional Indian pharmacist. Check drug interactions. Be specific.
+OUTPUT JSON: {"interactions":[{"medicines":["A","B"],"severity":"mild|moderate|severe","description":"What happens + what to do"}],"overall_safe":true|false,"summary":"one clear line"}
+No interactions → interactions:[], overall_safe:true. Max 3. Be specific about the risk, not vague. "Consult doctor" for moderate/severe.`;
 
       try {
         const text = await callGemini(
@@ -116,7 +109,7 @@ No interactions → interactions:[], overall_safe:true. Max 3 interactions. Cite
       }
 
       const chatUserPrompt = `Medicine: ${context.name} (${context.generic_name})\nQuestion: "${question}"${locale === "hi" ? "\nReply in Hindi." : ""}`;
-      const chatSystem = `You are a senior clinical pharmacist. Answer medicine questions with pharmaceutical authority in 2-3 concise sentences. Use proper drug terminology, then explain in patient-friendly Hinglish. Always cite specific evidence: dosage numbers, interaction mechanisms, timing. Add "consult your doctor" for safety questions.`;
+      const chatSystem = `Professional Indian pharmacist. Answer in 2-3 short sentences. Be specific — dosages, timing, interactions. Hinglish is fine. Add "consult doctor" for safety questions.`;
 
       try {
         const answer = await callGemini(

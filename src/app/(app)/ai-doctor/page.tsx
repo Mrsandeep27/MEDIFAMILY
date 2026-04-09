@@ -383,85 +383,76 @@ export default function AIDoctorPage() {
                 </button>
 
                 {expandedCards.has(idx) && (
-                  <div className="space-y-2 ml-1 border-l-2 border-primary/20 pl-3">
-                    {/* Differential / Possible Causes */}
+                  <div className="space-y-2 ml-1">
                     {msg.data.possible_causes.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Differential</p>
-                        {msg.data.possible_causes.map((c, i) => (
-                          <p key={i} className="text-xs text-foreground leading-relaxed">
-                            <span className="text-primary font-semibold">{i + 1}.</span> {c}
-                          </p>
-                        ))}
-                      </div>
+                      <Card>
+                        <CardContent className="py-2.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{t("ai_doctor.possible_causes")}</p>
+                          {msg.data.possible_causes.map((c, i) => (
+                            <p key={i} className="text-xs">• {c}</p>
+                          ))}
+                        </CardContent>
+                      </Card>
                     )}
 
-                    {/* Treatment Plan */}
                     {msg.data.what_to_do.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Treatment Plan</p>
-                        {msg.data.what_to_do.map((d, i) => (
-                          <p key={i} className="text-xs text-foreground leading-relaxed">
-                            <span className="text-emerald-600 font-semibold">{i + 1}.</span> {d}
-                          </p>
-                        ))}
-                      </div>
+                      <Card>
+                        <CardContent className="py-2.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{t("ai_doctor.what_to_do")}</p>
+                          {msg.data.what_to_do.map((d, i) => (
+                            <p key={i} className="text-xs">{i + 1}. {d}</p>
+                          ))}
+                        </CardContent>
+                      </Card>
                     )}
 
-                    {/* Home Care */}
                     {msg.data.home_remedies.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
-                          <Home className="h-3 w-3 text-green-600" /> Home Care
-                        </p>
-                        {msg.data.home_remedies.map((r, i) => (
-                          <p key={i} className="text-xs text-foreground leading-relaxed">• {r}</p>
-                        ))}
-                      </div>
+                      <Card className="border-green-200">
+                        <CardContent className="py-2.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Home className="h-3 w-3 text-green-600" /> {t("ai_doctor.home_remedies")}
+                          </p>
+                          {msg.data.home_remedies.map((r, i) => (
+                            <p key={i} className="text-xs">• {r}</p>
+                          ))}
+                        </CardContent>
+                      </Card>
                     )}
 
-                    {/* OTC Medicines — prescription card style */}
                     {msg.data.otc_medicines.length > 0 && (
-                      <Card className="border-blue-200 bg-blue-50/50">
-                        <CardContent className="py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-2 flex items-center gap-1">
-                            <Pill className="h-3 w-3" /> Rx — OTC Medicines
+                      <Card className="border-blue-200">
+                        <CardContent className="py-2.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Pill className="h-3 w-3 text-blue-600" /> {t("ai_doctor.otc_medicines")}
                           </p>
                           {msg.data.otc_medicines.map((m, i) => (
-                            <div key={i} className="mb-2 last:mb-0 pl-2 border-l-2 border-blue-300">
-                              <p className="text-sm font-bold text-foreground">{m.name}</p>
-                              <p className="text-xs text-blue-800">{m.dosage} — {m.when}</p>
-                              {m.warning && (
-                                <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {m.warning}</p>
-                              )}
+                            <div key={i} className="mb-1.5 last:mb-0">
+                              <p className="text-xs font-medium">{m.name} — {m.dosage}</p>
+                              <p className="text-[10px] text-muted-foreground">{m.when}</p>
+                              {m.warning && <p className="text-[10px] text-orange-600">⚠ {m.warning}</p>}
                             </div>
                           ))}
                         </CardContent>
                       </Card>
                     )}
 
-                    {/* Red Flags — emergency warning */}
                     {msg.data.when_to_rush.length > 0 && (
-                      <Card className="border-red-300 bg-red-50">
-                        <CardContent className="py-3">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-red-700 mb-1 flex items-center gap-1">
-                            <Siren className="h-3 w-3" /> Go to Emergency If
+                      <Card className="border-red-200 bg-red-50">
+                        <CardContent className="py-2.5">
+                          <p className="text-[10px] font-semibold text-red-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Siren className="h-3 w-3" /> {t("ai_doctor.go_hospital")}
                           </p>
                           {msg.data.when_to_rush.map((r, i) => (
-                            <p key={i} className="text-xs text-red-800 leading-relaxed font-medium">• {r}</p>
+                            <p key={i} className="text-xs text-red-700">• {r}</p>
                           ))}
                         </CardContent>
                       </Card>
                     )}
 
-                    {/* Referral */}
                     {msg.data.doctor_type && (
-                      <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-2.5">
-                        <Heart className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Recommended Specialist</p>
-                          <p className="text-xs font-medium text-foreground mt-0.5">{msg.data.doctor_type}</p>
-                        </div>
+                      <div className="text-xs bg-muted p-2.5 rounded-lg flex items-center gap-2">
+                        <Heart className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span>{t("ai_doctor.see_doctor")}: <strong>{msg.data.doctor_type}</strong></span>
                       </div>
                     )}
                   </div>
