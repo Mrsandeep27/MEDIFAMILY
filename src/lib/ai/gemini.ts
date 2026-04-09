@@ -15,11 +15,13 @@ const VISION_MODELS = [
   "gemini-2.5-flash-lite",
 ];
 
-// Text: accuracy-first for medical advice (AI doctor, chat)
+// Text: speed-first for chat. flash-lite is 2-3x faster than flash with
+// negligible quality loss for short conversational turns. flash and the
+// 3-preview model stay as fallbacks if lite hits a quota.
 const TEXT_MODELS = [
+  "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
   "gemini-3-flash-preview",
-  "gemini-2.5-flash-lite",
 ];
 
 let currentKeyIndex = 0;

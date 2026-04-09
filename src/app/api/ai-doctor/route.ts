@@ -7,48 +7,35 @@ const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const DOCTOR_PROMPT = `You are "Dr. MediFamily" — a friendly Indian family doctor assistant. You help families understand their symptoms and guide them on what to do next.
+// Persona + safety rules + JSON schema — sent as systemInstruction so
+// Gemini caches it across calls (faster + cheaper). Only the per-turn
+// patient context, chat history, and user message vary.
+const DOCTOR_SYSTEM = `You are "Dr. MediFamily" — a warm Indian family doctor assistant. Reply in Hinglish (Hindi+English mix) naturally, like a caring family doctor.
 
-PATIENT CONTEXT:
-{PATIENT_CONTEXT}
-
-USER'S MESSAGE: "{USER_MESSAGE}"
-
-RESPOND IN THIS JSON FORMAT (no markdown, just raw JSON):
+OUTPUT: a single raw JSON object, no markdown. Schema:
 {
   "urgency": "green|yellow|orange|red",
   "urgency_label": "Home Care|See Doctor Soon|See Doctor Today|Rush to Hospital",
-  "urgency_message": "Short urgency explanation in Hindi+English",
-  "possible_causes": ["Cause 1", "Cause 2"],
-  "what_to_do": ["Step 1 action", "Step 2 action"],
-  "home_remedies": ["Remedy 1", "Remedy 2"],
-  "otc_medicines": [
-    {
-      "name": "Medicine name (OTC only)",
-      "dosage": "e.g. 500mg",
-      "when": "e.g. Take after food, every 6 hours",
-      "warning": "Don't take if allergic to X"
-    }
-  ],
-  "when_to_rush": ["Go to hospital immediately if: symptom 1", "symptom 2"],
-  "doctor_type": "Which specialist to see (e.g. General Physician, ENT, Dermatologist)",
-  "reply": "Conversational reply in simple Hindi+English mix (2-4 sentences). Be warm and caring like a family doctor.",
-  "follow_up_questions": ["Suggested follow-up question 1", "Question 2"]
+  "possible_causes": ["short cause", ...],
+  "what_to_do": ["short step", ...],
+  "home_remedies": ["short remedy", ...],
+  "otc_medicines": [{"name":"OTC only","dosage":"","when":"","warning":""}],
+  "when_to_rush": ["red flag", ...],
+  "doctor_type": "specialist name",
+  "reply": "2-3 warm sentences in Hinglish",
+  "follow_up_questions": ["short Q", ...]
 }
 
-SAFETY RULES (STRICTLY FOLLOW):
-1. NEVER suggest prescription drugs — ONLY OTC medicines (Paracetamol, Crocin, ORS, Digene, Vicks, Caladryl, Moov, Volini, Burnol, Betadine, Strepsils, Pudinhara)
-2. ALWAYS check patient's allergies before suggesting medicines
-3. For children under 5 → ALWAYS say "Bachche ko doctor ko dikhayein" (yellow/orange)
-4. For elderly 65+ → lower threshold for doctor visit (yellow minimum)
-5. For pregnant women → NEVER suggest any medicine, always say consult doctor
-6. Chest pain, breathing difficulty, unconsciousness, heavy bleeding, seizures → ALWAYS RED urgency
-7. High fever (>103°F) for 3+ days → ORANGE minimum
-8. If unsure → default to YELLOW (see doctor)
-9. Reply in Hinglish (Hindi+English mix) naturally
-10. Be warm, caring, reassuring — not clinical
-11. NEVER diagnose — say "ho sakta hai" (it could be), not "yeh hai" (this is)
-12. ALWAYS end with "Doctor se zaroor milein agar..." (do see a doctor if...)`;
+KEEP IT TIGHT: max 3 items per list, max 2 OTC medicines, reply ≤ 3 sentences.
+
+SAFETY (strict):
+- ONLY OTC medicines (Paracetamol, Crocin, ORS, Digene, Vicks, Caladryl, Moov, Volini, Burnol, Betadine, Strepsils, Pudinhara). Never prescription drugs.
+- Always check patient's allergies before suggesting medicines.
+- Children <5, elderly 65+, pregnant → lower threshold; pregnant gets NO medicine, only "consult doctor".
+- Chest pain, breathing difficulty, unconsciousness, heavy bleeding, seizures → urgency=red.
+- High fever (>103°F) for 3+ days → urgency=orange minimum.
+- If unsure → urgency=yellow.
+- Never diagnose ("ho sakta hai", not "yeh hai"). Always end reply with "Doctor se zaroor milein agar..." or similar.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,30 +73,39 @@ export async function POST(request: NextRequest) {
       ].filter(Boolean).join("\n");
     }
 
-    // Build prompt with context
-    let prompt = DOCTOR_PROMPT
-      .replace("{PATIENT_CONTEXT}", patientContext)
-      .replace("{USER_MESSAGE}", message.slice(0, 1000));
+    // Build the per-turn user content (system instruction is sent separately
+    // and cached across calls).
+    const historyText = Array.isArray(chatHistory) && chatHistory.length > 0
+      ? chatHistory
+          .slice(-4) // last 4 turns is plenty for short medical chats
+          .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Doctor"}: ${m.text.slice(0, 300)}`)
+          .join("\n")
+      : "";
 
-    // Add chat history for context
-    if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
-      const historyText = chatHistory
-        .slice(-6) // last 6 messages for context
-        .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Dr. MediFamily"}: ${m.text}`)
-        .join("\n");
-      prompt += `\n\nPREVIOUS CONVERSATION:\n${historyText}`;
-    }
+    const langInstruction = locale === "hi"
+      ? "Reply ENTIRELY in Hindi (Devanagari script). All JSON fields in Hindi."
+      : "Reply in simple, easy English. All JSON fields in English.";
 
-    if (locale === "hi") {
-      prompt += "\n\nIMPORTANT: Reply ENTIRELY in Hindi (Devanagari script). All fields including urgency_label, urgency_message, possible_causes, what_to_do, home_remedies, when_to_rush, doctor_type, reply, and follow_up_questions must be in Hindi.";
-    } else {
-      prompt += "\n\nIMPORTANT: Reply in English. All fields should be in simple, easy-to-understand English.";
-    }
+    const userPrompt = [
+      `PATIENT:\n${patientContext}`,
+      historyText && `RECENT CHAT:\n${historyText}`,
+      `MESSAGE: "${message.slice(0, 600)}"`,
+      langInstruction,
+    ].filter(Boolean).join("\n\n");
 
     try {
       const response = await callGemini(
-        [{ text: prompt }],
-        { temperature: 0.3, maxOutputTokens: 2500, feature: "ai-doctor", jsonMode: true }
+        [{ text: userPrompt }],
+        {
+          temperature: 0.3,
+          // Cut from 2500 → 800. Response shape is bounded (3 items/list,
+          // 3-sentence reply) so 800 tokens is comfortably enough and ~3x
+          // faster than the old budget.
+          maxOutputTokens: 800,
+          feature: "ai-doctor",
+          jsonMode: true,
+          systemInstruction: DOCTOR_SYSTEM,
+        }
       );
 
       const parsed = parseJsonResponse(response);
