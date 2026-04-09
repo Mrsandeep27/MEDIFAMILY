@@ -39,7 +39,8 @@ import { toast } from "sonner";
 interface AIResponse {
   urgency: "green" | "yellow" | "orange" | "red";
   urgency_label: string;
-  urgency_message: string;
+  urgency_message?: string;
+  clinical_assessment?: string;
   possible_causes: string[];
   what_to_do: string[];
   home_remedies: string[];
@@ -63,10 +64,10 @@ function newMsgId(): string {
 }
 
 const urgencyConfig = {
-  green: { icon: ShieldCheck, color: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700", bar: "bg-green-500" },
-  yellow: { icon: AlertTriangle, color: "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700", bar: "bg-yellow-500" },
-  orange: { icon: AlertCircle, color: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700", bar: "bg-orange-500" },
-  red: { icon: Siren, color: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700", bar: "bg-red-500" },
+  green: { icon: ShieldCheck, color: "bg-green-50 text-green-900 border-green-300", bar: "bg-green-500", label: "Low Risk" },
+  yellow: { icon: AlertTriangle, color: "bg-amber-50 text-amber-900 border-amber-300", bar: "bg-amber-500", label: "Moderate" },
+  orange: { icon: AlertCircle, color: "bg-orange-50 text-orange-900 border-orange-300", bar: "bg-orange-500", label: "High" },
+  red: { icon: Siren, color: "bg-red-50 text-red-900 border-red-300", bar: "bg-red-500", label: "Critical" },
 };
 
 export default function AIDoctorPage() {
@@ -341,26 +342,35 @@ export default function AIDoctorPage() {
               </div>
             ) : msg.data ? (
               <div className="space-y-2">
-                {/* Urgency Banner */}
+                {/* Urgency Banner — clinical triage style */}
                 {(() => {
                   const config = urgencyConfig[msg.data.urgency] || urgencyConfig.yellow;
                   const Icon = config.icon;
                   return (
                     <div className={`rounded-xl border p-3 ${config.color}`}>
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-5 w-5 shrink-0" />
-                        <div>
-                          <p className="font-bold text-sm">{msg.data.urgency_label}</p>
-                          <p className="text-xs">{msg.data.urgency_message}</p>
-                        </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={`h-2 w-2 rounded-full ${config.bar}`} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">{config.label}</span>
+                        <Icon className="h-4 w-4 shrink-0 ml-auto" />
                       </div>
+                      <p className="font-semibold text-sm">{msg.data.urgency_label}</p>
+                      {/* Clinical assessment — medical terminology */}
+                      {(msg.data.clinical_assessment || msg.data.urgency_message) && (
+                        <p className="text-xs mt-1 italic opacity-80">{msg.data.clinical_assessment || msg.data.urgency_message}</p>
+                      )}
                     </div>
                   );
                 })()}
 
-                {/* AI Reply */}
-                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3 text-sm">
-                  {msg.data.reply}
+                {/* AI Reply — doctor's note style */}
+                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Stethoscope className="h-3 w-3 text-primary" />
+                    </div>
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Dr. MediFamily</span>
+                  </div>
+                  <p className="text-sm leading-relaxed">{msg.data.reply}</p>
                 </div>
 
                 {/* Expandable Details */}
@@ -373,58 +383,56 @@ export default function AIDoctorPage() {
                 </button>
 
                 {expandedCards.has(idx) && (
-                  <div className="space-y-2 ml-1">
-                    {/* Possible Causes */}
+                  <div className="space-y-2 ml-1 border-l-2 border-primary/20 pl-3">
+                    {/* Differential / Possible Causes */}
                     {msg.data.possible_causes.length > 0 && (
-                      <Card>
-                        <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1">🔍 {t("ai_doctor.possible_causes")}</p>
-                          {msg.data.possible_causes.map((c, i) => (
-                            <p key={i} className="text-xs text-muted-foreground">• {c}</p>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* What to Do */}
-                    {msg.data.what_to_do.length > 0 && (
-                      <Card>
-                        <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1">✅ {t("ai_doctor.what_to_do")}</p>
-                          {msg.data.what_to_do.map((d, i) => (
-                            <p key={i} className="text-xs text-muted-foreground">{i + 1}. {d}</p>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Home Remedies */}
-                    {msg.data.home_remedies.length > 0 && (
-                      <Card className="border-green-200 dark:border-green-800">
-                        <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1 flex items-center gap-1">
-                            <Home className="h-3 w-3 text-green-600" /> {t("ai_doctor.home_remedies")}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Differential</p>
+                        {msg.data.possible_causes.map((c, i) => (
+                          <p key={i} className="text-xs text-foreground leading-relaxed">
+                            <span className="text-primary font-semibold">{i + 1}.</span> {c}
                           </p>
-                          {msg.data.home_remedies.map((r, i) => (
-                            <p key={i} className="text-xs text-muted-foreground">• {r}</p>
-                          ))}
-                        </CardContent>
-                      </Card>
+                        ))}
+                      </div>
                     )}
 
-                    {/* OTC Medicines */}
+                    {/* Treatment Plan */}
+                    {msg.data.what_to_do.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Treatment Plan</p>
+                        {msg.data.what_to_do.map((d, i) => (
+                          <p key={i} className="text-xs text-foreground leading-relaxed">
+                            <span className="text-emerald-600 font-semibold">{i + 1}.</span> {d}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Home Care */}
+                    {msg.data.home_remedies.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
+                          <Home className="h-3 w-3 text-green-600" /> Home Care
+                        </p>
+                        {msg.data.home_remedies.map((r, i) => (
+                          <p key={i} className="text-xs text-foreground leading-relaxed">• {r}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* OTC Medicines — prescription card style */}
                     {msg.data.otc_medicines.length > 0 && (
-                      <Card className="border-blue-200 dark:border-blue-800">
-                        <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1 flex items-center gap-1">
-                            <Pill className="h-3 w-3 text-blue-600" /> {t("ai_doctor.otc_medicines")}
+                      <Card className="border-blue-200 bg-blue-50/50">
+                        <CardContent className="py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-2 flex items-center gap-1">
+                            <Pill className="h-3 w-3" /> Rx — OTC Medicines
                           </p>
                           {msg.data.otc_medicines.map((m, i) => (
-                            <div key={i} className="mb-1.5 last:mb-0">
-                              <p className="text-xs font-medium">{m.name} — {m.dosage}</p>
-                              <p className="text-[10px] text-muted-foreground">{m.when}</p>
+                            <div key={i} className="mb-2 last:mb-0 pl-2 border-l-2 border-blue-300">
+                              <p className="text-sm font-bold text-foreground">{m.name}</p>
+                              <p className="text-xs text-blue-800">{m.dosage} — {m.when}</p>
                               {m.warning && (
-                                <p className="text-[10px] text-orange-600">⚠ {m.warning}</p>
+                                <p className="text-[10px] text-red-600 font-medium mt-0.5">⚠ {m.warning}</p>
                               )}
                             </div>
                           ))}
@@ -432,25 +440,28 @@ export default function AIDoctorPage() {
                       </Card>
                     )}
 
-                    {/* When to Rush */}
+                    {/* Red Flags — emergency warning */}
                     {msg.data.when_to_rush.length > 0 && (
-                      <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950">
-                        <CardContent className="py-2.5">
-                          <p className="text-xs font-semibold mb-1 text-red-700 dark:text-red-400 flex items-center gap-1">
-                            <Siren className="h-3 w-3" /> {t("ai_doctor.go_hospital")}
+                      <Card className="border-red-300 bg-red-50">
+                        <CardContent className="py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-red-700 mb-1 flex items-center gap-1">
+                            <Siren className="h-3 w-3" /> Go to Emergency If
                           </p>
                           {msg.data.when_to_rush.map((r, i) => (
-                            <p key={i} className="text-xs text-red-600 dark:text-red-400">• {r}</p>
+                            <p key={i} className="text-xs text-red-800 leading-relaxed font-medium">• {r}</p>
                           ))}
                         </CardContent>
                       </Card>
                     )}
 
-                    {/* Doctor Type */}
+                    {/* Referral */}
                     {msg.data.doctor_type && (
-                      <div className="text-xs bg-muted p-2 rounded-lg flex items-center gap-1.5">
-                        <Heart className="h-3 w-3 text-primary" />
-                        <span>{t("ai_doctor.see_doctor")}: <strong>{msg.data.doctor_type}</strong></span>
+                      <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg p-2.5">
+                        <Heart className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Recommended Specialist</p>
+                          <p className="text-xs font-medium text-foreground mt-0.5">{msg.data.doctor_type}</p>
+                        </div>
                       </div>
                     )}
                   </div>
