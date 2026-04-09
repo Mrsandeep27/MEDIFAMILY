@@ -1,0 +1,14 @@
+{
+  "_comment": "If a patient's allergy list includes the key (case-insensitive substring match), the listed drugs must NEVER be suggested.",
+  "conflicts": {
+    "penicillin": ["amoxicillin", "ampicillin", "augmentin", "cephalexin", "cefixime", "any -cillin", "any cephalosporin"],
+    "sulfa": ["sulfamethoxazole", "bactrim", "septran", "cotrimoxazole"],
+    "aspirin": ["aspirin", "ecosprin", "disprin", "ibuprofen", "diclofenac", "any NSAID"],
+    "nsaid": ["ibuprofen", "diclofenac", "naproxen", "brufen", "combiflam"],
+    "paracetamol": ["paracetamol", "crocin", "calpol", "dolo"],
+    "iodine": ["betadine", "povidone iodine", "iodine"],
+    "latex": ["latex gloves", "latex catheter"],
+    "peanut": ["peanut oil"],
+    "egg": ["flu vaccine (egg-based)"]
+  }
+}

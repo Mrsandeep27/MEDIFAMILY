@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+import { loadActiveRules } from "@/lib/ai/medical/rules-server";
+import { detectSafetyViolations } from "@/lib/ai/medical/safety-detector";
+import { draftRuleFromBadAnswer, isAutoApprovable } from "@/lib/ai/medical/rule-writer";
+import { prisma } from "@/lib/db/prisma";
 
 const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Persona + safety rules + JSON schema — sent as systemInstruction so
-// Gemini caches it across calls (faster + cheaper). Only the per-turn
-// patient context, chat history, and user message vary.
-const DOCTOR_SYSTEM = `You are "Dr. MediFamily" — a warm Indian family doctor assistant. Reply in Hinglish (Hindi+English mix) naturally, like a caring family doctor.
+// Persona — sent as systemInstruction so Gemini caches it across calls.
+// The dynamic LIVE MEDICAL RULES block from active_rules table is appended
+// at request time, so adding a rule via the admin UI takes effect within
+// 60s without a code deploy.
+const DOCTOR_PERSONA = `You are "Dr. MediFamily" — a warm Indian family doctor assistant. Reply in Hinglish (Hindi+English mix) naturally, like a caring family doctor.
 
 OUTPUT: a single raw JSON object, no markdown. Schema:
 {
@@ -28,14 +33,22 @@ OUTPUT: a single raw JSON object, no markdown. Schema:
 
 KEEP IT TIGHT: max 3 items per list, max 2 OTC medicines, reply ≤ 3 sentences.
 
-SAFETY (strict):
-- ONLY OTC medicines (Paracetamol, Crocin, ORS, Digene, Vicks, Caladryl, Moov, Volini, Burnol, Betadine, Strepsils, Pudinhara). Never prescription drugs.
-- Always check patient's allergies before suggesting medicines.
-- Children <5, elderly 65+, pregnant → lower threshold; pregnant gets NO medicine, only "consult doctor".
-- Chest pain, breathing difficulty, unconsciousness, heavy bleeding, seizures → urgency=red.
-- High fever (>103°F) for 3+ days → urgency=orange minimum.
-- If unsure → urgency=yellow.
-- Never diagnose ("ho sakta hai", not "yeh hai"). Always end reply with "Doctor se zaroor milein agar..." or similar.`;
+GROUNDING: When the user message includes a PATIENT BRIEF, you MUST use it to ground every answer. Reference the patient's actual conditions, medicines, vitals, and contraindications. The brief's CONTRAINDICATIONS section overrides any general medical knowledge — never suggest a drug listed there.`;
+
+interface ChatHistoryItem {
+  role: string;
+  text: string;
+}
+
+interface PatientPayload {
+  name?: string;
+  date_of_birth?: string;
+  gender?: string;
+  blood_group?: string;
+  allergies?: string[];
+  chronic_conditions?: string[];
+  current_medicines?: string[];
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,21 +57,44 @@ export async function POST(request: NextRequest) {
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError) {
+    const { data: authData, error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
+    if (authError || !authData?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = authData.user.id;
 
     const body = await request.json();
-    const { message, patient, chatHistory, locale } = body;
+    const {
+      message,
+      patient,
+      chatHistory,
+      locale,
+      // NEW: full medical brief from the client (built from Dexie)
+      medicalBrief,
+      // NEW: explicit pregnancy + age signals from the client (used by detector)
+      isPregnant,
+      ageYears,
+    } = body as {
+      message?: string;
+      patient?: PatientPayload;
+      chatHistory?: ChatHistoryItem[];
+      locale?: string;
+      medicalBrief?: string;
+      isPregnant?: boolean;
+      ageYears?: number | null;
+    };
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    // Build patient context
-    let patientContext = "No patient info available.";
-    if (patient) {
+    // ── Build patient context ─────────────────────────────────────────
+    // Prefer the rich `medicalBrief` from the client if provided, fall
+    // back to the legacy minimal patient block for older clients.
+    let patientContext: string;
+    if (medicalBrief && typeof medicalBrief === "string" && medicalBrief.length > 0) {
+      patientContext = medicalBrief.slice(0, 4000);
+    } else if (patient) {
       const age = patient.date_of_birth
         ? Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / 31557600000)
         : null;
@@ -67,18 +103,19 @@ export async function POST(request: NextRequest) {
         age !== null ? `Age: ${age} years` : null,
         patient.gender ? `Gender: ${patient.gender}` : null,
         patient.blood_group ? `Blood Group: ${patient.blood_group}` : null,
-        patient.allergies?.length > 0 ? `ALLERGIES: ${patient.allergies.join(", ")}` : "No known allergies",
-        patient.chronic_conditions?.length > 0 ? `CHRONIC CONDITIONS: ${patient.chronic_conditions.join(", ")}` : null,
-        patient.current_medicines?.length > 0 ? `CURRENT MEDICINES: ${patient.current_medicines.join(", ")}` : null,
+        patient.allergies && patient.allergies.length > 0 ? `ALLERGIES: ${patient.allergies.join(", ")}` : "No known allergies",
+        patient.chronic_conditions && patient.chronic_conditions.length > 0 ? `CHRONIC: ${patient.chronic_conditions.join(", ")}` : null,
+        patient.current_medicines && patient.current_medicines.length > 0 ? `CURRENT MEDS: ${patient.current_medicines.join(", ")}` : null,
       ].filter(Boolean).join("\n");
+    } else {
+      patientContext = "No patient info available.";
     }
 
-    // Build the per-turn user content (system instruction is sent separately
-    // and cached across calls).
+    // ── Build the per-turn user content ───────────────────────────────
     const historyText = Array.isArray(chatHistory) && chatHistory.length > 0
       ? chatHistory
-          .slice(-4) // last 4 turns is plenty for short medical chats
-          .map((m: { role: string; text: string }) => `${m.role === "user" ? "Patient" : "Doctor"}: ${m.text.slice(0, 300)}`)
+          .slice(-4)
+          .map((m) => `${m.role === "user" ? "Patient" : "Doctor"}: ${String(m.text || "").slice(0, 300)}`)
           .join("\n")
       : "";
 
@@ -87,33 +124,36 @@ export async function POST(request: NextRequest) {
       : "Reply in simple, easy English. All JSON fields in English.";
 
     const userPrompt = [
-      `PATIENT:\n${patientContext}`,
+      `PATIENT BRIEF:\n${patientContext}`,
       historyText && `RECENT CHAT:\n${historyText}`,
       `MESSAGE: "${message.slice(0, 600)}"`,
       langInstruction,
     ].filter(Boolean).join("\n\n");
+
+    // ── Load live rules from DB and append to system instruction ──────
+    const { text: rulesText } = await loadActiveRules();
+    const systemInstruction = rulesText
+      ? `${DOCTOR_PERSONA}\n\n${rulesText}`
+      : DOCTOR_PERSONA;
 
     try {
       const response = await callGemini(
         [{ text: userPrompt }],
         {
           temperature: 0.3,
-          // Cut from 2500 → 800. Response shape is bounded (3 items/list,
-          // 3-sentence reply) so 800 tokens is comfortably enough and ~3x
-          // faster than the old budget.
           maxOutputTokens: 800,
           feature: "ai-doctor",
           jsonMode: true,
-          systemInstruction: DOCTOR_SYSTEM,
+          systemInstruction,
+          userId,
         }
       );
 
       const parsed = parseJsonResponse(response);
 
-      // Ensure required fields
+      // Defensive defaults
       if (!parsed.urgency) parsed.urgency = "yellow";
       if (!parsed.reply) {
-        // Don't show raw JSON to user — extract something readable or use fallback
         const text = response.replace(/[{}\[\]"]/g, "").trim();
         parsed.reply = text.length > 20 && text.length < 500
           ? text
@@ -126,6 +166,39 @@ export async function POST(request: NextRequest) {
       if (!Array.isArray(parsed.when_to_rush)) parsed.when_to_rush = [];
       if (!Array.isArray(parsed.follow_up_questions)) parsed.follow_up_questions = [];
 
+      // ── Run safety detector ───────────────────────────────────────
+      // Fast (no DB, no LLM). Fires after every response. Any violation
+      // becomes a rule_candidate so the system can self-improve.
+      const violations = detectSafetyViolations(
+        parsed as Parameters<typeof detectSafetyViolations>[0],
+        {
+          allergies: patient?.allergies,
+          isPregnant: isPregnant ?? false,
+          ageYears: ageYears ?? null,
+        },
+        message
+      );
+
+      if (violations.length > 0) {
+        // Fire-and-forget: queue + draft. Don't block the user response.
+        queueAndDraftCandidate({
+          triggerSource: "safety_detector",
+          triggerReason: violations.map((v) => v.reason).join(" | "),
+          conversation: [
+            ...(Array.isArray(chatHistory) ? chatHistory : []),
+            { role: "user", text: message },
+            { role: "ai", text: parsed.reply as string },
+          ],
+          patientBrief: patientContext,
+          aiResponse: response,
+          userId,
+        }).catch((e) => console.error("[ai-doctor] queueAndDraft failed:", e));
+
+        // Attach violations to the response so the client can show a small
+        // safety banner if it wants. Non-breaking: clients ignore unknown fields.
+        (parsed as Record<string, unknown>)._safety_violations = violations.map((v) => v.reason);
+      }
+
       return NextResponse.json(parsed);
     } catch (err) {
       console.error("AI Doctor error:", err);
@@ -137,5 +210,83 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("AI Doctor route error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * Background job: insert a rule_candidate row, then call the rule writer
+ * to draft a proposal. If the draft is auto-approvable (strict tighten),
+ * also insert an active_rule and mark the candidate approved automatically.
+ *
+ * Runs as fire-and-forget after the user response is sent — never blocks
+ * the user, never throws past this function.
+ */
+async function queueAndDraftCandidate(input: {
+  triggerSource: string;
+  triggerReason: string;
+  conversation: Array<{ role: string; text: string }>;
+  patientBrief?: string;
+  aiResponse?: string;
+  userId?: string;
+}) {
+  try {
+    const candidate = await prisma.ruleCandidate.create({
+      data: {
+        trigger_source: input.triggerSource,
+        trigger_reason: input.triggerReason.slice(0, 500),
+        conversation: JSON.stringify(input.conversation).slice(0, 8000),
+        patient_brief: input.patientBrief?.slice(0, 4000),
+        ai_response: input.aiResponse?.slice(0, 4000),
+        user_id: input.userId,
+        status: "pending",
+      },
+    });
+
+    const draft = await draftRuleFromBadAnswer({
+      triggerReason: input.triggerReason,
+      conversation: input.conversation,
+      patientBrief: input.patientBrief,
+      aiResponse: input.aiResponse,
+    });
+
+    if (!draft) return; // candidate stays pending without a proposal
+
+    await prisma.ruleCandidate.update({
+      where: { id: candidate.id },
+      data: {
+        proposed_rule: draft.rule_text,
+        proposed_category: draft.category,
+        proposed_severity: draft.severity,
+      },
+    });
+
+    // Auto-approve safety-tightening rules — they can never make the AI
+    // more dangerous, only more cautious. Everything else waits for review.
+    if (isAutoApprovable(draft)) {
+      await prisma.activeRule.create({
+        data: {
+          rule_text: draft.rule_text,
+          category: draft.category,
+          severity: draft.severity,
+          source: "auto_safe",
+          candidate_id: candidate.id,
+          is_active: true,
+        },
+      });
+      await prisma.ruleCandidate.update({
+        where: { id: candidate.id },
+        data: {
+          status: "approved",
+          reviewer_email: "auto_safe",
+          reviewed_at: new Date(),
+          final_rule: draft.rule_text,
+        },
+      });
+      // Invalidate the rules cache so the next request picks up the new rule
+      const { invalidateRulesCache } = await import("@/lib/ai/medical/rules-server");
+      invalidateRulesCache();
+    }
+  } catch (err) {
+    console.error("[queueAndDraftCandidate] failed:", err);
   }
 }

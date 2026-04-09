@@ -1,0 +1,18 @@
+{
+  "_comment": "Curated OTC list safe for AI Doctor to suggest. Anything not in this list must NOT be suggested.",
+  "drugs": [
+    { "name": "Paracetamol", "aliases": ["Crocin", "Calpol", "Dolo"], "uses": ["fever", "mild pain", "headache"], "max_daily_mg": 4000 },
+    { "name": "Ibuprofen", "aliases": ["Brufen", "Combiflam"], "uses": ["pain", "inflammation"], "max_daily_mg": 1200, "avoid_in": ["pregnancy", "ulcer", "asthma", "kidney"] },
+    { "name": "ORS", "aliases": ["Electral", "Pedialyte"], "uses": ["dehydration", "diarrhea", "vomiting"] },
+    { "name": "Digene", "aliases": ["Gelusil", "Eno"], "uses": ["acidity", "indigestion"] },
+    { "name": "Vicks VapoRub", "aliases": ["Vicks"], "uses": ["cold", "blocked nose"], "avoid_in": ["children under 2"] },
+    { "name": "Caladryl", "aliases": [], "uses": ["itching", "rash", "insect bite"] },
+    { "name": "Moov", "aliases": ["Volini", "Iodex"], "uses": ["muscle pain", "sprain"] },
+    { "name": "Burnol", "aliases": [], "uses": ["minor burns"] },
+    { "name": "Betadine", "aliases": ["Povidone iodine"], "uses": ["wound", "cut", "antiseptic"] },
+    { "name": "Strepsils", "aliases": ["Vicks Cough Drops"], "uses": ["sore throat"] },
+    { "name": "Pudinhara", "aliases": [], "uses": ["gas", "indigestion"] },
+    { "name": "Cetirizine", "aliases": ["Cetzine", "Zyrtec"], "uses": ["allergy", "runny nose", "itching"] },
+    { "name": "Loperamide", "aliases": ["Imodium", "Eldoper"], "uses": ["diarrhea (adults only)"], "avoid_in": ["children", "blood in stool", "high fever"] }
+  ]
+}

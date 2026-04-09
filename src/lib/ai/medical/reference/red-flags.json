@@ -1,0 +1,19 @@
+{
+  "_comment": "Symptoms that ALWAYS trigger urgency=red regardless of patient context.",
+  "patterns": [
+    { "match": ["chest pain", "seene mein dard"], "reason": "possible cardiac event" },
+    { "match": ["difficulty breathing", "shortness of breath", "saans nahi", "dam ghutna"], "reason": "respiratory emergency" },
+    { "match": ["unconscious", "passed out", "behosh", "fainted"], "reason": "loss of consciousness" },
+    { "match": ["seizure", "fits", "convulsion", "dauraa"], "reason": "neurological emergency" },
+    { "match": ["heavy bleeding", "won't stop bleeding", "blood loss"], "reason": "hemorrhage" },
+    { "match": ["stroke", "face drooping", "slurred speech", "arm weakness"], "reason": "possible stroke" },
+    { "match": ["suicidal", "want to die", "kill myself", "end my life"], "reason": "mental health crisis" },
+    { "match": ["poisoning", "overdose", "swallowed pills"], "reason": "toxic ingestion" },
+    { "match": ["severe allergic reaction", "anaphylaxis", "swollen throat", "tongue swelling"], "reason": "anaphylaxis" },
+    { "match": ["blood in vomit", "khoon ki ulti", "coughing blood"], "reason": "GI/respiratory bleeding" },
+    { "match": ["severe head injury", "head trauma", "cant remember"], "reason": "head injury" },
+    { "match": ["high fever 104", "104 fever", "105 fever", "tez bukhar"], "reason": "hyperpyrexia" },
+    { "match": ["meningitis", "stiff neck", "neck stiffness with fever"], "reason": "possible meningitis" },
+    { "match": ["chest pain spreading to arm", "left arm pain"], "reason": "possible heart attack" }
+  ]
+}

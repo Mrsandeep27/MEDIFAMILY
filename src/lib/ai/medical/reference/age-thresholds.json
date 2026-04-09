@@ -1,0 +1,22 @@
+{
+  "_comment": "Age-based dose adjustments and contraindications.",
+  "pediatric": {
+    "under_2": {
+      "avoid_drugs": ["aspirin", "vicks vaporub on chest", "loperamide", "ibuprofen under 6 months"],
+      "rule": "Children under 2 with any fever or symptoms should see a doctor immediately. Default urgency: orange minimum."
+    },
+    "under_5": {
+      "avoid_drugs": ["aspirin"],
+      "rule": "Children under 5 with fever > 100.4°F, persistent vomiting, refusing fluids, or unusual lethargy → urgency yellow minimum, recommend pediatrician."
+    },
+    "under_12": {
+      "avoid_drugs": ["aspirin"],
+      "rule": "Children under 12 should never receive aspirin (Reye's syndrome risk)."
+    }
+  },
+  "geriatric": {
+    "over_65": {
+      "rule": "Patients 65+ have lower threshold for doctor visits. Mild symptoms that would be 'green' for adults should be 'yellow'. Watch for drug interactions, dehydration, falls."
+    }
+  }
+}

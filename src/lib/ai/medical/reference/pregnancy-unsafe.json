@@ -1,0 +1,17 @@
+{
+  "_comment": "Drugs that must NEVER be suggested to a pregnant patient. Pregnant patients should always be told to consult a doctor.",
+  "drugs": [
+    "ibuprofen", "brufen", "combiflam",
+    "aspirin", "ecosprin", "disprin",
+    "diclofenac", "voveran",
+    "naproxen",
+    "warfarin",
+    "isotretinoin", "accutane",
+    "tetracycline", "doxycycline",
+    "ace inhibitor", "lisinopril", "enalapril", "ramipril",
+    "arb", "telmisartan", "losartan",
+    "statin", "atorvastatin", "rosuvastatin",
+    "methotrexate",
+    "fluconazole high dose"
+  ]
+}

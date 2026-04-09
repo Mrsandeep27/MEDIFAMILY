@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronUp,
   User,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +51,15 @@ interface AIResponse {
 }
 
 interface ChatMsg {
+  id: string;
   role: "user" | "ai";
   text: string;
   data?: AIResponse;
+  feedback?: "up" | "down";
+}
+
+function newMsgId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 const urgencyConfig = {
@@ -76,6 +84,14 @@ export default function AIDoctorPage() {
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Cached patient brief: rebuilt whenever the selected member changes.
+  // Sent to the AI Doctor on every request to ground the response in real
+  // medical history (Dexie → string → API → systemInstruction grounding).
+  const [briefBundle, setBriefBundle] = useState<{
+    text: string;
+    isPregnant: boolean;
+    ageYears: number | null;
+  } | null>(null);
 
   // Auto-select first member
   useEffect(() => {
@@ -83,6 +99,33 @@ export default function AIDoctorPage() {
       setSelectedMemberId(members[0].id);
     }
   }, [members, selectedMemberId]);
+
+  // Build the medical brief whenever the selected member changes.
+  // Reads from Dexie (members + records + medicines + healthMetrics) and
+  // produces a compact ~300-500 token snapshot.
+  useEffect(() => {
+    if (!selectedMemberId) {
+      setBriefBundle(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { buildPatientBrief } = await import("@/lib/ai/medical/brief");
+        const brief = await buildPatientBrief(selectedMemberId);
+        if (cancelled) return;
+        setBriefBundle(brief ? {
+          text: brief.text,
+          isPregnant: brief.isPregnant,
+          ageYears: brief.ageYears,
+        } : null);
+      } catch (err) {
+        console.error("Failed to build patient brief:", err);
+        if (!cancelled) setBriefBundle(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedMemberId, members, medicines]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -102,12 +145,12 @@ export default function AIDoctorPage() {
     if (!msg || isLoading) return;
 
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text: msg }]);
+    setMessages((prev) => [...prev, { id: newMsgId(), role: "user", text: msg }]);
     setIsLoading(true);
 
     // Show waiting message after 5s
     const slowTimer = setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "ai", text: "⏳ Analyzing your symptoms..." }]);
+      setMessages((prev) => [...prev, { id: newMsgId(), role: "ai", text: "⏳ Analyzing your symptoms..." }]);
     }, 5000);
 
     try {
@@ -134,6 +177,11 @@ export default function AIDoctorPage() {
             chronic_conditions: selectedMember.chronic_conditions,
             current_medicines: activeMeds,
           } : null,
+          // Rich grounding from Dexie — includes vitals, recent visits,
+          // computed contraindications. Server prefers this over `patient`.
+          medicalBrief: briefBundle?.text,
+          isPregnant: briefBundle?.isPregnant ?? false,
+          ageYears: briefBundle?.ageYears ?? null,
           chatHistory: messages.slice(-6).map((m) => ({ role: m.role, text: m.text })),
         }),
       });
@@ -144,11 +192,12 @@ export default function AIDoctorPage() {
 
       if (res.ok) {
         const data: AIResponse = await res.json();
-        setMessages((prev) => [...prev, { role: "ai", text: data.reply, data }]);
+        setMessages((prev) => [...prev, { id: newMsgId(), role: "ai", text: data.reply, data }]);
         setExpandedCards((prev) => new Set([...prev, messages.length + 1]));
       } else {
         const err = await res.json().catch(() => ({}));
         setMessages((prev) => [...prev, {
+          id: newMsgId(),
           role: "ai",
           text: err.error || t("ai_doctor.error"),
         }]);
@@ -157,12 +206,59 @@ export default function AIDoctorPage() {
       clearTimeout(slowTimer);
       setMessages((prev) => prev.filter((m) => !m.text.includes("Analyzing")));
       setMessages((prev) => [...prev, {
+        id: newMsgId(),
         role: "ai",
         text: t("ai_doctor.network_error"),
       }]);
     } finally {
       setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
+
+  // Send a 👍/👎 signal for an AI message. 👎 queues a rule_candidate
+  // server-side so the system can self-improve.
+  const handleFeedback = async (msgIdx: number, vote: "up" | "down") => {
+    const msg = messages[msgIdx];
+    if (!msg || msg.role !== "ai" || msg.feedback) return;
+
+    // Optimistic UI
+    setMessages((prev) => prev.map((m, i) => i === msgIdx ? { ...m, feedback: vote } : m));
+
+    if (vote === "up") {
+      toast.success(t("ai_doctor.thanks_feedback") || "Thanks!");
+      return; // upvotes are local-only
+    }
+
+    // 👎 — send conversation context to server for rule queue
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+      // Find the user message right before this AI message
+      const userMsgIdx = (() => {
+        for (let i = msgIdx - 1; i >= 0; i--) {
+          if (messages[i].role === "user") return i;
+        }
+        return -1;
+      })();
+      const conversation = messages.slice(0, msgIdx + 1).map((m) => ({ role: m.role, text: m.text }));
+
+      await fetch("/api/feedback/ai-message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          conversation,
+          patientBrief: briefBundle?.text,
+          aiResponse: msg.data ? JSON.stringify(msg.data) : msg.text,
+          userMessage: userMsgIdx >= 0 ? messages[userMsgIdx].text : "",
+        }),
+      });
+      toast.success(t("ai_doctor.feedback_logged") || "Feedback logged — we'll improve.");
+    } catch (err) {
+      console.error("Feedback failed:", err);
     }
   };
 
@@ -375,18 +471,45 @@ export default function AIDoctorPage() {
                   </div>
                 )}
 
-                {/* Share nudge — show on last AI message only */}
-                {idx === messages.length - 1 && (
+                {/* Feedback buttons — 👎 queues a rule_candidate for self-improvement */}
+                <div className="flex items-center gap-1 ml-1 mt-1">
                   <button
-                    onClick={async () => {
-                      const { shareMediFamily } = await import("@/lib/utils/share-app");
-                      shareMediFamily();
-                    }}
-                    className="text-[11px] text-primary hover:underline ml-1 mt-1"
+                    onClick={() => handleFeedback(idx, "up")}
+                    disabled={!!msg.feedback}
+                    aria-label="Helpful"
+                    className={`h-6 w-6 rounded-full flex items-center justify-center transition-colors ${
+                      msg.feedback === "up"
+                        ? "bg-green-100 text-green-700"
+                        : "hover:bg-muted text-muted-foreground"
+                    } disabled:cursor-default`}
                   >
-                    {t("ai_doctor.share_app")}
+                    <ThumbsUp className="h-3 w-3" />
                   </button>
-                )}
+                  <button
+                    onClick={() => handleFeedback(idx, "down")}
+                    disabled={!!msg.feedback}
+                    aria-label="Not helpful"
+                    className={`h-6 w-6 rounded-full flex items-center justify-center transition-colors ${
+                      msg.feedback === "down"
+                        ? "bg-red-100 text-red-700"
+                        : "hover:bg-muted text-muted-foreground"
+                    } disabled:cursor-default`}
+                  >
+                    <ThumbsDown className="h-3 w-3" />
+                  </button>
+                  {/* Share nudge — show on last AI message only */}
+                  {idx === messages.length - 1 && (
+                    <button
+                      onClick={async () => {
+                        const { shareMediFamily } = await import("@/lib/utils/share-app");
+                        shareMediFamily();
+                      }}
+                      className="text-[11px] text-primary hover:underline ml-2"
+                    >
+                      {t("ai_doctor.share_app")}
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2 max-w-[85%] text-sm">

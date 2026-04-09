@@ -243,6 +243,58 @@ model Feedback {
 }
 
 // ============================================================
+// AI Doctor — self-improving rule engine
+// ============================================================
+// active_rules: rules currently injected into the AI Doctor's system
+// instruction. Loaded with a 60s cache, so adding a rule takes effect
+// nearly instantly without slowing down requests.
+model ActiveRule {
+  id          String   @id @default(uuid())
+  rule_text   String   // the actual rule sentence ("NEVER suggest…")
+  category    String   // safety | grounding | tone | dosage | red_flag
+  severity    String   @default("normal") // low | normal | high | critical
+  source      String   @default("manual") // manual | seed | auto_safe | from_candidate
+  candidate_id String? // back-link to the candidate that produced this (if any)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([is_active])
+  @@index([category])
+  @@map("active_rules")
+}
+
+// rule_candidates: bad-answer signals get logged here. A meta-LLM call
+// drafts a proposed rule, the admin reviews/edits/approves, and approved
+// candidates spawn an ActiveRule.
+model RuleCandidate {
+  id              String   @id @default(uuid())
+  // Source of the signal
+  trigger_source  String   // safety_detector | user_thumbs_down | user_feedback
+  trigger_reason  String   // human-readable reason ("AI suggested amoxicillin to penicillin-allergic patient")
+  // The conversation that went wrong (JSON string of messages)
+  conversation    String   // JSON: [{role, text}, ...]
+  patient_brief   String?  // the brief sent with the request, for context
+  ai_response     String?  // raw AI response that triggered the signal
+  // The proposed rule (drafted by rule writer)
+  proposed_rule   String?  // null until rule writer runs
+  proposed_category String?
+  proposed_severity String?
+  // Review state
+  status          String   @default("pending") // pending | approved | rejected | edited
+  reviewer_email  String?
+  reviewed_at     DateTime?
+  // If admin edited the proposed rule before approving
+  final_rule      String?
+  user_id         String?  // who triggered the signal (for auditing, not exposed)
+  created_at      DateTime @default(now())
+
+  @@index([status])
+  @@index([created_at])
+  @@map("rule_candidates")
+}
+
+// ============================================================
 // API Usage Tracking
 // ============================================================
 model ApiUsage {
