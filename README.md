@@ -199,42 +199,6 @@ src/
 
 ---
 
-## Quick Start
-
-```bash
-git clone https://github.com/Mrsandeep27/MEDIFAMILY.git
-cd MEDIFAMILY
-npm install
-npm run dev        # starts on localhost:3000 (Turbopack)
-```
-
-### Environment Variables
-
-Create `.env.local`:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-DATABASE_URL=your_pooled_connection_string
-DIRECT_URL=your_direct_connection_string
-JWT_SECRET=your_jwt_secret
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-GOOGLE_AI_API_KEY=your_gemini_api_key
-ADMIN_EMAILS=your_email@example.com
-```
-
-Supports up to 11 Gemini API keys for rotation (`GOOGLE_AI_API_KEY`, `GOOGLE_AI_API_KEY_2` through `_11`).
-
-### Build
-
-```bash
-npm run build      # prisma generate && next build
-npm run test       # vitest
-npm run typecheck  # tsc --noEmit
-```
-
----
-
 ## AI Doctor — How It Works
 
 The AI Doctor is a self-improving medical assistant. Here's the full pipeline for every request:
