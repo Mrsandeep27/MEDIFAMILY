@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Upload,
   FileText,
@@ -12,12 +13,23 @@ import {
   Minus,
   ShieldAlert,
   Info,
+  Save,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AppHeader } from "@/components/layout/app-header";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { useMembers } from "@/hooks/use-members";
+import { useRecords } from "@/hooks/use-records";
 import { toast } from "sonner";
 
 interface LabMarker {
@@ -46,19 +58,28 @@ const statusColors = {
 };
 
 export default function LabInsightsPage() {
+  const router = useRouter();
   const { locale, t } = useLocale();
+  const { members } = useMembers();
+  const { addRecord } = useRecords();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [insights, setInsights] = useState<LabInsight | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setImageBlob(file);
+    setSaved(false);
+
     if (file.type === "application/pdf") {
-      // PDF: extract text using pdf.js or send raw base64
-      setPreviewUrl(null); // No image preview for PDFs
+      setPreviewUrl(null);
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
@@ -66,7 +87,6 @@ export default function LabInsightsPage() {
       };
       reader.readAsDataURL(file);
     } else {
-      // Image: show preview and analyze
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
@@ -76,6 +96,11 @@ export default function LabInsightsPage() {
       reader.readAsDataURL(file);
     }
     e.target.value = "";
+
+    // Auto-select self member if only one
+    if (members.length === 1) {
+      setSelectedMemberId(members[0].id);
+    }
   };
 
   const analyzeReport = async (dataUrl: string, isPdf = false) => {
@@ -121,6 +146,10 @@ export default function LabInsightsPage() {
   const resetAll = () => {
     setPreviewUrl(null);
     setInsights(null);
+    setImageBlob(null);
+    setSelectedMemberId("");
+    setSaved(false);
+    setSaving(false);
   };
 
   return (
@@ -292,6 +321,102 @@ export default function LabInsightsPage() {
                 );
               })}
             </div>
+
+            {/* ─── Save to Family Member ─────────────────────────── */}
+            {!saved ? (
+              <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30">
+                <CardContent className="py-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Save className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                      Save this report
+                    </span>
+                  </div>
+
+                  <Select value={selectedMemberId} onValueChange={(v) => setSelectedMemberId(v || "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select family member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    className="w-full"
+                    disabled={!selectedMemberId || saving}
+                    onClick={async () => {
+                      if (!selectedMemberId || !insights) return;
+                      setSaving(true);
+                      try {
+                        const title = insights.lab_name
+                          ? `${insights.lab_name} - Lab Report`
+                          : `Lab Report - ${insights.report_date || new Date().toLocaleDateString("en-IN")}`;
+
+                        const abnormalMarkers = insights.markers
+                          .filter((m) => m.status !== "normal")
+                          .map((m) => `${m.name}: ${m.value} (${m.status})`)
+                          .join(", ");
+
+                        const images = imageBlob
+                          ? [new File([imageBlob], "lab-report.jpg", { type: imageBlob.type || "image/jpeg" })]
+                          : undefined;
+
+                        const recordId = await addRecord(
+                          {
+                            member_id: selectedMemberId,
+                            type: "lab_report",
+                            title,
+                            doctor_name: "",
+                            hospital_name: insights.lab_name || "",
+                            visit_date: insights.report_date || new Date().toISOString().split("T")[0],
+                            diagnosis: abnormalMarkers || "All markers normal",
+                            notes: insights.summary || "",
+                            tags: ["lab", "ai-analyzed"],
+                          },
+                          images
+                        );
+
+                        setSaved(true);
+                        const memberName = members.find((m) => m.id === selectedMemberId)?.name || "member";
+                        toast.success(`Lab report saved for ${memberName}`, {
+                          action: {
+                            label: "View",
+                            onClick: () => router.push(`/records/${recordId}`),
+                          },
+                        });
+                      } catch (err) {
+                        console.error("Save failed:", err);
+                        toast.error("Failed to save report. Try again.");
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {saving ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                    ) : (
+                      <><Save className="h-4 w-4 mr-2" />Save to Records</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-5 w-5 text-green-600" />
+                    <span className="text-sm font-semibold text-green-800 dark:text-green-300">
+                      Report saved to {members.find((m) => m.id === selectedMemberId)?.name || "member"}'s records
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Actions */}
             <Button variant="outline" className="w-full" onClick={resetAll}>
