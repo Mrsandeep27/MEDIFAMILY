@@ -61,6 +61,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "home.abha_health_id": "ABHA Health ID",
     "home.blood_group_allergies": "Blood group, allergies, contacts",
     "home.emergency_card": "Emergency Card",
+    "home.visit_prep": "Visit Prep",
 
     // Family
     "family.title": "Family",
@@ -548,6 +549,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "home.abha_health_id": "ABHA स्वास्थ्य ID",
     "home.blood_group_allergies": "रक्त समूह, एलर्जी, संपर्क",
     "home.emergency_card": "इमर्जेंसी कार्ड",
+    "home.visit_prep": "डॉक्टर विज़िट",
 
     // Family
     "family.title": "परिवार",
