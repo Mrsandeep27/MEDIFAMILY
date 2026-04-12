@@ -132,8 +132,8 @@ export default function EmergencyCardPage() {
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader title="Emergency Card" showBack />
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <div className="rounded-full bg-red-50 dark:bg-red-950/30 p-5 mb-4">
-            <Heart className="h-10 w-10 text-red-500" />
+          <div className="rounded-full bg-muted p-5 mb-4">
+            <Heart className="h-10 w-10 text-foreground" />
           </div>
           <h3 className="text-lg font-bold mb-1.5">No Emergency Card Yet</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-xs">
@@ -141,7 +141,7 @@ export default function EmergencyCardPage() {
           </p>
           <Button
             size="lg"
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-foreground hover:bg-foreground/90 text-background"
             onClick={() => router.push("/family/add")}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -177,15 +177,15 @@ export default function EmergencyCardPage() {
                   onClick={() => setSelectedMemberId(m.id)}
                   className={`flex items-center gap-2 shrink-0 rounded-full pl-1 pr-3 py-1 border transition-all ${
                     isActive
-                      ? "bg-red-600 border-red-600 text-white shadow-md scale-105"
-                      : "bg-background border-border hover:border-red-300"
+                      ? "bg-foreground border-foreground text-background shadow-md scale-105"
+                      : "bg-background border-border hover:border-foreground/40"
                   }`}
                 >
                   <div
                     className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold ${
                       isActive
-                        ? "bg-white text-red-600"
-                        : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400"
+                        ? "bg-background text-foreground"
+                        : "bg-muted text-foreground"
                     }`}
                   >
                     {memberInitial}
@@ -198,27 +198,27 @@ export default function EmergencyCardPage() {
         )}
 
         {/* ─── Full Emergency Card ───────────────────────────────────── */}
-        <Card className="overflow-hidden border-2 border-red-500 shadow-lg">
-          {/* Red header */}
-          <div className="bg-gradient-to-r from-red-600 to-red-700 px-4 py-3 flex items-center justify-between">
+        <Card className="overflow-hidden border border-border shadow-sm">
+          {/* Header */}
+          <div className="bg-muted/50 px-4 py-3 flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-white" />
-              <span className="text-white font-bold text-xs tracking-widest uppercase">
+              <Shield className="h-4 w-4 text-foreground" />
+              <span className="font-bold text-xs tracking-widest uppercase text-foreground">
                 Emergency Health Card
               </span>
             </div>
             <button
               onClick={() => setShowQR(true)}
-              className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+              className="h-7 w-7 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition"
             >
-              <QrCode className="h-3.5 w-3.5 text-white" />
+              <QrCode className="h-3.5 w-3.5 text-foreground" />
             </button>
           </div>
 
           <CardContent className="p-0">
             {/* Identity + blood group */}
             <div className="flex items-center gap-3 px-4 py-4">
-              <div className="h-14 w-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-xl font-bold shadow-md shrink-0">
+              <div className="h-14 w-14 rounded-full bg-foreground flex items-center justify-center text-background text-xl font-bold shadow-sm shrink-0">
                 {initial}
               </div>
               <div className="flex-1 min-w-0">
@@ -240,27 +240,27 @@ export default function EmergencyCardPage() {
                 </div>
               </div>
               {activeMember.blood_group && (
-                <div className="h-14 w-14 rounded-2xl bg-red-600 flex flex-col items-center justify-center shadow-lg shrink-0">
-                  <span className="text-white text-lg font-black leading-none">
+                <div className="h-14 w-14 rounded-2xl bg-foreground flex flex-col items-center justify-center shadow-sm shrink-0">
+                  <span className="text-background text-lg font-black leading-none">
                     {activeMember.blood_group}
                   </span>
-                  <span className="text-white/70 text-[8px] font-bold uppercase mt-0.5">Blood</span>
+                  <span className="text-background/60 text-[8px] font-bold uppercase mt-0.5">Blood</span>
                 </div>
               )}
             </div>
 
             {/* Allergies */}
             {hasAllergies && (
-              <div className="px-4 py-3 bg-red-50 dark:bg-red-950/30 border-t border-red-200 dark:border-red-800">
+              <div className="px-4 py-3 bg-muted/30 border-t border-border">
                 <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <span className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wide">
+                  <AlertTriangle className="h-4 w-4 text-foreground" />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">
                     Allergies
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {activeMember.allergies.map((a, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-full bg-red-600 text-white text-xs font-semibold">
+                    <span key={i} className="px-2.5 py-1 rounded-full bg-foreground text-background text-xs font-semibold">
                       {a}
                     </span>
                   ))}
@@ -270,16 +270,16 @@ export default function EmergencyCardPage() {
 
             {/* Chronic conditions */}
             {hasConditions && (
-              <div className="px-4 py-3 bg-orange-50 dark:bg-orange-950/20 border-t border-orange-200 dark:border-orange-800">
+              <div className="px-4 py-3 bg-muted/30 border-t border-border">
                 <div className="flex items-center gap-2 mb-2">
-                  <Heart className="h-4 w-4 text-orange-600" />
-                  <span className="text-xs font-bold text-orange-700 dark:text-orange-400 uppercase tracking-wide">
+                  <Heart className="h-4 w-4 text-foreground" />
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">
                     Chronic Conditions
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {activeMember.chronic_conditions.map((c, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 text-xs font-medium border border-orange-200 dark:border-orange-800">
+                    <span key={i} className="px-2.5 py-1 rounded-full bg-muted text-foreground text-xs font-medium border border-border">
                       {c}
                     </span>
                   ))}
@@ -290,15 +290,15 @@ export default function EmergencyCardPage() {
             {/* Current medicines */}
             <div className="px-4 py-3 border-t border-border">
               <div className="flex items-center gap-2 mb-2">
-                <Pill className="h-4 w-4 text-blue-600" />
-                <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+                <Pill className="h-4 w-4 text-foreground" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wide">
                   Current Medicines
                 </span>
               </div>
               {hasMeds ? (
                 <div className="space-y-1.5">
                   {activeMedicines.map((med) => (
-                    <div key={med.id} className="flex items-center justify-between text-sm bg-blue-50 dark:bg-blue-950/20 rounded-lg px-3 py-2">
+                    <div key={med.id} className="flex items-center justify-between text-sm bg-muted/40 rounded-lg px-3 py-2">
                       <span className="font-medium truncate">{med.name}</span>
                       <span className="text-muted-foreground text-xs shrink-0 ml-2">
                         {[med.dosage, med.frequency?.replace("_", " ")].filter(Boolean).join(" · ")}
@@ -315,17 +315,17 @@ export default function EmergencyCardPage() {
             {hasEmergencyContact && (
               <a
                 href={`tel:${activeMember.emergency_contact_phone}`}
-                className="flex items-center justify-between px-4 py-3 bg-green-50 dark:bg-green-950/20 border-t border-green-200 dark:border-green-800 active:bg-green-100 dark:active:bg-green-950/40 transition-colors"
+                className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border active:bg-muted/60 transition-colors"
               >
                 <div>
-                  <span className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">
+                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">
                     Emergency Contact
                   </span>
                   <p className="text-sm font-medium mt-0.5">
                     {activeMember.emergency_contact_name || "Contact"} · {activeMember.emergency_contact_phone}
                   </p>
                 </div>
-                <div className="bg-green-600 text-white rounded-full p-2.5 shrink-0 shadow-md">
+                <div className="bg-foreground text-background rounded-full p-2.5 shrink-0 shadow-sm">
                   <Phone className="h-5 w-5" />
                 </div>
               </a>
@@ -365,13 +365,13 @@ export default function EmergencyCardPage() {
 
         {/* Completeness hint */}
         {(!activeMember.blood_group || !hasAllergies || !hasEmergencyContact) && (
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
-            <p className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-1">
+          <div className="bg-muted/50 border border-border rounded-xl p-3">
+            <p className="text-xs font-medium text-foreground mb-1">
               Complete your card for emergencies:
             </p>
-            <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+            <ul className="text-xs text-muted-foreground space-y-0.5">
               {!activeMember.blood_group && <li>+ Add blood group</li>}
-              {!hasAllergies && <li>+ Add allergies (or mark "None")</li>}
+              {!hasAllergies && <li>+ Add allergies (or mark &quot;None&quot;)</li>}
               {!hasEmergencyContact && <li>+ Add emergency contact</li>}
             </ul>
           </div>
@@ -379,7 +379,7 @@ export default function EmergencyCardPage() {
 
         <div className="text-center pt-2">
           <p className="text-[11px] text-muted-foreground">
-            Powered by <span className="font-semibold text-red-600">MediFamily</span>
+            Powered by <span className="font-semibold text-foreground">MediFamily</span>
           </p>
         </div>
       </main>
@@ -389,7 +389,7 @@ export default function EmergencyCardPage() {
         <div className="max-w-lg mx-auto pointer-events-auto">
           <Button
             onClick={handleShareCard}
-            className="w-full h-12 bg-red-600 hover:bg-red-700 text-white shadow-2xl shadow-red-600/30 rounded-full font-semibold"
+            className="w-full h-12 bg-foreground hover:bg-foreground/90 text-background shadow-lg rounded-full font-semibold"
           >
             <Share2 className="h-5 w-5 mr-2" />
             Share via WhatsApp
@@ -417,8 +417,8 @@ export default function EmergencyCardPage() {
 
             <div className="text-center mb-4">
               <div className="inline-flex items-center gap-1.5 mb-2">
-                <Shield className="h-4 w-4 text-red-600" />
-                <span className="text-[10px] uppercase tracking-widest font-bold text-red-600">
+                <Shield className="h-4 w-4 text-foreground" />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-foreground">
                   Emergency Card
                 </span>
               </div>
@@ -434,7 +434,7 @@ export default function EmergencyCardPage() {
               </p>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border-2 border-red-100 mb-4 flex items-center justify-center">
+            <div className="bg-white p-4 rounded-2xl border border-border mb-4 flex items-center justify-center">
               <QRCodeSVG
                 value={buildShareText()}
                 size={240}
@@ -449,7 +449,7 @@ export default function EmergencyCardPage() {
 
             <Button
               onClick={() => { setShowQR(false); handleShareCard(); }}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-foreground hover:bg-foreground/90 text-background"
             >
               <Share2 className="h-4 w-4 mr-2" />
               Share as Text
