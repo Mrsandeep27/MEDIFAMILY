@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Camera,
   Upload,
@@ -69,6 +69,7 @@ export default function MedicinePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatting, setIsChatting] = useState(false);
+  const [cameraStarted, setCameraStarted] = useState(false);
 
   const processImage = async (imageDataUrl: string) => {
     setIsAnalyzing(true);
@@ -210,7 +211,8 @@ export default function MedicinePage() {
     setMedicineInfo(null);
     setChatMessages([]);
     setChatInput("");
-    stop();
+    setShowAllSideEffects(false);
+    start();
   };
 
   const suggestedQuestions = isHindi
@@ -231,7 +233,11 @@ export default function MedicinePage() {
         "How long can I take this medicine?",
       ];
 
-  // === CAMERA VIEW ===
+  // Auto-start camera on mount (camera-first UX like scanner)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!cameraStarted) { start(); setCameraStarted(true); } }, []);
+
+  // === CAMERA VIEW (opens immediately, same as scanner) ===
   if (isActive) {
     return (
       <div>
@@ -244,13 +250,13 @@ export default function MedicinePage() {
             <div className="absolute bottom-28 left-6 w-12 h-12 border-b-3 border-l-3 border-white/70 rounded-bl-lg" />
             <div className="absolute bottom-28 right-6 w-12 h-12 border-b-3 border-r-3 border-white/70 rounded-br-lg" />
             <div className="absolute top-10 left-0 right-0 text-center">
-              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">Point at medicine strip & tap capture</span>
+              <span className="bg-black/50 text-white text-xs px-3 py-1 rounded-full">Point at medicine box, strip, or pill</span>
             </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-4">
             <div className="flex items-center justify-center gap-6">
-              <button onClick={() => stop()} className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                <X className="h-5 w-5 text-white" />
+              <button onClick={() => fileInputRef.current?.click()} className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-white" />
               </button>
               <button onClick={handleCapture} className="rounded-full bg-white flex items-center justify-center shadow-lg" style={{ width: "72px", height: "72px" }}>
                 <div className="h-16 w-16 rounded-full border-4 border-black/10 flex items-center justify-center">
@@ -261,6 +267,38 @@ export default function MedicinePage() {
             </div>
           </div>
         </div>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+      </div>
+    );
+  }
+
+  // === CAMERA NOT AVAILABLE / LOADING ===
+  if (!medicineInfo && !isAnalyzing && !previewUrl) {
+    return (
+      <div>
+        <AppHeader title={t("medicine.title")} showBack />
+        <div className="relative bg-black flex flex-col items-center justify-center" style={{ height: "calc(100vh - 8rem)" }}>
+          {cameraError ? (
+            <div className="text-center px-6 space-y-4">
+              <div className="h-20 w-20 rounded-full bg-white/10 flex items-center justify-center mx-auto">
+                <Upload className="h-10 w-10 text-white/70" />
+              </div>
+              <p className="text-white text-base font-medium">Camera not available</p>
+              <p className="text-white/50 text-xs">{cameraError}</p>
+              <Button size="lg" className="bg-white text-black hover:bg-white/90" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Photo
+              </Button>
+              <Button size="sm" variant="ghost" className="text-white/50" onClick={start}>Retry Camera</Button>
+            </div>
+          ) : (
+            <>
+              <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
+              <p className="text-white/70 text-sm">Opening camera...</p>
+            </>
+          )}
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
       </div>
     );
   }
@@ -269,56 +307,8 @@ export default function MedicinePage() {
     <div>
       <AppHeader title={t("medicine.title")} showBack />
       <div className="p-4 space-y-4">
-        {/* Upload Section — show when no medicine identified yet */}
-        {!medicineInfo && !isAnalyzing && (
-          <>
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="py-3">
-                <div className="flex items-start gap-2">
-                  <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    Upload a photo of any medicine strip, bottle, or box.
-                    AI will tell you what it&apos;s for, side effects, and cheaper alternatives.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Card
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={start}
-              >
-                <CardContent className="flex flex-col items-center py-8">
-                  <Camera className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">{t("scan.take_photo")}</span>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <CardContent className="flex flex-col items-center py-8">
-                  <Upload className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium">{t("medicine.upload_photo")}</span>
-                </CardContent>
-              </Card>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-
-            {cameraError && (
-              <p className="text-sm text-destructive text-center">{cameraError}</p>
-            )}
-          </>
-        )}
+        {/* Hidden file input */}
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
 
         {/* Loading */}
         {isAnalyzing && (
