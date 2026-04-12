@@ -1,6 +1,7 @@
 export const APP_NAME = "MediFamily";
+export const APP_TAGLINE = "Your whole family's health, in your pocket.";
 export const APP_DESCRIPTION =
-  "India's first offline-first, AI-powered family health record manager";
+  "Free offline-first family health app. Store prescriptions, track medicines, and manage health records for your entire family. Works without internet. Made for India.";
 
 // PIN Lock
 export const PIN_LENGTH = 4;

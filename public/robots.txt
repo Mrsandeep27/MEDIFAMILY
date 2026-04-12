@@ -5,3 +5,24 @@ Disallow: /admin/
 Disallow: /auth/
 
 Sitemap: https://medifamily.in/sitemap.xml
+
+# AI/LLM Crawlers
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /llms.txt
+
+User-agent: Claude-Web
+Allow: /
+Allow: /llms.txt
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /llms.txt
+
+User-agent: Amazonbot
+Allow: /
+Allow: /llms.txt

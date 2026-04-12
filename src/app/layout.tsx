@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MediFamily — AI Health Record Manager for Indian Families | Free PWA",
+  title: "MediFamily — Your Whole Family's Health, In Your Pocket | Free Offline App",
   description:
-    "Free offline-first family health app. Scan prescriptions with AI, track medicines, store lab reports, ask AI doctor in Hindi/English. Works without internet. Made for Indian families.",
+    "Free family health app that works without internet. Store prescriptions, track medicines, manage lab reports for parents, kids & grandparents in one app. Made for Indian families.",
   keywords: [
     "MediFamily", "medi family", "family health app india", "health records app",
     "prescription scanner ai", "medicine tracker india", "offline health app",
@@ -36,8 +36,8 @@ export const metadata: Metadata = {
     canonical: "https://medifamily.in",
   },
   openGraph: {
-    title: "MediFamily — AI Health Record Manager for Indian Families",
-    description: "Free offline-first family health app with AI doctor, prescription scanner, medicine reminders, and lab insights. Made for India.",
+    title: "MediFamily — Your Whole Family's Health, In Your Pocket",
+    description: "Free family health app that works without internet. Prescriptions, medicines, lab reports for your entire family. Made for India.",
     url: "https://medifamily.in",
     siteName: "MediFamily",
     type: "website",
@@ -47,14 +47,14 @@ export const metadata: Metadata = {
         url: "/logo.png",
         width: 512,
         height: 512,
-        alt: "MediFamily — AI Family Health Record Manager",
+        alt: "MediFamily — Your Whole Family's Health, In Your Pocket",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MediFamily — AI Health Record Manager for Indian Families",
-    description: "Free offline-first family health app with AI doctor, prescription scanner, medicine reminders.",
+    title: "MediFamily — Your Whole Family's Health, In Your Pocket",
+    description: "Free family health app that works without internet. Prescriptions, medicines, lab reports for your entire family. Made for India.",
     images: ["/logo.png"],
   },
   robots: {
@@ -91,6 +91,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/logo.png" />
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-readable site info" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}

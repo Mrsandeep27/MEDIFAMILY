@@ -1,0 +1,119 @@
+# MediFamily — Your Whole Family's Health, In Your Pocket
+
+> Free offline-first family health app for Indian families. One account for everyone's prescriptions, medicines, lab reports, and emergency info. Works without internet.
+
+## About
+
+MediFamily is a Progressive Web App (PWA) that lets one person manage health records for their entire family — parents, spouse, kids, grandparents — all from a single login. Built for Indian families where one family member (usually wife or daughter) manages health for 4-8 people.
+
+Unlike Practo, 1mg, or Apollo 24/7, MediFamily is:
+- **Family-first**: Not individual-only. One account, unlimited family members.
+- **Offline-first**: Works without internet. Records stored on your phone via IndexedDB. Syncs when online.
+- **Free forever**: No ads, no subscription, no data selling.
+- **Hindi-ready**: Prescription scanner supports Hindi/Hinglish handwritten prescriptions.
+
+Website: https://medifamily.in
+Developer: Sandeep Pandey (Bangalore, India)
+Contact: sandeeppandey70391@gmail.com
+
+## Core Features
+
+### Family Health Records
+- Add unlimited family members (self, spouse, parents, children, grandparents, siblings)
+- Store prescriptions, lab reports, vaccinations, discharge summaries, medical bills
+- Attach up to 10 images per record (compressed to 500KB each)
+- Search and filter records by type, member, date, doctor name
+
+### Prescription Scanner (AI + OCR)
+- Camera capture or photo upload
+- Tesseract OCR for English + Hindi handwritten prescriptions
+- Google Gemini AI extracts: medicine name, dosage, frequency, duration, before/after food
+- Auto-creates medicine entries linked to records
+
+### Medicine Reminders
+- Set daily/weekly reminders tied to medicines
+- Before/after food indicators
+- Adherence tracking: taken/missed/skipped logging
+- Weekly streak tracking with motivational badges
+- Adherence calendar (28-day visual grid)
+
+### Emergency Card
+- One-tap access to critical info: blood group, allergies, chronic conditions, current medicines, emergency contact
+- QR code for hospital/doctor scanning
+- Share via WhatsApp as formatted text
+- Works for every family member
+
+### Vitals Tracking
+- Blood pressure (systolic/diastolic)
+- Blood sugar
+- Weight
+- Temperature
+- SpO2 (oxygen saturation)
+- Line charts with normal range overlays
+- Trend indicators (stable/up/down)
+
+### AI Doctor Chat
+- Symptom-based triage with urgency levels (green/yellow/orange/red)
+- Possible causes, home remedies, OTC medicine suggestions
+- Context-aware: uses patient's actual conditions, medicines, vitals
+- Hindi and English responses
+
+### Medicine Checker
+- Photo-based medicine identification
+- Returns: brand name, generic name, uses, side effects, dosage
+- Safety info: pregnancy safe, alcohol safe, habit-forming
+- Cheaper generic alternative suggestions with Indian pricing (INR)
+
+### Lab Report Insights
+- AI-powered lab report analysis
+- Highlights abnormal values with explanations
+- Health risk assessment
+
+### Doctor Sharing
+- Generate temporary QR code links for doctors
+- Doctors view patient records without needing an account
+- Links expire after 1 hour to 7 days (configurable)
+
+## Technical Details
+
+- **Platform**: Progressive Web App (PWA) — works in any browser, installable on Android/iOS
+- **Framework**: Next.js 16 (App Router)
+- **Local Storage**: Dexie.js 4 (IndexedDB) — all data stored on device first
+- **Cloud Sync**: Supabase PostgreSQL via Prisma 6 — syncs every 30 minutes when online
+- **Auth**: Supabase Auth (email/password + Google OAuth)
+- **AI**: Google Gemini API (multi-key rotation, model fallback)
+- **OCR**: Tesseract.js 7 (English + Hindi)
+- **Languages**: English, Hindi
+
+## Who Is This For
+
+- Indian families managing health for multiple members
+- Caregivers looking after elderly parents remotely
+- Anyone tired of losing paper prescriptions
+- People in tier-2/tier-3 cities with unreliable internet
+- Parents tracking children's vaccination schedules
+- Chronic disease patients (diabetes, BP) tracking vitals over time
+
+## Pricing
+
+Free. No premium tier. No ads. No data selling.
+
+## Comparison With Alternatives
+
+| Feature | MediFamily | Practo | 1mg | Apollo 24/7 | ABHA PHR |
+|---------|-----------|--------|-----|-------------|----------|
+| Family records (multiple members) | Yes | No | No | No | No |
+| Works offline | Yes | No | No | No | No |
+| Hindi prescription OCR | Yes | No | No | No | No |
+| Medicine reminders + adherence | Yes | No | Basic | Basic | No |
+| Emergency card with QR | Yes | No | No | No | No |
+| Free, no ads | Yes | No | No | No | Yes |
+| AI doctor chat | Yes | No | No | Yes (paid) | No |
+
+## Markdown Mirrors (Clean AI-Readable Versions)
+
+Every page on this site has a clean markdown mirror. Add `index.md` to any URL to get the clean content.
+
+- https://medifamily.in/llms.txt (this file)
+- https://medifamily.in/login/index.md
+- https://medifamily.in/sitemap.xml

@@ -14,6 +14,7 @@ import {
   ScanLine,
   Plus,
   AlertTriangle,
+  Heart,
   HeartPulse,
   X,
   Smile,
@@ -63,6 +64,7 @@ const quickActionDefs = [
 // Specialized health tools — basic actions (Scan/Add/Symptoms/Reminders) live
 // in the quick actions row, and Settings/Feedback/Export live under /more.
 const shortcutDefs = [
+  { href: "/emergency-card", icon: Heart, labelKey: "home.emergency_card" },
   { href: "/medicine-checker", icon: Zap, labelKey: "more.medicine_checker" },
   { href: "/vitals", icon: Activity, labelKey: "home.vitals_tracker" },
   { href: "/smart-records", icon: Activity, labelKey: "home.health_overview" },
