@@ -313,45 +313,44 @@ export default function TimelinePage() {
       <AppHeader title="Health Timeline" showBack />
 
       <div className="p-4 space-y-4">
-        {/* Member Filter */}
-        {members.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              onClick={() => setMemberFilter(null)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                memberFilter === null
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-foreground border-border hover:bg-muted"
-              }`}
-            >
-              All
-            </button>
-            {members.map((m) => (
+        {/* Filters — single row */}
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+          {members.length > 1 && (
+            <>
               <button
-                key={m.id}
-                onClick={() => setMemberFilter(m.id === memberFilter ? null : m.id)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  memberFilter === m.id
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-foreground border-border hover:bg-muted"
+                onClick={() => setMemberFilter(null)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                  memberFilter === null
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-background text-foreground border-border"
                 }`}
               >
-                {m.name}
+                All
               </button>
-            ))}
-          </div>
-        )}
-
-        {/* Type Filter */}
-        <div className="flex gap-2">
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setMemberFilter(m.id === memberFilter ? null : m.id)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                    memberFilter === m.id
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background text-foreground border-border"
+                  }`}
+                >
+                  {m.name}
+                </button>
+              ))}
+              <div className="shrink-0 w-px bg-border mx-0.5" />
+            </>
+          )}
           {typeFilters.map((f) => (
             <button
               key={f.value}
               onClick={() => setTypeFilter(f.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                 typeFilter === f.value
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-background text-muted-foreground border-border"
               }`}
             >
               {f.label}
