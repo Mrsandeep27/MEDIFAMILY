@@ -51,6 +51,9 @@ export async function DELETE(
     }
 
     // Cascade-delete related rows in order (children first to respect FKs).
+    // Each step is tracked so partial failures can be reported.
+    const cascadeErrors: string[] = [];
+
     // Get reminder ids to delete reminder_logs through them.
     const { data: reminders } = await supabaseAdmin
       .from("reminders")
@@ -59,18 +62,35 @@ export async function DELETE(
     const reminderIds = (reminders || []).map((r: { id: string }) => r.id);
 
     if (reminderIds.length > 0) {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("reminder_logs")
         .delete()
         .in("reminder_id", reminderIds);
+      if (error) cascadeErrors.push(`reminder_logs: ${error.message}`);
     }
 
-    // Delete from each table that references members
-    await supabaseAdmin.from("medicines").delete().eq("member_id", id);
-    await supabaseAdmin.from("reminders").delete().eq("member_id", id);
-    await supabaseAdmin.from("share_links").delete().eq("member_id", id);
-    await supabaseAdmin.from("health_metrics").delete().eq("member_id", id);
-    await supabaseAdmin.from("health_records").delete().eq("member_id", id);
+    // Delete from each table that references members — continue on error
+    const cascadeTables = [
+      { table: "medicines", column: "member_id" },
+      { table: "reminders", column: "member_id" },
+      { table: "share_links", column: "member_id" },
+      { table: "health_metrics", column: "member_id" },
+      { table: "health_records", column: "member_id" },
+    ] as const;
+
+    for (const { table, column } of cascadeTables) {
+      const { error } = await supabaseAdmin.from(table).delete().eq(column, id);
+      if (error) cascadeErrors.push(`${table}: ${error.message}`);
+    }
+
+    // Only delete the member if all children were cleaned up
+    if (cascadeErrors.length > 0) {
+      console.error("[member/delete] cascade partial failure:", cascadeErrors);
+      return NextResponse.json(
+        { error: "Failed to delete some related records", details: cascadeErrors },
+        { status: 500 }
+      );
+    }
 
     // Finally delete the member itself
     const { error: delErr } = await supabaseAdmin

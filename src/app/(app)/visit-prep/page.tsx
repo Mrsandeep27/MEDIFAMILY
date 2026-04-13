@@ -266,9 +266,14 @@ export default function VisitPrepPage() {
     setAiLoading(true);
     try {
       const brief = buildBrief();
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
       const res = await fetch("/api/visit-prep", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ brief }),
       });
       const data = await res.json();

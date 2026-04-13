@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { callGemini } from "@/lib/ai/gemini";
+import { sanitizePromptInput } from "@/lib/ai/sanitize";
+import { visitPrepSchema } from "@/lib/utils/validators";
+
+const supabaseAuth = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const SYSTEM_PROMPT = `You are a smart medical assistant helping patients prepare for doctor visits.
 
@@ -23,14 +31,29 @@ Rules:
 
 export async function POST(req: NextRequest) {
   try {
-    const { brief } = await req.json();
-
-    if (!brief || typeof brief !== "string") {
-      return NextResponse.json({ error: "Missing brief" }, { status: 400 });
+    // Require authentication — prevents cost abuse
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
+    if (authError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const body = await req.json();
+
+    const parsed = visitPrepSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Invalid input";
+      return NextResponse.json({ error: firstError }, { status: 400 });
+    }
+
+    // Sanitize against prompt injection — brief is client-controlled
+    const sanitizedBrief = sanitizePromptInput(parsed.data.brief, 4000);
+
     const result = await callGemini(
-      [{ text: brief }],
+      [{ text: sanitizedBrief }],
       {
         systemInstruction: SYSTEM_PROMPT,
         temperature: 0.3,
@@ -40,20 +63,20 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    let parsed;
+    let response;
     try {
-      parsed = JSON.parse(result);
+      response = JSON.parse(result);
     } catch {
       // Try to extract JSON from markdown code blocks
       const match = result.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (match) {
-        parsed = JSON.parse(match[1]);
+        response = JSON.parse(match[1]);
       } else {
-        parsed = { questions: [], visit_summary: "" };
+        response = { questions: [], visit_summary: "" };
       }
     }
 
-    return NextResponse.json(parsed);
+    return NextResponse.json(response);
   } catch (err) {
     console.error("[visit-prep]", err);
     return NextResponse.json(

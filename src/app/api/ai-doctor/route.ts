@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+import { sanitizePromptInput } from "@/lib/ai/sanitize";
 import { loadActiveRules } from "@/lib/ai/medical/rules-server";
 import { detectSafetyViolations } from "@/lib/ai/medical/safety-detector";
 import { draftRuleFromBadAnswer, isAutoApprovable } from "@/lib/ai/medical/rule-writer";
@@ -96,13 +97,7 @@ export async function POST(request: NextRequest) {
     let patientContext: string;
     if (medicalBrief && typeof medicalBrief === "string" && medicalBrief.length > 0) {
       // P0.2: Sanitize against prompt injection — the brief is client-controlled
-      patientContext = medicalBrief
-        .replace(/ignore\s+(all|previous|above|every|your|the)/gi, "[REDACTED]")
-        .replace(/you\s+are\s+(now|no\s+longer|not|a)/gi, "[REDACTED]")
-        .replace(/forget\s+(all|everything|your|previous|the)/gi, "[REDACTED]")
-        .replace(/override|disregard|bypass|jailbreak|pretend|roleplay/gi, "[REDACTED]")
-        .replace(/system\s*(prompt|instruction|message)/gi, "[REDACTED]")
-        .slice(0, 4000);
+      patientContext = sanitizePromptInput(medicalBrief, 4000);
     } else if (patient) {
       const age = patient.date_of_birth
         ? Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / 31557600000)

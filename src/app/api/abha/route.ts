@@ -11,12 +11,12 @@ import {
   confirmAuth,
   getAbhaProfile,
 } from "@/lib/abha/client";
+import { abhaActionSchema } from "@/lib/utils/validators";
 
 // POST /api/abha — handles all ABHA operations via "action" field
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action } = body;
 
     // Check if ABDM is configured
     if (!process.env.ABDM_CLIENT_ID || !process.env.ABDM_CLIENT_SECRET) {
@@ -30,49 +30,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    switch (action) {
+    // Validate all inputs via discriminated union
+    const parsed = abhaActionSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Invalid input";
+      return NextResponse.json({ error: firstError }, { status: 400 });
+    }
+
+    const data = parsed.data;
+
+    switch (data.action) {
       // ============================================================
       // M1: ABHA Creation via Aadhaar
       // ============================================================
       case "generate-aadhaar-otp": {
-        const { aadhaar } = body;
-        if (!aadhaar || aadhaar.length !== 12) {
-          return NextResponse.json({ error: "Valid 12-digit Aadhaar required" }, { status: 400 });
-        }
-        const result = await generateAadhaarOtp(aadhaar);
+        const result = await generateAadhaarOtp(data.aadhaar);
         return NextResponse.json(result);
       }
 
       case "verify-aadhaar-otp": {
-        const { txnId, otp } = body;
-        if (!txnId || !otp) {
-          return NextResponse.json({ error: "txnId and otp required" }, { status: 400 });
-        }
-        const result = await verifyAadhaarOtp(txnId, otp);
+        const result = await verifyAadhaarOtp(data.txnId, data.otp);
         return NextResponse.json(result);
       }
 
       case "generate-mobile-otp": {
-        const { txnId, mobile } = body;
-        if (!txnId || !mobile) {
-          return NextResponse.json({ error: "txnId and mobile required" }, { status: 400 });
-        }
-        const result = await generateMobileOtp(txnId, mobile);
+        const result = await generateMobileOtp(data.txnId, data.mobile);
         return NextResponse.json(result);
       }
 
       case "verify-mobile-create": {
-        const { txnId, otp } = body;
-        if (!txnId || !otp) {
-          return NextResponse.json({ error: "txnId and otp required" }, { status: 400 });
-        }
-        const result = await verifyMobileOtpAndCreate(txnId, otp);
+        const result = await verifyMobileOtpAndCreate(data.txnId, data.otp);
         return NextResponse.json(result);
       }
 
       case "create-health-id": {
-        const { txnId, healthId, firstName, lastName } = body;
-        const result = await createHealthId(txnId, healthId, firstName, lastName);
+        const result = await createHealthId(data.txnId, data.healthId, data.firstName, data.lastName || "");
         return NextResponse.json(result);
       }
 
@@ -80,52 +72,29 @@ export async function POST(req: NextRequest) {
       // M1: ABHA Linking (existing ABHA)
       // ============================================================
       case "search-abha": {
-        const { healthId } = body;
-        if (!healthId) {
-          return NextResponse.json({ error: "healthId required" }, { status: 400 });
-        }
-        const result = await searchByHealthId(healthId);
+        const result = await searchByHealthId(data.healthId);
         return NextResponse.json(result);
       }
 
       case "login-mobile-otp": {
-        const { healthId } = body;
-        if (!healthId) {
-          return NextResponse.json({ error: "healthId required" }, { status: 400 });
-        }
-        const result = await loginWithMobile(healthId);
+        const result = await loginWithMobile(data.healthId);
         return NextResponse.json(result);
       }
 
       case "login-aadhaar-otp": {
-        const { healthId } = body;
-        if (!healthId) {
-          return NextResponse.json({ error: "healthId required" }, { status: 400 });
-        }
-        const result = await loginWithAadhaar(healthId);
+        const result = await loginWithAadhaar(data.healthId);
         return NextResponse.json(result);
       }
 
       case "confirm-auth": {
-        const { txnId, otp } = body;
-        if (!txnId || !otp) {
-          return NextResponse.json({ error: "txnId and otp required" }, { status: 400 });
-        }
-        const result = await confirmAuth(txnId, otp);
+        const result = await confirmAuth(data.txnId, data.otp);
         return NextResponse.json(result);
       }
 
       case "get-profile": {
-        const { xToken } = body;
-        if (!xToken) {
-          return NextResponse.json({ error: "xToken required" }, { status: 400 });
-        }
-        const result = await getAbhaProfile(xToken);
+        const result = await getAbhaProfile(data.xToken);
         return NextResponse.json(result);
       }
-
-      default:
-        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "ABHA operation failed";

@@ -10,6 +10,7 @@ import type {
   DayOfWeek,
   Frequency,
 } from "@/lib/db/schema";
+import { useAuthStore } from "@/stores/auth-store";
 
 export interface ReminderFormData {
   medicine_id: string;
@@ -26,6 +27,7 @@ export interface ReminderFormData {
 const ALL_DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export function useReminders(memberId?: string) {
+  const user = useAuthStore((s) => s.user);
   const reminders = useLiveQuery(
     () =>
       db.reminders
@@ -48,6 +50,7 @@ export function useReminders(memberId?: string) {
   }, [todayStr]);
 
   const addReminder = async (data: ReminderFormData): Promise<string> => {
+    if (!user) throw new Error("Not authenticated");
     const id = uuidv4();
     const now = new Date().toISOString();
     const reminder: Reminder = {

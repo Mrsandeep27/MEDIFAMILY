@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+import { sanitizePromptInput } from "@/lib/ai/sanitize";
 
 const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +41,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const interactionUserPrompt = `Medicines: ${medicines.join(", ")}${locale === "hi" ? "\nReply in Hindi." : ""}`;
+      const sanitizedMedicines = medicines.map((m: string) => sanitizePromptInput(String(m), 100));
+      const interactionUserPrompt = `Medicines: ${sanitizedMedicines.join(", ")}${locale === "hi" ? "\nReply in Hindi." : ""}`;
 
       const interactionSystem = `Professional Indian pharmacist. Check drug interactions. Be specific.
 OUTPUT JSON: {"interactions":[{"medicines":["A","B"],"severity":"mild|moderate|severe","description":"What happens + what to do"}],"overall_safe":true|false,"summary":"one clear line"}
@@ -108,7 +110,8 @@ No interactions → interactions:[], overall_safe:true. Max 3. Be specific about
         return NextResponse.json({ error: "Question and context required" }, { status: 400 });
       }
 
-      const chatUserPrompt = `Medicine: ${context.name} (${context.generic_name})\nQuestion: "${question}"${locale === "hi" ? "\nReply in Hindi." : ""}`;
+      const sanitizedQuestion = sanitizePromptInput(String(question), 500);
+      const chatUserPrompt = `Medicine: ${sanitizePromptInput(String(context.name), 100)} (${sanitizePromptInput(String(context.generic_name || ""), 100)})\nQuestion: "${sanitizedQuestion}"${locale === "hi" ? "\nReply in Hindi." : ""}`;
       const chatSystem = `Professional Indian pharmacist. Answer in 2-3 short sentences. Be specific — dosages, timing, interactions. Hinglish is fine. Add "consult doctor" for safety questions.`;
 
       try {

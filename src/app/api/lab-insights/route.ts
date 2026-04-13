@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
+import { sanitizePromptInput } from "@/lib/ai/sanitize";
 
 const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,7 +56,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (text) {
-      parts.push({ text: `Lab Report Text:\n${text.slice(0, 3000)}` });
+      const sanitizedText = sanitizePromptInput(text, 3000);
+      parts.push({ text: `Lab Report Text:\n${sanitizedText}` });
     }
 
     try {

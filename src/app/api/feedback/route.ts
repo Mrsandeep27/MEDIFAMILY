@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin";
+import { feedbackSchema, feedbackPatchSchema } from "@/lib/utils/validators";
 
 // POST: Submit feedback
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, user_email, user_name, category, rating, message, page, device } = body;
 
-    if (!message || typeof message !== "string" || message.trim().length < 3) {
-      return NextResponse.json({ error: "Message is required (min 3 characters)" }, { status: 400 });
+    const parsed = feedbackSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Invalid input";
+      return NextResponse.json({ error: firstError }, { status: 400 });
     }
+
+    const { user_id, user_email, user_name, category, rating, message, page, device } = parsed.data;
 
     const row = {
       user_id: user_id || null,
       user_email: user_email || null,
       user_name: user_name || null,
-      category: category || "review",
-      rating: rating ? Math.min(5, Math.max(1, Number(rating))) : null,
-      message: message.trim().slice(0, 2000),
+      category,
+      rating: rating || null,
+      message: message.trim(),
       page: page || null,
       device: device || null,
       status: "new",
@@ -40,14 +45,12 @@ export async function POST(request: NextRequest) {
 // GET: Admin — list all feedback
 export async function GET(request: NextRequest) {
   try {
-    // Admin key via Authorization header — never in URL (query params leak in logs)
-    const adminKey = request.headers.get("x-admin-key");
-    if (!adminKey || adminKey !== process.env.JWT_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const adminResult = await requireAdmin(request);
+    if (!adminResult.ok) {
+      return NextResponse.json({ error: adminResult.error }, { status: adminResult.status });
     }
 
     const { searchParams } = new URL(request.url);
-
     const status = searchParams.get("status") || undefined;
     const category = searchParams.get("category") || undefined;
 
@@ -74,22 +77,28 @@ export async function GET(request: NextRequest) {
 // PATCH: Admin — update feedback status/note
 export async function PATCH(request: NextRequest) {
   try {
+    const adminResult = await requireAdmin(request);
+    if (!adminResult.ok) {
+      return NextResponse.json({ error: adminResult.error }, { status: adminResult.status });
+    }
+
     const body = await request.json();
-    const { id, status, admin_note } = body;
 
-    // Admin key via header — never in request body (may be logged)
-    const adminKey = request.headers.get("x-admin-key");
-    if (!adminKey || adminKey !== process.env.JWT_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const parsed = feedbackPatchSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Invalid input";
+      return NextResponse.json({ error: firstError }, { status: 400 });
     }
 
-    if (!id) {
-      return NextResponse.json({ error: "Feedback ID required" }, { status: 400 });
-    }
+    const { id, status, admin_note } = parsed.data;
 
     const updateData: Record<string, string> = {};
     if (status) updateData.status = status;
     if (admin_note !== undefined) updateData.admin_note = admin_note;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
 
     const { data, error } = await supabaseAdmin.from("feedback").update(updateData).eq("id", id).select().single();
     if (error) throw error;
