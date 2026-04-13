@@ -645,11 +645,23 @@ export default function OnboardingPage() {
       }
 
       // Check server (for new device / fresh install)
+      // Use auth token header — cookies may not be set on a new device
       try {
-        const res = await fetch("/api/check-onboarding");
+        const { createClient } = await import("@/lib/supabase/client");
+        const { data: { session } } = await createClient().auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch("/api/check-onboarding", { headers });
         if (res.ok) {
           const { onboarded } = await res.json();
           if (onboarded && !cancelled) {
+            // Trigger a sync so existing data comes down to this device
+            try {
+              const { syncAll } = await import("@/lib/db/sync");
+              await syncAll();
+            } catch { /* sync failure is non-fatal */ }
             setHasCompletedOnboarding(true);
             window.location.replace("/home");
             return;

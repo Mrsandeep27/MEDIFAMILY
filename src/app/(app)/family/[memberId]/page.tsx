@@ -1,7 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Edit,
   Share2,
@@ -9,6 +10,7 @@ import {
   BarChart3,
   Droplets,
   Heart,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,8 +19,9 @@ import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { MemberAvatar } from "@/components/family/member-avatar";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
-import { useMember } from "@/hooks/use-members";
+import { useMember, useMembers } from "@/hooks/use-members";
 import { RELATION_LABELS } from "@/constants/config";
+import { toast } from "sonner";
 
 export default function MemberDetailPage({
   params,
@@ -26,7 +29,11 @@ export default function MemberDetailPage({
   params: Promise<{ memberId: string }>;
 }) {
   const { memberId } = use(params);
+  const router = useRouter();
   const { member, isLoading } = useMember(memberId);
+  const { deleteMember } = useMembers();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (isLoading) {
     return (
@@ -152,6 +159,59 @@ export default function MemberDetailPage({
             </p>
           </CardContent>
         </Card>
+
+        {/* Delete Member — only for non-self members */}
+        {member.relation !== "self" && (
+          <div className="pt-4">
+            {!showDeleteConfirm ? (
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Member
+              </Button>
+            ) : (
+              <Card className="border-destructive">
+                <CardContent className="py-4 space-y-3">
+                  <p className="text-sm font-medium text-destructive">
+                    Delete {member.name}? This will remove all their records, medicines, and reminders. This cannot be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      disabled={isDeleting}
+                      onClick={async () => {
+                        setIsDeleting(true);
+                        try {
+                          await deleteMember(memberId);
+                          toast.success(`${member.name} deleted`);
+                          router.replace("/family");
+                        } catch (err) {
+                          console.error("Delete failed:", err);
+                          toast.error("Failed to delete member");
+                          setIsDeleting(false);
+                        }
+                      }}
+                    >
+                      {isDeleting ? "Deleting..." : "Yes, Delete"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
