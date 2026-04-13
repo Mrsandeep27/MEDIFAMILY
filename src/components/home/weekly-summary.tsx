@@ -88,10 +88,10 @@ export function WeeklySummary() {
   }
 
   return (
-    <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+    <Card className="bg-gradient-to-r from-purple-500/5 to-purple-500/10 border-purple-500/20">
       <CardContent className="py-3">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="h-4 w-4 text-primary" />
+          <TrendingUp className="h-4 w-4 text-purple-500" />
           <h3 className="text-xs font-semibold">This Week</h3>
         </div>
         <div className="grid grid-cols-4 gap-2">

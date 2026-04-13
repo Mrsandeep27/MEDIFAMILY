@@ -8,20 +8,19 @@
 import { prisma } from "@/lib/db/prisma";
 
 // Vision: accuracy-first order (prescriptions need sharp reading)
+// Models must match Google AI Studio names exactly
 const VISION_MODELS = [
   "gemini-2.5-flash",
-  "gemini-2.5-pro",
-  "gemini-3-flash-preview",
   "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
 ];
 
 // Text: speed-first for chat. flash-lite is 2-3x faster than flash with
-// negligible quality loss for short conversational turns. flash and the
-// 3-preview model stay as fallbacks if lite hits a quota.
+// negligible quality loss for short conversational turns.
 const TEXT_MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-3-flash-preview",
+  "gemini-2.0-flash",
 ];
 
 let currentKeyIndex = 0;

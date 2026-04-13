@@ -55,7 +55,7 @@ const moodOptionDefs = [
 ];
 
 const quickActionDefs = [
-  { href: "/scan", icon: ScanLine, labelKey: "home.scan_rx", gradient: "from-blue-500 to-blue-600" },
+  { href: "/scan", icon: ScanLine, labelKey: "home.scan_rx", gradient: "from-purple-500 to-purple-600" },
   { href: "/records/add", icon: Plus, labelKey: "home.add_record", gradient: "from-emerald-500 to-emerald-600" },
   { href: "/symptom-tracker", icon: HeartPulse, labelKey: "home.symptoms", gradient: "from-pink-500 to-pink-600" },
   { href: "/reminders", icon: Bell, labelKey: "home.reminders", gradient: "from-amber-500 to-amber-600" },
