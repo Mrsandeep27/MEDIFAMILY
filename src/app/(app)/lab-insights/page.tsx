@@ -462,14 +462,47 @@ export default function LabInsightsPage() {
                       if (!selectedMemberId || !insights) return;
                       setSaving(true);
                       try {
+                        const { db } = await import("@/lib/db/dexie");
+
+                        // ── Duplicate detection ──
+                        // Check if a lab report with same date + lab name already exists for this member
+                        const reportDate = insights.report_date || new Date().toISOString().split("T")[0];
+                        const existingRecords = await db.records
+                          .where("member_id")
+                          .equals(selectedMemberId)
+                          .filter((r) =>
+                            !r.is_deleted &&
+                            r.type === "lab_report" &&
+                            r.visit_date === reportDate &&
+                            (r.hospital_name || "").toLowerCase() === (insights.lab_name || "").toLowerCase()
+                          )
+                          .toArray();
+
+                        if (existingRecords.length > 0) {
+                          toast.error("This lab report is already saved (same date and lab). Skipping duplicate.");
+                          setSaving(false);
+                          return;
+                        }
+
                         const title = insights.lab_name
                           ? `${insights.lab_name} - Lab Report`
-                          : `Lab Report - ${insights.report_date || new Date().toLocaleDateString("en-IN")}`;
+                          : `Lab Report - ${reportDate}`;
 
                         const abnormalMarkers = insights.markers
                           .filter((m) => m.status !== "normal")
                           .map((m) => `${m.name}: ${m.value} (${m.status})`)
                           .join(", ");
+
+                        // Save full AI analysis as JSON in notes so it can be displayed later
+                        const fullAnalysis = JSON.stringify({
+                          _type: "lab_analysis_v1",
+                          markers: insights.markers,
+                          summary: insights.summary,
+                          urgent_attention: insights.urgent_attention,
+                          patient_name: insights.patient_name,
+                          lab_name: insights.lab_name,
+                          report_date: insights.report_date,
+                        });
 
                         const images = imageBlob
                           ? [new File([imageBlob], "lab-report.jpg", { type: imageBlob.type || "image/jpeg" })]
@@ -482,9 +515,9 @@ export default function LabInsightsPage() {
                             title,
                             doctor_name: "",
                             hospital_name: insights.lab_name || "",
-                            visit_date: insights.report_date || new Date().toISOString().split("T")[0],
+                            visit_date: reportDate,
                             diagnosis: abnormalMarkers || "All markers normal",
-                            notes: insights.summary || "",
+                            notes: fullAnalysis,
                             tags: ["lab", "ai-analyzed"],
                           },
                           images
@@ -494,7 +527,7 @@ export default function LabInsightsPage() {
                         const savedVitals = await autoSaveVitalsFromMarkers(
                           insights.markers,
                           selectedMemberId,
-                          insights.report_date || new Date().toISOString().split("T")[0],
+                          reportDate,
                           addMetric
                         );
 

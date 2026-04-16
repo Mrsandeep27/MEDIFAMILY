@@ -12,6 +12,11 @@ import {
   Stethoscope,
   Tag,
   Image as ImageIcon,
+  CheckCircle2,
+  ArrowDown,
+  ArrowUp,
+  Minus,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,19 +175,29 @@ export default function RecordDetailPage({
           </CardContent>
         </Card>
 
-        {/* Notes */}
-        {record.notes && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {record.notes}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Notes — or Lab Analysis if saved as JSON */}
+        {record.notes && (() => {
+          // Try to parse as lab analysis JSON
+          try {
+            const parsed = JSON.parse(record.notes);
+            if (parsed._type === "lab_analysis_v1" && Array.isArray(parsed.markers)) {
+              return <LabAnalysisView analysis={parsed} />;
+            }
+          } catch { /* not JSON, render as plain text */ }
+
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {record.notes}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Tags */}
         {(record.tags?.length ?? 0) > 0 && (
@@ -296,6 +311,101 @@ function DetailRow({
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-sm font-medium">{value}</p>
       </div>
+    </div>
+  );
+}
+
+// ─── Lab Analysis View (renders saved marker cards) ─────────────────────────
+const labStatusConfig = {
+  normal: { color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle2 },
+  low: { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", icon: ArrowDown },
+  high: { color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", icon: ArrowUp },
+  critical: { color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: ShieldAlert },
+};
+
+function LabAnalysisView({ analysis }: { analysis: {
+  markers: Array<{ name: string; value: string; normal_range: string; status: string; explanation: string; advice?: string }>;
+  summary?: string;
+  urgent_attention?: string[];
+}}) {
+  return (
+    <div className="space-y-3">
+      {/* Urgent */}
+      {analysis.urgent_attention && analysis.urgent_attention.length > 0 && (
+        <Card className="border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldAlert className="h-4 w-4 text-red-600" />
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">Needs Urgent Attention</p>
+            </div>
+            {analysis.urgent_attention.map((item, i) => (
+              <p key={i} className="text-sm text-red-600 dark:text-red-400">{"\u2022"} {item}</p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary */}
+      {analysis.summary && (
+        <Card className="bg-muted/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">AI Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm">{analysis.summary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Stats */}
+      {analysis.markers.length > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          {(["normal", "low", "high", "critical"] as const).map((status) => {
+            const count = analysis.markers.filter((m) => m.status === status).length;
+            const cfg = labStatusConfig[status];
+            const Icon = cfg.icon;
+            return (
+              <div key={status} className={`rounded-lg p-2 text-center ${cfg.color}`}>
+                <Icon className="h-4 w-4 mx-auto mb-0.5" />
+                <p className="text-lg font-bold">{count}</p>
+                <p className="text-[10px] capitalize">{status}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Marker Cards */}
+      {analysis.markers.map((marker, i) => {
+        const status = (marker.status as keyof typeof labStatusConfig) || "normal";
+        const cfg = labStatusConfig[status] || labStatusConfig.normal;
+        const Icon = cfg.icon;
+        return (
+          <Card key={i}>
+            <CardContent className="py-3">
+              <div className="flex items-start justify-between mb-1.5">
+                <h4 className="text-sm font-semibold">{marker.name}</h4>
+                <Badge className={`${cfg.color} text-[10px] gap-1`}>
+                  <Icon className="h-3 w-3" />
+                  {status}
+                </Badge>
+              </div>
+              <div className="flex items-baseline gap-2 mb-1.5">
+                <span className="text-lg font-bold">{marker.value}</span>
+                <span className="text-xs text-muted-foreground">
+                  (Normal: {marker.normal_range})
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-1">{marker.explanation}</p>
+              {marker.status !== "normal" && marker.advice && (
+                <p className="text-xs bg-muted p-1.5 rounded">
+                  {"\uD83D\uDCA1"} {marker.advice}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
