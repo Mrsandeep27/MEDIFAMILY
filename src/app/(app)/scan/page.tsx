@@ -244,6 +244,27 @@ export default function ScanPage() {
 
     setStep("saving");
     try {
+      // ── Duplicate detection ──
+      // Check if a prescription with same date + doctor already exists for this member
+      const { db } = await import("@/lib/db/dexie");
+      const visitDate = extraction.visit_date || new Date().toISOString().split("T")[0];
+      const existingRecords = await db.records
+        .where("member_id")
+        .equals(selectedMemberId)
+        .filter((r) =>
+          !r.is_deleted &&
+          r.type === "prescription" &&
+          r.visit_date === visitDate &&
+          (r.doctor_name || "").toLowerCase() === (extraction.doctor_name || "").toLowerCase()
+        )
+        .toArray();
+
+      if (existingRecords.length > 0) {
+        toast.error("This prescription is already saved (same date and doctor). Skipping duplicate.");
+        setStep("review");
+        return;
+      }
+
       const title = extraction.doctor_name
         ? `Dr. ${extraction.doctor_name} - Prescription`
         : `Prescription - ${new Date().toLocaleDateString("en-IN")}`;
