@@ -218,62 +218,14 @@ export default function AbhaPage() {
           </Link>
           <h1 className="text-lg font-bold">ABHA Health ID</h1>
         </div>
-        <div className="px-4 py-6 space-y-4">
-          {/* Info Banner */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center shadow-sm">
-                <span className="text-white font-black text-sm">A</span>
-              </div>
-              <div>
-                <h2 className="font-bold text-green-800 text-base">ABHA Health ID</h2>
-                <p className="text-[10px] text-green-600 font-medium">Ayushman Bharat Digital Mission</p>
-              </div>
-            </div>
-            <p className="text-sm text-green-700">
-              Link ABHA for each family member to pull verified health records from hospitals, labs & pharmacies.
-            </p>
+        <div className="flex flex-col items-center justify-center px-6 pt-24 text-center space-y-4">
+          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+            <Shield className="h-10 w-10 text-white" />
           </div>
-
-          {/* Family Members — ABHA Status */}
-          {members.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Family Members</h3>
-              {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border">
-                  <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-green-700">{m.name.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{m.name}</p>
-                    <p className="text-[11px] text-muted-foreground capitalize">{m.relation}</p>
-                  </div>
-                  {m.abha_number ? (
-                    <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                      <span className="text-[10px] font-medium text-green-700">Linked</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 bg-amber-100 px-2 py-1 rounded-full">
-                      <Info className="h-3 w-3 text-amber-600" />
-                      <span className="text-[10px] font-medium text-amber-700">Not Linked</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Coming Soon */}
-          <div className="flex flex-col items-center py-8 text-center space-y-3">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-              <Shield className="h-8 w-8 text-white" />
-            </div>
-            <h2 className="text-xl font-bold">Coming Soon</h2>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              ABHA linking will be available once ABDM sandbox credentials are approved. Each family member will be able to link their own ABHA ID.
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold">Coming Soon</h2>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            ABHA linking will be available once ABDM sandbox credentials are approved. Each family member will be able to link their own ABHA ID.
+          </p>
         </div>
       </div>
     );

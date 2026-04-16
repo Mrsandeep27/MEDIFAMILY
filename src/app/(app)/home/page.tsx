@@ -6,16 +6,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Activity,
-  Bell,
-  FileText,
   Pill,
   TestTube,
   Stethoscope,
-  ScanLine,
-  Plus,
   AlertTriangle,
-  Heart,
-  HeartPulse,
   X,
   Smile,
   Meh,
@@ -34,12 +28,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MemberSelector } from "@/components/family/member-selector";
-import { RecordCard } from "@/components/records/record-card";
 import { GlobalSearch } from "@/components/home/global-search";
 import { NotificationCenter } from "@/components/home/notification-center";
-import { WeeklySummary } from "@/components/home/weekly-summary";
 import { useMembers } from "@/hooks/use-members";
-import { useRecords } from "@/hooks/use-records";
 import { useAuthStore } from "@/stores/auth-store";
 import { useFamilyStore } from "@/stores/family-store";
 import { APP_NAME } from "@/constants/config";
@@ -54,12 +45,6 @@ const moodOptionDefs = [
   { value: "terrible", icon: AlertCircle, labelKey: "mood.terrible", color: "text-red-500", bg: "bg-red-500/20" },
 ];
 
-const quickActionDefs = [
-  { href: "/scan", icon: ScanLine, labelKey: "home.scan_rx", gradient: "from-purple-500 to-purple-600" },
-  { href: "/records/add", icon: Plus, labelKey: "home.add_record", gradient: "from-emerald-500 to-emerald-600" },
-  { href: "/symptom-tracker", icon: HeartPulse, labelKey: "home.symptoms", gradient: "from-pink-500 to-pink-600" },
-  { href: "/reminders", icon: Bell, labelKey: "home.reminders", gradient: "from-amber-500 to-amber-600" },
-];
 
 // Specialized health tools — basic actions (Scan/Add/Symptoms/Reminders) live
 // in the quick actions row, and Settings/Feedback/Export live under /more.
@@ -82,7 +67,6 @@ export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const { members } = useMembers();
   const { selectedMemberId, setSelectedMember } = useFamilyStore();
-  const { records } = useRecords(selectedMemberId || undefined);
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(false);
@@ -98,7 +82,6 @@ export default function HomePage() {
   const greeting = selfMember
     ? `${t("home.greeting")}, ${selfMember.name.split(" ")[0]}`
     : t("home.welcome");
-  const recentRecords = records.slice(0, 3);
 
   // Load upcoming appointments
   useEffect(() => {
@@ -214,95 +197,61 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setTipExpanded((v) => !v)}
-          className="w-full flex items-start gap-2 px-3 py-2 rounded-xl bg-muted/50 border border-border text-left"
+          className="w-full flex items-start gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-left dark:bg-amber-950/30 dark:border-amber-800"
         >
-          <Lightbulb className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-          <p className={`text-xs text-foreground ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
+          <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className={`text-xs text-amber-900 dark:text-amber-200 ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
         </button>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-4 gap-2">
-          {quickActionDefs.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link key={action.href} href={action.href}>
-                <div className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-gradient-to-br ${action.gradient} text-white hover:opacity-90 transition-opacity`}>
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[10px] font-medium">{t(action.labelKey)}</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
 
         {/* Weekly Summary */}
-        <WeeklySummary />
 
-        {/* All Tools — expandable */}
-        <section>
+        {/* All Features + ABHA — side by side */}
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setShowTools((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-muted/50 hover:bg-muted transition-colors"
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted/50 hover:bg-muted transition-colors border border-border"
             aria-expanded={showTools}
           >
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <LayoutGrid className="h-4 w-4 text-primary" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold">{t("home.all_features")}</p>
-                <p className="text-[11px] text-muted-foreground">{showTools ? t("home.tap_to_collapse") : t("home.tap_to_expand")}</p>
-              </div>
-            </div>
-            <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${showTools ? "rotate-180" : ""}`} />
+            <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold flex-1 text-left">{t("home.all_features")}</span>
+            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${showTools ? "rotate-180" : ""}`} />
           </button>
-
-          {showTools && (
-            <div className="mt-3 grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-              {selfMember && (
+          <Link href="/abha">
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-200 h-full">
+              <Shield className="h-4 w-4 text-green-600 shrink-0" />
+              <span className="text-xs font-bold text-green-800 flex-1">{t("home.link_abha")}</span>
+              <span className="text-[8px] font-bold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full leading-none shrink-0">Soon</span>
+            </div>
+          </Link>
+        </div>
+        {showTools && (
+          <div className="grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            {selfMember && (
+              <Link
+                href="/emergency-card"
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-red-100 border border-red-300 shadow-sm hover:bg-red-200 transition-colors"
+              >
+                <AlertTriangle className="h-5 w-5 text-red-700" />
+                <span className="text-[10px] font-semibold text-center text-red-800 leading-tight">{t("home.emergency_card")}</span>
+              </Link>
+            )}
+            {shortcutDefs.map((item) => {
+              const Icon = item.icon;
+              return (
                 <Link
-                  href="/emergency-card"
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-red-100 border border-red-300 shadow-sm hover:bg-red-200 transition-colors"
+                  key={item.href}
+                  href={item.href}
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-sm hover:bg-slate-700 transition-colors"
                 >
-                  <AlertTriangle className="h-5 w-5 text-red-700" />
-                  <span className="text-[10px] font-semibold text-center text-red-800 leading-tight">{t("home.emergency_card")}</span>
+                  <Icon className="h-5 w-5 text-white" />
+                  <span className="text-[10px] font-medium text-center text-white leading-tight">{t(item.labelKey)}</span>
                 </Link>
-              )}
-              {shortcutDefs.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-sm hover:bg-slate-700 transition-colors"
-                  >
-                    <Icon className="h-5 w-5 text-white" />
-                    <span className="text-[10px] font-medium text-center text-white leading-tight">{t(item.labelKey)}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* ABHA Banner — coming soon (ABDM sandbox onboarding in progress) */}
-        <Link href="/abha">
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
-            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <Shield className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-bold text-green-800">{t("home.link_abha")}</p>
-                <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                  Coming Soon
-                </span>
-              </div>
-              <p className="text-xs text-green-600 truncate">{t("home.abha_desc")}</p>
-            </div>
+              );
+            })}
           </div>
-        </Link>
+        )}
 
         {/* Upcoming Appointments */}
         {appointments.length > 0 && (
@@ -354,53 +303,6 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Recent Records */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              {t("home.recent_records")}
-            </h2>
-            {records.length > 0 && (
-              <Link href="/records" className="text-xs text-primary font-medium">
-                {t("home.view_all")}
-              </Link>
-            )}
-          </div>
-          {recentRecords.length === 0 ? (
-            <Card>
-              <CardContent className="py-6 text-center">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                  <FileText className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium">{t("home.no_records_title")}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t("home.no_records_desc")}
-                </p>
-                <div className="flex gap-2 justify-center mt-3">
-                  <Link href="/scan">
-                    <Button size="sm" variant="default">
-                      <ScanLine className="h-4 w-4 mr-1" />
-                      {t("nav.scan")}
-                    </Button>
-                  </Link>
-                  <Link href="/records/add">
-                    <Button size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-1" />
-                      {t("common.add")}
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {recentRecords.map((record) => (
-                <RecordCard key={record.id} record={record} />
-              ))}
-            </div>
-          )}
-        </section>
       </div>
 
       {/* === FEELING TODAY POPUP === */}
