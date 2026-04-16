@@ -191,8 +191,29 @@ export default function ScanPage() {
         toast.info(t("scan.no_medicines_detected"));
       }
 
+      // Auto-select family member by matching patient name from prescription
       if (members.length === 1) {
         setSelectedMemberId(members[0].id);
+      } else if (result.patient_name && members.length > 1) {
+        const patientName = result.patient_name.toLowerCase().trim();
+        // Try exact match first, then partial/fuzzy match
+        const match = members.find((m) => {
+          const name = m.name.toLowerCase().trim();
+          const firstName = name.split(" ")[0];
+          const patientFirst = patientName.split(" ")[0];
+          return (
+            name === patientName ||
+            name.includes(patientName) ||
+            patientName.includes(name) ||
+            firstName === patientFirst ||
+            patientName.includes(firstName) ||
+            firstName.includes(patientFirst)
+          );
+        });
+        if (match) {
+          setSelectedMemberId(match.id);
+          toast.info(`Auto-selected ${match.name} (matched "${result.patient_name}" from prescription)`);
+        }
       }
     } catch (err) {
       console.error("Processing failed:", err);

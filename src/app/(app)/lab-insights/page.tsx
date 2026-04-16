@@ -217,6 +217,28 @@ export default function LabInsightsPage() {
       const data = await res.json();
       setInsights(data);
 
+      // Auto-select family member by matching patient name from lab report
+      if (data.patient_name && members.length > 1 && !selectedMemberId) {
+        const patientName = data.patient_name.toLowerCase().trim();
+        const match = members.find((m) => {
+          const name = m.name.toLowerCase().trim();
+          const firstName = name.split(" ")[0];
+          const patientFirst = patientName.split(" ")[0];
+          return (
+            name === patientName ||
+            name.includes(patientName) ||
+            patientName.includes(name) ||
+            firstName === patientFirst ||
+            patientName.includes(firstName) ||
+            firstName.includes(patientFirst)
+          );
+        });
+        if (match) {
+          setSelectedMemberId(match.id);
+          toast.info(`Auto-selected ${match.name} (matched "${data.patient_name}" from report)`);
+        }
+      }
+
       const abnormal = (data.markers || []).filter((m: LabMarker) => m.status !== "normal").length;
       if (abnormal > 0) {
         toast.warning(`${abnormal} marker(s) need attention`);
