@@ -197,10 +197,12 @@ export default function HomePage() {
         <button
           type="button"
           onClick={() => setTipExpanded((v) => !v)}
-          className="w-full flex items-start gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-left dark:bg-amber-950/30 dark:border-amber-800"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-left shadow-md hover:shadow-lg transition-shadow"
         >
-          <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className={`text-xs text-amber-900 dark:text-amber-200 ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Lightbulb className="h-4 w-4 text-white" />
+          </div>
+          <p className={`text-sm font-semibold text-white ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
         </button>
 
 
