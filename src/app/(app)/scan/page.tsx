@@ -36,6 +36,58 @@ import {
 } from "@/lib/ai/extract-prescription";
 import { FREQUENCY_LABELS } from "@/constants/config";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { useHealthMetrics } from "@/hooks/use-health-metrics";
+
+/**
+ * Parse vitals text from prescription (e.g., "BP: 110/70, Temp: 102.7F, SpO2: 97%")
+ * and auto-save to healthMetrics.
+ */
+async function autoSaveVitalsFromPrescription(
+  vitalsText: string | undefined,
+  memberId: string,
+  visitDate: string,
+  addMetric: (data: { member_id: string; type: "bp" | "sugar" | "temperature" | "spo2" | "weight"; value: Record<string, number>; recorded_at: string; notes?: string }) => Promise<string>
+) {
+  if (!vitalsText) return [];
+  const saved: string[] = [];
+  const recordedAt = new Date(visitDate || Date.now()).toISOString();
+
+  // BP: "BP: 120/80" or "BP 110/70"
+  const bpMatch = vitalsText.match(/BP[:\s]*(\d{2,3})\s*[\/\\]\s*(\d{2,3})/i);
+  if (bpMatch) {
+    const sys = parseInt(bpMatch[1]);
+    const dia = parseInt(bpMatch[2]);
+    if (sys >= 60 && sys <= 250 && dia >= 40 && dia <= 150) {
+      await addMetric({ member_id: memberId, type: "bp", value: { systolic: sys, diastolic: dia }, recorded_at: recordedAt, notes: "From prescription" });
+      saved.push("BP");
+    }
+  }
+
+  // Temperature: "Temp: 102.7F" or "Temp: 39C"
+  const tempMatch = vitalsText.match(/temp[:\s]*(\d{2,3}\.?\d*)\s*[°]?\s*(F|C)?/i);
+  if (tempMatch) {
+    let val = parseFloat(tempMatch[1]);
+    if (tempMatch[2]?.toUpperCase() === "C" || (val >= 30 && val <= 45)) {
+      val = val * 9 / 5 + 32;
+    }
+    if (val >= 90 && val <= 110) {
+      await addMetric({ member_id: memberId, type: "temperature", value: { temp: Math.round(val * 10) / 10 }, recorded_at: recordedAt, notes: "From prescription" });
+      saved.push("Temperature");
+    }
+  }
+
+  // SpO2: "SpO2: 97%" or "O2 Sat: 98%"
+  const spo2Match = vitalsText.match(/(?:spo2|o2\s*sat)[:\s]*(\d{2,3})\s*%?/i);
+  if (spo2Match) {
+    const val = parseInt(spo2Match[1]);
+    if (val >= 70 && val <= 100) {
+      await addMetric({ member_id: memberId, type: "spo2", value: { level: val }, recorded_at: recordedAt, notes: "From prescription" });
+      saved.push("SpO2");
+    }
+  }
+
+  return saved;
+}
 
 type ScanStep = "capture" | "processing" | "review" | "saving";
 
@@ -44,6 +96,7 @@ export default function ScanPage() {
   const { members } = useMembers();
   const { addRecord } = useRecords();
   const { addMedicine } = useMedicines();
+  const { addMetric } = useHealthMetrics();
   const {
     videoRef,
     isActive,
@@ -203,9 +256,18 @@ export default function ScanPage() {
         });
       }
 
+      // Auto-save vitals from prescription (BP, Temp, SpO2)
+      const savedVitals = await autoSaveVitalsFromPrescription(
+        extraction.vitals,
+        selectedMemberId,
+        extraction.visit_date || new Date().toISOString().split("T")[0],
+        addMetric
+      );
+
       const { shareMediFamily } = await import("@/lib/utils/share-app");
+      const vitalsMsg = savedVitals.length > 0 ? ` + ${savedVitals.join(", ")} saved to Vitals` : "";
       toast.success(
-        `Saved prescription with ${editedMedicines.length} medicine(s)`,
+        `Saved prescription with ${editedMedicines.length} medicine(s)${vitalsMsg}`,
         {
           duration: 6000,
           action: {

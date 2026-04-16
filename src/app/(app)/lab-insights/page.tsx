@@ -30,7 +30,93 @@ import { AppHeader } from "@/components/layout/app-header";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { useMembers } from "@/hooks/use-members";
 import { useRecords } from "@/hooks/use-records";
+import { useHealthMetrics } from "@/hooks/use-health-metrics";
 import { toast } from "sonner";
+
+/**
+ * Extract vitals (BP, sugar, temperature, SpO2) from lab markers
+ * and auto-save them to healthMetrics so the Vitals page shows them.
+ */
+async function autoSaveVitalsFromMarkers(
+  markers: LabMarker[],
+  memberId: string,
+  reportDate: string,
+  addMetric: (data: { member_id: string; type: "bp" | "sugar" | "temperature" | "spo2" | "weight"; value: Record<string, number>; recorded_at: string; notes?: string }) => Promise<string>
+) {
+  const saved: string[] = [];
+  const recordedAt = new Date(reportDate || Date.now()).toISOString();
+
+  // BP: look for systolic/diastolic or "blood pressure"
+  const systolicMarker = markers.find((m) => /systolic|sys\s*bp/i.test(m.name));
+  const diastolicMarker = markers.find((m) => /diastolic|dia\s*bp/i.test(m.name));
+  const bpMarker = markers.find((m) => /blood\s*pressure|^bp$/i.test(m.name));
+
+  if (systolicMarker && diastolicMarker) {
+    const sys = parseFloat(systolicMarker.value);
+    const dia = parseFloat(diastolicMarker.value);
+    if (sys >= 60 && sys <= 250 && dia >= 40 && dia <= 150) {
+      await addMetric({ member_id: memberId, type: "bp", value: { systolic: sys, diastolic: dia }, recorded_at: recordedAt, notes: "From lab report" });
+      saved.push("BP");
+    }
+  } else if (bpMarker) {
+    const bpMatch = bpMarker.value.match(/(\d+)\s*[\/\\]\s*(\d+)/);
+    if (bpMatch) {
+      const sys = parseInt(bpMatch[1]);
+      const dia = parseInt(bpMatch[2]);
+      if (sys >= 60 && sys <= 250 && dia >= 40 && dia <= 150) {
+        await addMetric({ member_id: memberId, type: "bp", value: { systolic: sys, diastolic: dia }, recorded_at: recordedAt, notes: "From lab report" });
+        saved.push("BP");
+      }
+    }
+  }
+
+  // Blood Sugar: fasting, random, post-prandial, glucose, HbA1c (convert)
+  const sugarMarker = markers.find((m) =>
+    /glucose|blood\s*sugar|fasting.*sugar|random.*sugar|fbs|rbs|ppbs|post.*prandial/i.test(m.name) &&
+    !/hba1c|glycated/i.test(m.name)
+  );
+  if (sugarMarker) {
+    const val = parseFloat(sugarMarker.value);
+    if (val >= 30 && val <= 500) {
+      await addMetric({ member_id: memberId, type: "sugar", value: { level: val }, recorded_at: recordedAt, notes: `From lab report (${sugarMarker.name})` });
+      saved.push("Sugar");
+    }
+  }
+
+  // Temperature
+  const tempMarker = markers.find((m) => /temperature|temp|body\s*temp/i.test(m.name));
+  if (tempMarker) {
+    let val = parseFloat(tempMarker.value);
+    // Convert Celsius to Fahrenheit if needed
+    if (val >= 30 && val <= 45) val = val * 9 / 5 + 32;
+    if (val >= 90 && val <= 110) {
+      await addMetric({ member_id: memberId, type: "temperature", value: { temp: Math.round(val * 10) / 10 }, recorded_at: recordedAt, notes: "From lab report" });
+      saved.push("Temperature");
+    }
+  }
+
+  // SpO2
+  const spo2Marker = markers.find((m) => /spo2|oxygen\s*sat|o2\s*sat|pulse\s*ox/i.test(m.name));
+  if (spo2Marker) {
+    const val = parseFloat(spo2Marker.value);
+    if (val >= 70 && val <= 100) {
+      await addMetric({ member_id: memberId, type: "spo2", value: { level: val }, recorded_at: recordedAt, notes: "From lab report" });
+      saved.push("SpO2");
+    }
+  }
+
+  // Weight
+  const weightMarker = markers.find((m) => /^weight$|body\s*weight/i.test(m.name));
+  if (weightMarker) {
+    const val = parseFloat(weightMarker.value);
+    if (val >= 1 && val <= 300) {
+      await addMetric({ member_id: memberId, type: "weight", value: { weight: val }, recorded_at: recordedAt, notes: "From lab report" });
+      saved.push("Weight");
+    }
+  }
+
+  return saved;
+}
 
 interface LabMarker {
   name: string;
@@ -62,6 +148,7 @@ export default function LabInsightsPage() {
   const { locale, t } = useLocale();
   const { members } = useMembers();
   const { addRecord } = useRecords();
+  const { addMetric } = useHealthMetrics();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -381,9 +468,20 @@ export default function LabInsightsPage() {
                           images
                         );
 
+                        // Auto-extract vitals from lab markers and save to healthMetrics
+                        const savedVitals = await autoSaveVitalsFromMarkers(
+                          insights.markers,
+                          selectedMemberId,
+                          insights.report_date || new Date().toISOString().split("T")[0],
+                          addMetric
+                        );
+
                         setSaved(true);
                         const memberName = members.find((m) => m.id === selectedMemberId)?.name || "member";
-                        toast.success(`Lab report saved for ${memberName}`, {
+                        const vitalsMsg = savedVitals.length > 0
+                          ? ` + ${savedVitals.join(", ")} added to Vitals`
+                          : "";
+                        toast.success(`Lab report saved for ${memberName}${vitalsMsg}`, {
                           action: {
                             label: "View",
                             onClick: () => router.push(`/records/${recordId}`),
