@@ -17,6 +17,7 @@ import type { MemberFormData } from "@/lib/utils/validators";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { syncAll } from "@/lib/db/sync";
+import { db } from "@/lib/db/dexie";
 import {
   Shield,
   Users,
@@ -684,6 +685,35 @@ export default function OnboardingPage() {
   const handleProfileSubmit = async (data: MemberFormData) => {
     setLoading(true);
     try {
+      // Guard: check if a self member already exists (prevents duplicates
+      // when Google OAuth re-triggers onboarding on every login)
+      const existingSelf = members?.find((m) => m.relation === "self");
+      if (!existingSelf) {
+        // Also check Dexie directly in case live query hasn't caught up
+        const localMembers = await db.members
+          .where("user_id")
+          .equals(user!.id)
+          .filter((m) => m.relation === "self" && !m.is_deleted)
+          .toArray();
+        if (localMembers.length > 0) {
+          // Self already exists locally — skip creation
+          setSelfMemberId(localMembers[0].id);
+          setSelfMemberName(localMembers[0].name);
+          setHasCompletedOnboarding(true);
+          setShowBadge("Profile Created");
+          return;
+        }
+      }
+
+      if (existingSelf) {
+        // Self already exists via live query — skip creation
+        setSelfMemberId(existingSelf.id);
+        setSelfMemberName(existingSelf.name);
+        setHasCompletedOnboarding(true);
+        setShowBadge("Profile Created");
+        return;
+      }
+
       const id = await addMember({ ...data, relation: "self" });
       setSelfMemberId(id);
       setSelfMemberName(data.name);

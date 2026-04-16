@@ -156,15 +156,6 @@ export default function HomePage() {
     setShowFeeling(false);
   };
 
-  const hour = new Date().getHours();
-  const timeGreeting =
-    hour >= 5 && hour < 12
-      ? t("home.good_morning")
-      : hour >= 12 && hour < 17
-        ? t("home.good_afternoon")
-        : hour >= 17 && hour < 21
-          ? t("home.good_evening")
-          : t("home.good_night");
 
   return (
     <div className="space-y-6">
@@ -182,7 +173,6 @@ export default function HomePage() {
               className="rounded-lg bg-white p-0.5"
             />
             <div>
-              <p className="text-primary-foreground/70 text-xs">{timeGreeting}</p>
               <h1 className="text-xl font-bold">{greeting}</h1>
             </div>
           </div>

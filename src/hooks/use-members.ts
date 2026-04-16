@@ -34,6 +34,19 @@ export function useMembers() {
     if (!user?.id) {
       throw new Error("Please sign in again to add a family member");
     }
+
+    // Prevent duplicate self members — return existing ID if one exists
+    if (data.relation === "self") {
+      const existingSelf = await db.members
+        .where("user_id")
+        .equals(user.id)
+        .filter((m) => m.relation === "self" && !m.is_deleted)
+        .first();
+      if (existingSelf) {
+        return existingSelf.id;
+      }
+    }
+
     const id = uuidv4();
     const now = new Date().toISOString();
     const member: Member = {

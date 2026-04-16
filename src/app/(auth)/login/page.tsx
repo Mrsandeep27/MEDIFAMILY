@@ -198,7 +198,7 @@ export default function LoginPage() {
             className="w-full mt-4"
             onClick={() => { setEmailSent(null); setIsSignup(false); }}
           >
-            Back to Sign In
+            Back to Login
           </Button>
         </CardContent>
       </Card>
@@ -309,8 +309,8 @@ export default function LoginPage() {
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading
-              ? isSignup ? "Creating account..." : "Signing in..."
-              : isSignup ? "Sign Up" : "Sign In"
+              ? isSignup ? "Creating account..." : "Logging in..."
+              : isSignup ? "Sign Up" : "Login"
             }
           </Button>
 
@@ -324,7 +324,7 @@ export default function LoginPage() {
               }}
               className="text-primary font-medium hover:underline"
             >
-              {isSignup ? "Sign In" : "Sign Up"}
+              {isSignup ? "Login" : "Sign Up"}
             </button>
           </p>
         </form>
