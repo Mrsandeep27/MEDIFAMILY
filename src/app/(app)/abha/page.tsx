@@ -20,7 +20,17 @@ type Step =
 
 export default function AbhaPage() {
   const { members } = useMembers();
-  const selfMember = members.find((m) => m.relation === "self");
+  const [selectedMemberId, setSelectedMemberId] = useState("");
+
+  // Auto-select self member on first load
+  const selectedMember = members.find((m) => m.id === selectedMemberId)
+    || members.find((m) => m.relation === "self")
+    || members[0];
+
+  // Keep selectedMemberId in sync
+  if (selectedMember && !selectedMemberId) {
+    // Will be set on first render via useEffect below
+  }
 
   const [step, setStep] = useState<Step>("home");
   const [loading, setLoading] = useState(false);
@@ -90,13 +100,14 @@ export default function AbhaPage() {
   }
 
   async function saveToDexie(abhaNumber: string, abhaAddress: string) {
-    if (!selfMember) return;
+    if (!selectedMember) return;
     try {
       const { db } = await import("@/lib/db/dexie");
-      await db.members.update(selfMember.id!, {
+      await db.members.update(selectedMember.id!, {
         abha_number: abhaNumber,
         abha_address: abhaAddress,
         updated_at: new Date().toISOString(),
+        sync_status: "pending",
       });
     } catch { /* ignore */ }
   }
@@ -207,12 +218,62 @@ export default function AbhaPage() {
           </Link>
           <h1 className="text-lg font-bold">ABHA Health ID</h1>
         </div>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center space-y-4">
-          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-            <Shield className="h-10 w-10 text-white" />
+        <div className="px-4 py-6 space-y-4">
+          {/* Info Banner */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center shadow-sm">
+                <span className="text-white font-black text-sm">A</span>
+              </div>
+              <div>
+                <h2 className="font-bold text-green-800 text-base">ABHA Health ID</h2>
+                <p className="text-[10px] text-green-600 font-medium">Ayushman Bharat Digital Mission</p>
+              </div>
+            </div>
+            <p className="text-sm text-green-700">
+              Link ABHA for each family member to pull verified health records from hospitals, labs & pharmacies.
+            </p>
           </div>
-          <h2 className="text-2xl font-bold">Coming Soon</h2>
-          <p className="text-sm text-muted-foreground">ABHA integration is on the way.</p>
+
+          {/* Family Members — ABHA Status */}
+          {members.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Family Members</h3>
+              {members.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border">
+                  <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-green-700">{m.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{m.name}</p>
+                    <p className="text-[11px] text-muted-foreground capitalize">{m.relation}</p>
+                  </div>
+                  {m.abha_number ? (
+                    <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <span className="text-[10px] font-medium text-green-700">Linked</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 bg-amber-100 px-2 py-1 rounded-full">
+                      <Info className="h-3 w-3 text-amber-600" />
+                      <span className="text-[10px] font-medium text-amber-700">Not Linked</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Coming Soon */}
+          <div className="flex flex-col items-center py-8 text-center space-y-3">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+              <Shield className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-xl font-bold">Coming Soon</h2>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              ABHA linking will be available once ABDM sandbox credentials are approved. Each family member will be able to link their own ABHA ID.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -273,12 +334,44 @@ export default function AbhaPage() {
                 </div>
               </div>
               <p className="text-sm text-green-700">
-                Link your ABHA to pull verified records from hospitals, labs & pharmacies across India.
+                Link ABHA for each family member to pull verified records from hospitals, labs & pharmacies across India.
               </p>
             </div>
 
+            {/* Family Member Selector */}
+            {members.length > 1 && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Select Family Member</label>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {members.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setSelectedMemberId(m.id)}
+                      className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+                        selectedMember?.id === m.id
+                          ? "bg-green-600 text-white"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {m.name.split(" ")[0]}
+                      {m.abha_number && (
+                        <CheckCircle className="h-3 w-3" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {/* Show linked count */}
+                {(() => {
+                  const linked = members.filter((m) => m.abha_number).length;
+                  return linked > 0 ? (
+                    <p className="text-[11px] text-green-600 mt-1.5">{linked}/{members.length} members linked</p>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
             {/* Already Linked — ABHA Card */}
-            {selfMember?.abha_number ? (
+            {selectedMember?.abha_number ? (
               <div className="space-y-4">
                 {/* Card */}
                 <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-2xl p-5 text-white shadow-lg">
@@ -294,18 +387,18 @@ export default function AbhaPage() {
                     </div>
                     <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">VERIFIED</span>
                   </div>
-                  <p className="text-lg font-bold">{selfMember.name || "ABHA User"}</p>
+                  <p className="text-lg font-bold">{selectedMember.name || "ABHA User"}</p>
                   <p className="text-xl font-mono tracking-wider mt-1">{
-                    selfMember.abha_number.replace(/(\d{2})(\d{4})(\d{4})(\d{4})/, "$1-$2-$3-$4")
+                    selectedMember.abha_number.replace(/(\d{2})(\d{4})(\d{4})(\d{4})/, "$1-$2-$3-$4")
                   }</p>
-                  {selfMember.abha_address && (
-                    <p className="text-sm opacity-80 mt-1">{selfMember.abha_address}</p>
+                  {selectedMember.abha_address && (
+                    <p className="text-sm opacity-80 mt-1">{selectedMember.abha_address}</p>
                   )}
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/20">
                     <div>
-                      {selfMember.gender && <span className="text-xs opacity-70">{selfMember.gender}</span>}
-                      {selfMember.date_of_birth && (
-                        <span className="text-xs opacity-70 ml-2">DOB: {selfMember.date_of_birth}</span>
+                      {selectedMember.gender && <span className="text-xs opacity-70">{selectedMember.gender}</span>}
+                      {selectedMember.date_of_birth && (
+                        <span className="text-xs opacity-70 ml-2">DOB: {selectedMember.date_of_birth}</span>
                       )}
                     </div>
                     <span className="text-[9px] font-bold opacity-40">GOVT. OF INDIA</span>
