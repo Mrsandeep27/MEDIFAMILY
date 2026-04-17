@@ -392,12 +392,14 @@ export default function WellnessPage() {
                   </p>
                 </div>
               </div>
-              <Link href="/wellness/workout/add">
-                <button className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-transform">
-                  <Plus className="h-3.5 w-3.5" />
-                  Log
-                </button>
-              </Link>
+              {workouts.length > 0 && (
+                <Link href="/wellness/workout/add">
+                  <button className="h-9 px-3.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-transform">
+                    <Plus className="h-3.5 w-3.5" />
+                    Log
+                  </button>
+                </Link>
+              )}
             </div>
             {/* Week bar */}
             <div className="flex items-center gap-1 mb-3">
