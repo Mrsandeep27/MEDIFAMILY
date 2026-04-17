@@ -11,17 +11,19 @@ import {
   FormStickyAction,
 } from "@/components/ui/form-primitives";
 import { useWellness } from "@/hooks/use-wellness";
+import { seedPresetsIfNeeded } from "@/hooks/use-gym";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function WellnessGoalsPage() {
   const router = useRouter();
   const { goals, ensureGoals, updateGoals } = useWellness();
-  const [waterTarget, setWaterTarget] = useState("8");
+  const [waterTargetLitres, setWaterTargetLitres] = useState("2.0");
   const [weeklyWorkouts, setWeeklyWorkouts] = useState("4");
   const [weightTarget, setWeightTarget] = useState("");
   const [calorieTarget, setCalorieTarget] = useState("");
   const [calorieEnabled, setCalorieEnabled] = useState(false);
+  const [gymEnabled, setGymEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -32,23 +34,34 @@ export default function WellnessGoalsPage() {
 
   useEffect(() => {
     if (!goals || hydrated) return;
-    setWaterTarget(goals.water_target_glasses?.toString() || "8");
+    setWaterTargetLitres(((goals.water_target_ml ?? 2000) / 1000).toString());
     setWeeklyWorkouts(goals.workout_days_per_week?.toString() || "4");
     setWeightTarget(goals.weight_target_kg?.toString() || "");
     setCalorieTarget(goals.daily_calorie_target?.toString() || "");
     setCalorieEnabled(goals.calorie_tracking_enabled ?? false);
+    setGymEnabled(goals.gym_mode_enabled ?? false);
     setHydrated(true);
   }, [goals, hydrated]);
 
   const handleSave = async () => {
+    const litres = parseFloat(waterTargetLitres || "2.0");
+    if (!litres || litres < 0.5 || litres > 10) {
+      toast.error("Enter a water target between 0.5 and 10 L");
+      return;
+    }
     setSaving(true);
     try {
+      // Seed preset exercises on first gym-mode enable so the library isn't empty
+      if (gymEnabled) {
+        await seedPresetsIfNeeded();
+      }
       await updateGoals({
-        water_target_glasses: Math.max(1, Math.min(20, parseInt(waterTarget || "8", 10))),
+        water_target_ml: Math.round(litres * 1000),
         workout_days_per_week: Math.max(0, Math.min(7, parseInt(weeklyWorkouts || "4", 10))),
         weight_target_kg: weightTarget ? parseFloat(weightTarget) : undefined,
         daily_calorie_target: calorieTarget ? parseInt(calorieTarget, 10) : undefined,
         calorie_tracking_enabled: calorieEnabled,
+        gym_mode_enabled: gymEnabled,
       });
       toast.success("Goals updated");
       router.back();
@@ -66,16 +79,18 @@ export default function WellnessGoalsPage() {
       <div className="p-4">
         <FormGroup title="Daily targets">
           <FormField
-            label="Water glasses per day"
-            hint="Recommended: 8 glasses (≈ 2 litres)"
+            label="Water (litres per day)"
+            hint="Recommended: 2.0 L for most adults. More if you're active or it's hot."
           >
             <FormInput
               type="number"
-              inputMode="numeric"
-              min={1}
-              max={20}
-              value={waterTarget}
-              onChange={(e) => setWaterTarget(e.target.value)}
+              inputMode="decimal"
+              step="0.1"
+              min={0.5}
+              max={10}
+              value={waterTargetLitres}
+              onChange={(e) => setWaterTargetLitres(e.target.value)}
+              placeholder="e.g. 2.5"
             />
           </FormField>
 
@@ -103,6 +118,33 @@ export default function WellnessGoalsPage() {
               placeholder="e.g. 65.0"
             />
           </FormField>
+        </FormGroup>
+
+        <FormGroup title="Gym mode">
+          <div className="rounded-2xl bg-card border border-border/40 p-4 flex items-center justify-between">
+            <div className="flex-1 min-w-0 pr-3">
+              <p className="text-sm font-bold">Enable gym logging</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Track routines, exercises, and sets (weight × reps). Off by default — most users don&apos;t need this.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGymEnabled(!gymEnabled)}
+              className={cn(
+                "relative h-7 w-12 rounded-full transition-colors shrink-0",
+                gymEnabled ? "bg-primary" : "bg-muted"
+              )}
+              aria-label="Toggle gym mode"
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
+                  gymEnabled ? "translate-x-5" : "translate-x-0.5"
+                )}
+              />
+            </button>
+          </div>
         </FormGroup>
 
         <FormGroup title="Calorie tracking">

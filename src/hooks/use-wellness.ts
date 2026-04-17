@@ -11,9 +11,10 @@ import type {
 import { useAuthStore } from "@/stores/auth-store";
 
 const DEFAULT_GOALS: Omit<WellnessGoals, "id" | "user_id" | "created_at" | "updated_at" | "sync_status" | "is_deleted"> = {
-  water_target_glasses: 8,
+  water_target_ml: 2000, // 2.0 L — standard adult recommendation
   workout_days_per_week: 4,
   calorie_tracking_enabled: false,
+  gym_mode_enabled: false,
 };
 
 function todayStr(): string {
@@ -124,7 +125,7 @@ export function useWellness() {
         id: uuidv4(),
         user_id: userId,
         date,
-        water_glasses: 0,
+        water_ml: 0,
         ...patch,
         created_at: now,
         updated_at: now,
@@ -135,10 +136,11 @@ export function useWellness() {
     }
   };
 
+  /** Adjust today's water by `delta` millilitres. Clamps to [0, 10000]. */
   const addWater = async (delta: number) => {
-    const current = todayEntry?.water_glasses ?? 0;
-    const next = Math.max(0, Math.min(20, current + delta));
-    await upsertTodayEntry({ water_glasses: next });
+    const current = todayEntry?.water_ml ?? 0;
+    const next = Math.max(0, Math.min(10000, current + delta));
+    await upsertTodayEntry({ water_ml: next });
   };
 
   const setWeight = async (kg: number) => {
@@ -193,12 +195,12 @@ export function computeStreak(entries: WellnessEntry[]): number {
 
 function hasActivity(e: WellnessEntry | undefined): boolean {
   if (!e) return false;
-  return (e.water_glasses ?? 0) > 0 || e.weight_kg != null || e.mood != null;
+  return (e.water_ml ?? 0) > 0 || e.weight_kg != null || e.mood != null;
 }
 
 /**
  * Health score (0–100): weighted blend of this week's behavior.
- *  - Water: 30% (avg glasses / target)
+ *  - Water: 30% (avg ml / target ml)
  *  - Workouts: 40% (days this week / weekly target)
  *  - Weight consistency: 15% (# days weighed / 7)
  *  - Mood: 15% (avg mood score / max)
@@ -206,16 +208,16 @@ function hasActivity(e: WellnessEntry | undefined): boolean {
 export function computeHealthScore(
   entries: WellnessEntry[],
   workoutDaysThisWeek: number,
-  waterTarget: number,
+  waterTargetMl: number,
   weeklyWorkoutTarget: number
 ): number {
   const last7 = entries.filter((e) => e.date >= daysAgoStr(6));
   if (last7.length === 0 && workoutDaysThisWeek === 0) return 0;
 
-  const avgWater =
-    last7.reduce((s, e) => s + (e.water_glasses || 0), 0) /
+  const avgWaterMl =
+    last7.reduce((s, e) => s + (e.water_ml || 0), 0) /
     Math.max(1, last7.length);
-  const waterPct = Math.min(1, avgWater / Math.max(1, waterTarget));
+  const waterPct = Math.min(1, avgWaterMl / Math.max(1, waterTargetMl));
 
   const workoutPct = Math.min(1, workoutDaysThisWeek / Math.max(1, weeklyWorkoutTarget));
 

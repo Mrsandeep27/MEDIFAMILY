@@ -202,12 +202,13 @@ export interface HealthMetric extends SyncMeta {
 
 export type Mood = "great" | "good" | "okay" | "low" | "bad";
 
-/** One row per user per day — lightweight habit tracker. */
+/** One row per user per day — lightweight habit tracker.
+ *  water_ml stores millilitres for precision. UI displays as litres. */
 export interface WellnessEntry extends SyncMeta {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD
-  water_glasses: number;
+  water_ml: number;
   weight_kg?: number;
   mood?: Mood;
   energy?: number; // 1-5
@@ -269,14 +270,91 @@ export interface FoodLog extends SyncMeta {
   created_at: string;
 }
 
-/** One row per user — user-configurable targets. */
+/** One row per user — user-configurable targets.
+ *  water_target_ml stored in millilitres; UI shows litres. */
 export interface WellnessGoals extends SyncMeta {
   id: string; // = user_id
   user_id: string;
-  water_target_glasses: number;
+  water_target_ml: number;
   weight_target_kg?: number;
   workout_days_per_week: number;
   daily_calorie_target?: number;
   calorie_tracking_enabled: boolean;
+  gym_mode_enabled: boolean;
+  created_at: string;
+}
+
+// ============================================================
+// Gym Mode — routines, exercises, sessions, sets
+// (Opt-in via WellnessGoals.gym_mode_enabled)
+// ============================================================
+
+export type MuscleGroup =
+  | "chest"
+  | "back"
+  | "legs"
+  | "shoulders"
+  | "arms"
+  | "core"
+  | "cardio"
+  | "full_body";
+
+export type Equipment =
+  | "barbell"
+  | "dumbbell"
+  | "machine"
+  | "bodyweight"
+  | "cable"
+  | "kettlebell"
+  | "other";
+
+/** Exercise definition. `user_id = null` for built-in presets (seeded on first
+ *  gym-mode enable). `user_id = <uuid>` for user-defined custom exercises. */
+export interface Exercise extends SyncMeta {
+  id: string;
+  user_id: string | null;
+  name: string;
+  muscle_group: MuscleGroup;
+  equipment: Equipment;
+  is_preset: boolean;
+  created_at: string;
+}
+
+/** Saved routine — ordered list of exercises the user hits in one session. */
+export interface Routine extends SyncMeta {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  exercise_ids: string[];
+  created_at: string;
+}
+
+/** One gym session. Duplicates date/duration with the general workouts table
+ *  only when gym mode is on — rollup kept in workouts for consistent insights. */
+export interface GymSession extends SyncMeta {
+  id: string;
+  user_id: string;
+  routine_id?: string;
+  routine_name?: string; // frozen snapshot — survives routine rename/delete
+  date: string; // YYYY-MM-DD
+  started_at: string; // ISO timestamp
+  ended_at?: string; // ISO timestamp (only set when session finishes)
+  duration_min?: number;
+  notes?: string;
+  created_at: string;
+}
+
+/** One completed set within a gym session. */
+export interface GymSet extends SyncMeta {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  exercise_name: string; // frozen snapshot for display if exercise renamed
+  set_number: number; // 1-indexed per exercise within session
+  weight_kg: number;
+  reps: number;
+  rpe?: number; // 1-10 rate of perceived exertion, optional
+  is_warmup?: boolean;
   created_at: string;
 }

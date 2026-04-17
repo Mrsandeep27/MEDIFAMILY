@@ -18,6 +18,7 @@ import {
   Settings,
   TrendingUp,
   Target,
+  Zap,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
@@ -80,9 +81,9 @@ export default function WellnessPage() {
     );
   }
 
-  const waterTarget = goals?.water_target_glasses ?? 8;
+  const waterTargetMl = goals?.water_target_ml ?? 2000;
   const weeklyTarget = goals?.workout_days_per_week ?? 4;
-  const currentWater = todayEntry?.water_glasses ?? 0;
+  const currentWaterMl = todayEntry?.water_ml ?? 0;
   const currentMood = todayEntry?.mood;
   const currentWeight = todayEntry?.weight_kg;
 
@@ -91,7 +92,7 @@ export default function WellnessPage() {
   const score = computeHealthScore(
     recentEntries,
     workoutsThisWeek,
-    waterTarget,
+    waterTargetMl,
     weeklyTarget
   );
 
@@ -219,35 +220,49 @@ export default function WellnessPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold">Water</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {currentWater} / {waterTarget} glasses
+                  {formatLitres(currentWaterMl)} / {formatLitres(waterTargetMl)} L
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => addWater(-1)}
-                  disabled={currentWater <= 0}
-                  className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40"
-                  aria-label="Remove glass"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => addWater(1)}
-                  className="h-9 w-9 rounded-full bg-blue-500 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm shadow-blue-500/30"
-                  aria-label="Add glass"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                onClick={() => addWater(-250)}
+                disabled={currentWaterMl <= 0}
+                className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40"
+                aria-label="Undo last add"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
             </div>
+
             {/* Progress bar */}
-            <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
+            <div className="h-2 rounded-full bg-muted/60 overflow-hidden mb-3">
               <div
                 className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300 rounded-full"
                 style={{
-                  width: `${Math.min(100, (currentWater / waterTarget) * 100)}%`,
+                  width: `${Math.min(100, (currentWaterMl / waterTargetMl) * 100)}%`,
                 }}
               />
+            </div>
+
+            {/* Quick-add buttons */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { ml: 250, label: "Glass", sub: "250 ml" },
+                { ml: 500, label: "Bottle", sub: "500 ml" },
+                { ml: 1000, label: "Large", sub: "1 L" },
+              ].map((opt) => (
+                <button
+                  key={opt.ml}
+                  onClick={() => addWater(opt.ml)}
+                  className="h-14 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 active:scale-[0.97] transition-all flex flex-col items-center justify-center gap-0.5"
+                >
+                  <span className="text-[11px] font-bold text-blue-600">
+                    + {opt.label}
+                  </span>
+                  <span className="text-[10px] text-blue-600/70 font-semibold">
+                    {opt.sub}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -321,6 +336,24 @@ export default function WellnessPage() {
             </div>
           </div>
         </FormGroup>
+
+        {/* ═══════ GYM MODE ENTRY (opt-in) ═══════ */}
+        {goals?.gym_mode_enabled && (
+          <Link href="/wellness/gym" className="block">
+            <div className="rounded-2xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/30 p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
+              <div className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+                <Zap className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold">Gym Session</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Log routines, sets, and weights
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+            </div>
+          </Link>
+        )}
 
         {/* ═══════ WORKOUTS ═══════ */}
         <FormGroup title="Workouts">
@@ -416,8 +449,8 @@ export default function WellnessPage() {
             />
             <InsightCard
               label="Avg water"
-              value={avgWater(recentEntries.slice(-7)).toFixed(1)}
-              sublabel="glasses/day"
+              value={formatLitres(avgWaterMl(recentEntries.slice(-7)))}
+              sublabel="L / day"
               color="text-blue-500"
               bg="bg-blue-500/10"
               icon={Droplet}
@@ -504,17 +537,24 @@ function InsightCard({
   );
 }
 
-function avgWater(entries: { water_glasses: number }[]): number {
+function avgWaterMl(entries: { water_ml?: number }[]): number {
   if (!entries.length) return 0;
   return (
-    entries.reduce((s, e) => s + (e.water_glasses || 0), 0) / entries.length
+    entries.reduce((s, e) => s + (e.water_ml || 0), 0) / entries.length
   );
 }
 
-function daysLogged(entries: { water_glasses?: number; weight_kg?: number; mood?: string }[]): number {
+function daysLogged(entries: { water_ml?: number; weight_kg?: number; mood?: string }[]): number {
   return entries.filter(
-    (e) => (e.water_glasses ?? 0) > 0 || e.weight_kg != null || e.mood
+    (e) => (e.water_ml ?? 0) > 0 || e.weight_kg != null || e.mood
   ).length;
+}
+
+/** Format millilitres as a clean litre string. 1750 → "1.75", 2000 → "2", 500 → "0.5". */
+function formatLitres(ml: number): string {
+  const l = ml / 1000;
+  if (Number.isInteger(l)) return l.toString();
+  return l.toFixed(l >= 10 ? 1 : 2).replace(/\.?0+$/, "");
 }
 
 function latestWeight(entries: { weight_kg?: number; date: string }[]): number | null {
