@@ -35,15 +35,53 @@ export function useMembers() {
       throw new Error("Please sign in again to add a family member");
     }
 
-    // Prevent duplicate self members — return existing ID if one exists
+    // Prevent duplicate self members — self is a singleton per user.
+    // We guard in three layers so a fresh-device login never creates a
+    // duplicate that then syncs back to the cloud:
+    //   1) Local Dexie check (fast path)
+    //   2) Server check via /api/check-onboarding (catches new-device case)
+    //   3) Sync pull to populate the real self row locally
     if (data.relation === "self") {
-      const existingSelf = await db.members
+      // Layer 1 — local
+      const localSelf = await db.members
         .where("user_id")
         .equals(user.id)
         .filter((m) => m.relation === "self" && !m.is_deleted)
         .first();
-      if (existingSelf) {
-        return existingSelf.id;
+      if (localSelf) {
+        return localSelf.id;
+      }
+
+      // Layer 2 — ask the server if a self exists in the cloud
+      try {
+        const supabase = createClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const res = await fetch("/api/check-onboarding", { headers });
+        if (res.ok) {
+          const { onboarded } = await res.json();
+          if (onboarded) {
+            // Layer 3 — pull the cloud data down, then re-check local
+            try {
+              const { syncAll } = await import("@/lib/db/sync");
+              await syncAll();
+            } catch {
+              // Sync failure is non-fatal — we still won't create a duplicate
+            }
+            const pulledSelf = await db.members
+              .where("user_id")
+              .equals(user.id)
+              .filter((m) => m.relation === "self" && !m.is_deleted)
+              .first();
+            if (pulledSelf) return pulledSelf.id;
+          }
+        }
+      } catch {
+        // Network / auth error — fall through. Allowing a local-only creation
+        // is better UX than blocking, and the next sync will merge/dedupe.
       }
     }
 

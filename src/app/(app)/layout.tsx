@@ -115,6 +115,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }
         setChecked(true);
 
+        // Clean up any duplicate self members from the historical bug
+        // (legacy: different-device logins could create extra self rows).
+        // Runs on every app load; idempotent.
+        import("@/lib/db/dedupe-self").then(({ dedupeSelfMembers }) =>
+          dedupeSelfMembers(sessionUser.id).catch((err) =>
+            console.warn("dedupeSelfMembers failed:", err)
+          )
+        );
+
         // Show review nudge once per session
         if (!sessionStorage.getItem("review-nudge-shown")) {
           sessionStorage.setItem("review-nudge-shown", "1");
