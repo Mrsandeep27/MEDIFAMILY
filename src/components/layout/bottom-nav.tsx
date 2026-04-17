@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, MoreHorizontal, ScanLine } from "lucide-react";
+import { Home, Users, MoreHorizontal, ScanLine, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/use-locale";
 
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/home", labelKey: "nav.home", icon: Home },
   { href: "/family", labelKey: "nav.family", icon: Users },
   { href: "/scan", labelKey: "nav.scan", icon: ScanLine, isFab: true },
+  { href: "/wellness", labelKey: "nav.wellness", icon: Activity },
   { href: "/more", labelKey: "nav.more", icon: MoreHorizontal },
 ];
 

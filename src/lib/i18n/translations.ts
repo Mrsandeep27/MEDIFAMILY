@@ -7,6 +7,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "nav.family": "Family",
     "nav.scan": "Scan",
     "nav.records": "Records",
+    "nav.wellness": "Wellness",
     "nav.more": "More",
 
     // Home
@@ -495,6 +496,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "nav.family": "परिवार",
     "nav.scan": "स्कैन",
     "nav.records": "रिकॉर्ड",
+    "nav.wellness": "सेहत",
     "nav.more": "अधिक",
 
     // Home

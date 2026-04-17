@@ -195,3 +195,88 @@ export interface HealthMetric extends SyncMeta {
   notes?: string;
   created_at: string;
 }
+
+// ============================================================
+// Wellness — daily tracking (water, weight, mood, workouts, food)
+// ============================================================
+
+export type Mood = "great" | "good" | "okay" | "low" | "bad";
+
+/** One row per user per day — lightweight habit tracker. */
+export interface WellnessEntry extends SyncMeta {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  water_glasses: number;
+  weight_kg?: number;
+  mood?: Mood;
+  energy?: number; // 1-5
+  sleep_hours?: number;
+  notes?: string;
+  created_at: string;
+}
+
+export type WorkoutType =
+  | "cardio"
+  | "strength"
+  | "yoga"
+  | "walk"
+  | "cycle"
+  | "sports"
+  | "custom";
+
+export type WorkoutIntensity = "light" | "moderate" | "intense";
+
+/** One row per workout session. */
+export interface Workout extends SyncMeta {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  type: WorkoutType;
+  name?: string; // optional free-text (e.g. "Morning run", "Bench press")
+  duration_min: number;
+  intensity: WorkoutIntensity;
+  distance_km?: number; // cardio only
+  sets?: number; // strength only
+  reps?: number;
+  weight_kg?: number;
+  calories_burned?: number;
+  notes?: string;
+  photo_blob?: Blob;
+  photo_url?: string;
+  created_at: string;
+}
+
+export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
+
+export interface FoodLogItem {
+  name: string;
+  quantity?: string; // "1 bowl", "2 pieces"
+  calories: number;
+}
+
+/** One row per meal. */
+export interface FoodLog extends SyncMeta {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  meal: Meal;
+  items: FoodLogItem[];
+  total_calories: number;
+  photo_blob?: Blob;
+  photo_url?: string;
+  notes?: string;
+  created_at: string;
+}
+
+/** One row per user — user-configurable targets. */
+export interface WellnessGoals extends SyncMeta {
+  id: string; // = user_id
+  user_id: string;
+  water_target_glasses: number;
+  weight_target_kg?: number;
+  workout_days_per_week: number;
+  daily_calorie_target?: number;
+  calorie_tracking_enabled: boolean;
+  created_at: string;
+}

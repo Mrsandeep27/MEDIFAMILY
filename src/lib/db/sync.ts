@@ -20,10 +20,18 @@ const TABLES_TO_SYNC = [
   { local: "reminderLogs", remote: "reminder_logs" },
   { local: "shareLinks", remote: "share_links" },
   { local: "healthMetrics", remote: "health_metrics" },
+  // Wellness tables are intentionally local-only until the Prisma schema
+  // + Supabase tables land in a follow-up. The feature works offline-first
+  // on the current device either way.
 ] as const;
 
 // Fields that should NOT be sent to the server
-const LOCAL_ONLY_FIELDS = new Set(["local_image_blobs", "sync_status", "synced_at"]);
+const LOCAL_ONLY_FIELDS = new Set([
+  "local_image_blobs",
+  "photo_blob",
+  "sync_status",
+  "synced_at",
+]);
 
 // Async lock: prevents overlapping syncs (Promise-based, truly atomic)
 let activeSyncPromise: Promise<SyncResult> | null = null;
