@@ -82,14 +82,7 @@ export default function HomePage() {
 
   const selfMember = members.find((m) => m.relation === "self");
   const firstName = selfMember?.name.split(" ")[0];
-
-  // Time-aware greeting — feels alive vs. static "Hi, Sandeep"
-  const hour = new Date().getHours();
-  const timeGreeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const greeting = firstName
-    ? `${timeGreeting}, ${firstName}`
-    : t("home.welcome");
+  const greeting = firstName || t("home.welcome");
 
   const todayLabel = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
