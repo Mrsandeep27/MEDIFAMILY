@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { syncAll } from "@/lib/db/sync";
 import { db } from "@/lib/db/dexie";
+import { queueAppTour } from "@/hooks/use-app-tour";
 import {
   Shield,
   Users,
@@ -774,6 +775,8 @@ export default function OnboardingPage() {
   // user can reach all 4 steps even if they refresh mid-wizard.
   const goHome = () => {
     setHasCompletedOnboarding(true);
+    // Queue the spotlight app tour to fire on next /home mount
+    queueAppTour();
     window.location.replace("/home");
   };
 

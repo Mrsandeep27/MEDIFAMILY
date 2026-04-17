@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/use-locale";
 
 const navItems = [
-  { href: "/home", labelKey: "nav.home", icon: Home },
-  { href: "/family", labelKey: "nav.family", icon: Users },
-  { href: "/scan", labelKey: "nav.scan", icon: ScanLine, isFab: true },
-  { href: "/wellness", labelKey: "nav.wellness", icon: Activity },
-  { href: "/more", labelKey: "nav.more", icon: MoreHorizontal },
+  { href: "/home", labelKey: "nav.home", icon: Home, tourKey: "nav-home" },
+  { href: "/family", labelKey: "nav.family", icon: Users, tourKey: "nav-family" },
+  { href: "/scan", labelKey: "nav.scan", icon: ScanLine, isFab: true, tourKey: "nav-scan" },
+  { href: "/wellness", labelKey: "nav.wellness", icon: Activity, tourKey: "nav-wellness" },
+  { href: "/more", labelKey: "nav.more", icon: MoreHorizontal, tourKey: "nav-more" },
 ];
 
 export function BottomNav() {
@@ -31,6 +31,7 @@ export function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tourKey}
                 className="flex flex-col items-center justify-center -mt-5"
               >
                 <div className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
@@ -47,6 +48,7 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.tourKey}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 min-w-[60px] py-1",
                 isActive

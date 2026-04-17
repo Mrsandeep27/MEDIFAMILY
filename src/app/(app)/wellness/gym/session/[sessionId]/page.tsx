@@ -57,7 +57,7 @@ export default function GymSessionPage({
   const { exercises } = useExercises();
   const { routines } = useRoutines();
   const { sets, addSet, deleteSet } = useGymSessionSets(sessionId);
-  const { endSession } = useGymSessions();
+  const { endSession, deleteSession } = useGymSessions();
 
   // Per-exercise UI state: which exercises are added to this session,
   // in what order, plus the "draft" (next-set) weight/reps inputs.
@@ -123,8 +123,23 @@ export default function GymSessionPage({
   };
 
   const handleEnd = async () => {
+    // Don't save empty sessions — they clutter history with no value.
+    // Offer to discard instead.
     if (sets.length === 0) {
-      if (!confirm("No sets logged. End session anyway?")) return;
+      const discard = confirm(
+        "No sets logged yet. Discard this session? (It won't appear in your history.)"
+      );
+      if (!discard) return;
+      setEnding(true);
+      try {
+        await deleteSession(sessionId);
+        toast.success("Session discarded");
+        router.replace("/wellness/gym");
+      } catch {
+        toast.error("Failed to discard session");
+        setEnding(false);
+      }
+      return;
     }
     setEnding(true);
     try {

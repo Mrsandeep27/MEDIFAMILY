@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Bell, Globe } from "lucide-react";
+import { Lock, Bell, Globe, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { hashPin } from "@/lib/auth/pin";
 import { toast } from "sonner";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { requestNotificationPermission } from "@/lib/notifications/web-push";
+import { replayAppTour } from "@/hooks/use-app-tour";
 
 export default function SettingsPage() {
   const {
@@ -175,6 +176,36 @@ export default function SettingsPage() {
                 onClick={() => setLanguage("hi")}
               >
                 Hindi
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* App tour */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HelpCircle className="h-4 w-4" />
+              App tour
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Replay the 30-second walkthrough of MediFamily&apos;s main features.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  replayAppTour();
+                  toast.success("Tour will start on Home");
+                  setTimeout(() => {
+                    window.location.href = "/home";
+                  }, 600);
+                }}
+              >
+                Replay
               </Button>
             </div>
           </CardContent>

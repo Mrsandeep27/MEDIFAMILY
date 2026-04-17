@@ -8,6 +8,8 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { OfflineIndicator } from "@/components/layout/offline-indicator";
 import { PinLockScreen } from "@/components/layout/pin-lock-screen";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
+import { AppTour } from "@/components/tour/app-tour";
+import { APP_TOUR_STEPS, useAppTour } from "@/hooks/use-app-tour";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
@@ -154,6 +156,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="pb-20">{children}</main>
       </ErrorBoundary>
       <BottomNav />
+      <AppTourController />
     </div>
+  );
+}
+
+function AppTourController() {
+  const { open, complete, skip } = useAppTour();
+  if (!open) return null;
+  return (
+    <AppTour
+      steps={APP_TOUR_STEPS}
+      onComplete={complete}
+      onSkip={skip}
+    />
   );
 }
