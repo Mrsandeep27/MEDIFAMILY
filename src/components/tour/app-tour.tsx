@@ -125,39 +125,52 @@ export function AppTour({ steps, onComplete, onSkip }: AppTourProps) {
       style={{ pointerEvents: "auto" }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Dimmed backdrop with a cut-out for the spotlight */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        style={{ pointerEvents: "auto" }}
-      >
-        <defs>
-          <mask id="tour-mask">
-            <rect width="100%" height="100%" fill="white" />
-            {rect && (
-              <rect
-                x={rect.left}
-                y={rect.top}
-                width={rect.width}
-                height={rect.height}
-                rx={14}
-                ry={14}
-                fill="black"
-              />
-            )}
-          </mask>
-        </defs>
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(0,0,0,0.72)"
-          mask="url(#tour-mask)"
-          style={{
-            backdropFilter: "blur(2px)",
-          }}
-        />
-      </svg>
+      {/* Dim the area OUTSIDE the spotlight using 4 rectangles around the
+       *  cut-out. The cut-out region itself is completely untouched — no dim,
+       *  no blur — so the highlighted element renders crisp and clickable
+       *  through the transparent gap. */}
+      {rect ? (
+        <>
+          {/* top */}
+          <div
+            className="absolute left-0 right-0 bg-black/75 animate-in fade-in duration-300"
+            style={{ top: 0, height: Math.max(0, rect.top) }}
+          />
+          {/* bottom */}
+          <div
+            className="absolute left-0 right-0 bg-black/75 animate-in fade-in duration-300"
+            style={{
+              top: rect.top + rect.height,
+              bottom: 0,
+            }}
+          />
+          {/* left */}
+          <div
+            className="absolute bg-black/75 animate-in fade-in duration-300"
+            style={{
+              top: rect.top,
+              left: 0,
+              width: Math.max(0, rect.left),
+              height: rect.height,
+            }}
+          />
+          {/* right */}
+          <div
+            className="absolute bg-black/75 animate-in fade-in duration-300"
+            style={{
+              top: rect.top,
+              left: rect.left + rect.width,
+              right: 0,
+              height: rect.height,
+            }}
+          />
+        </>
+      ) : (
+        /* No target — full-screen dim for intro/outro steps */
+        <div className="absolute inset-0 bg-black/75 animate-in fade-in duration-300" />
+      )}
 
-      {/* Spotlight ring */}
+      {/* Spotlight ring around the cut-out */}
       {rect && (
         <div
           className="absolute pointer-events-none rounded-[14px] ring-2 ring-primary animate-in fade-in duration-300"
@@ -166,7 +179,8 @@ export function AppTour({ steps, onComplete, onSkip }: AppTourProps) {
             left: rect.left,
             width: rect.width,
             height: rect.height,
-            boxShadow: "0 0 0 4px rgba(255,255,255,0.08)",
+            boxShadow:
+              "0 0 0 4px rgba(255,255,255,0.08), 0 0 24px 4px rgba(59, 130, 246, 0.35)",
           }}
         />
       )}
