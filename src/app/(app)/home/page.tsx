@@ -167,7 +167,7 @@ export default function HomePage() {
         </div>
 
         {/* 3 Main AI Actions */}
-        <div className="grid grid-cols-3 gap-3">
+        <div data-tour="home-ai-row" className="grid grid-cols-3 gap-3">
           <Link href="/ai-doctor">
             <div className="flex flex-col items-center gap-2 bg-primary-foreground/10 rounded-2xl p-4 hover:bg-primary-foreground/20 transition-colors">
               <Stethoscope className="h-7 w-7" />
@@ -209,6 +209,7 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
+            data-tour="home-all-features"
             onClick={() => setShowTools((v) => !v)}
             className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted/50 hover:bg-muted transition-colors border border-border"
             aria-expanded={showTools}
@@ -217,7 +218,7 @@ export default function HomePage() {
             <span className="text-xs font-semibold flex-1 text-left">{t("home.all_features")}</span>
             <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${showTools ? "rotate-180" : ""}`} />
           </button>
-          <Link href="/abha">
+          <Link href="/abha" data-tour="home-abha">
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-200 h-full">
               <Shield className="h-4 w-4 text-green-600 shrink-0" />
               <span className="text-xs font-bold text-green-800 flex-1">{t("home.link_abha")}</span>
