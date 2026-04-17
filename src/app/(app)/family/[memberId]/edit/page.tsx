@@ -71,6 +71,7 @@ export default function EditMemberPage({
             chronic_conditions: member.chronic_conditions,
             emergency_contact_name: member.emergency_contact_name || "",
             emergency_contact_phone: member.emergency_contact_phone || "",
+            avatar_url: member.avatar_url || "",
           }}
         />
       </div>

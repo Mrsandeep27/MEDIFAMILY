@@ -47,7 +47,7 @@ export default function EmergencyCardPage({
           <CardContent className="pt-6 space-y-4">
             {/* Header */}
             <div className="flex items-center gap-3">
-              <MemberAvatar name={member.name} size="lg" />
+              <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size="lg" />
               <div>
                 <h2 className="text-lg font-bold">{member.name}</h2>
                 {member.date_of_birth && (

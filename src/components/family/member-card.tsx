@@ -62,7 +62,7 @@ export function MemberCard({ member, latestRecord, recordCount = 0 }: MemberCard
         <div className="flex items-start gap-3.5">
           {/* Avatar */}
           <div className="relative shrink-0">
-            <MemberAvatar name={member.name} size="lg" />
+            <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size="lg" />
             {/* Activity indicator — green if has records */}
             {recordCount > 0 && (
               <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-card" />

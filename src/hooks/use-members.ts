@@ -63,7 +63,7 @@ export function useMembers() {
         : [],
       emergency_contact_name: data.emergency_contact_name || undefined,
       emergency_contact_phone: data.emergency_contact_phone || undefined,
-      avatar_url: undefined,
+      avatar_url: data.avatar_url || undefined,
       created_at: now,
       updated_at: now,
       sync_status: "pending",

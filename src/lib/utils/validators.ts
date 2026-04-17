@@ -88,6 +88,7 @@ export const memberSchema = z.object({
       (v) => !v || /^[6-9]\d{9}$/.test(v),
       "Enter a valid 10-digit mobile number"
     ),
+  avatar_url: z.string().optional().or(z.literal("")),
 });
 
 export type MemberFormData = z.infer<typeof memberSchema>;

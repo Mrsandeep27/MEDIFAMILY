@@ -27,12 +27,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MemberSelector } from "@/components/family/member-selector";
 import { GlobalSearch } from "@/components/home/global-search";
 import { NotificationCenter } from "@/components/home/notification-center";
 import { useMembers } from "@/hooks/use-members";
 import { useAuthStore } from "@/stores/auth-store";
-import { useFamilyStore } from "@/stores/family-store";
 import { APP_NAME } from "@/constants/config";
 import { PWAInstallBanner } from "@/components/pwa/install-button";
 import { useLocale } from "@/lib/i18n/use-locale";
@@ -66,7 +64,6 @@ export default function HomePage() {
   const { locale, t } = useLocale();
   const user = useAuthStore((s) => s.user);
   const { members } = useMembers();
-  const { selectedMemberId, setSelectedMember } = useFamilyStore();
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(false);
@@ -288,22 +285,6 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Family Members */}
-        {members.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold">{t("home.family_members")}</h2>
-              <Link href="/family" className="text-xs text-primary font-medium">
-                {t("home.view_all")}
-              </Link>
-            </div>
-            <MemberSelector
-              members={members}
-              selectedId={selectedMemberId}
-              onSelect={(m) => setSelectedMember(m.id)}
-            />
-          </section>
-        )}
 
       </div>
 

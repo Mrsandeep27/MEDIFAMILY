@@ -6,9 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { X, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  FormField,
+  FormGroup,
+  FormInput,
+  FormStickyAction,
+  FormTextarea,
+  formSelectTriggerClasses,
+} from "@/components/ui/form-primitives";
 import { TagInput } from "@/components/family/tag-input";
 import { recordSchema, type RecordFormData } from "@/lib/utils/validators";
 import { RECORD_TYPE_LABELS } from "@/constants/config";
@@ -63,7 +68,6 @@ export function RecordForm({
 
   const tags = watch("tags");
 
-  // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
       previews.forEach((url) => URL.revokeObjectURL(url));
@@ -99,113 +103,101 @@ export function RecordForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      {/* Member */}
-      <div className="space-y-2">
-        <Label>Family Member *</Label>
-        <Select
-          value={watch("member_id")}
-          onValueChange={(v) => setValue("member_id", v || "")}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select member" />
-          </SelectTrigger>
-          <SelectContent>
-            {members.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.member_id && (
-          <p className="text-xs text-destructive">{errors.member_id.message}</p>
-        )}
-      </div>
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="pb-32">
+      <FormGroup title="Record">
+        <FormField label="Family member" error={errors.member_id?.message}>
+          <Select
+            value={watch("member_id")}
+            onValueChange={(v) => setValue("member_id", v || "")}
+          >
+            <SelectTrigger className={formSelectTriggerClasses}>
+              <SelectValue placeholder="Select member" />
+            </SelectTrigger>
+            <SelectContent>
+              {members.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
 
-      {/* Record Type */}
-      <div className="space-y-2">
-        <Label>Record Type *</Label>
-        <Select
-          value={watch("type")}
-          onValueChange={(v) => setValue("type", (v || "prescription") as RecordFormData["type"])}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(RECORD_TYPE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <FormField label="Type">
+          <Select
+            value={watch("type")}
+            onValueChange={(v) =>
+              setValue("type", (v || "prescription") as RecordFormData["type"])
+            }
+          >
+            <SelectTrigger className={formSelectTriggerClasses}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(RECORD_TYPE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
 
-      {/* Title */}
-      <div className="space-y-2">
-        <Label>Title *</Label>
-        <Input
-          {...register("title")}
-          placeholder="e.g. Dr. Sharma - Fever checkup"
-        />
-        {errors.title && (
-          <p className="text-xs text-destructive">{errors.title.message}</p>
-        )}
-      </div>
+        <FormField label="Title" error={errors.title?.message}>
+          <FormInput
+            {...register("title")}
+            placeholder="e.g. Dr. Sharma — Fever checkup"
+          />
+        </FormField>
+      </FormGroup>
 
-      {/* Doctor & Hospital */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Doctor Name</Label>
-          <Input {...register("doctor_name")} placeholder="Dr. Name" />
+      <FormGroup title="Visit">
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Doctor" optional>
+            <FormInput {...register("doctor_name")} placeholder="Dr. Name" />
+          </FormField>
+          <FormField label="Hospital" optional>
+            <FormInput {...register("hospital_name")} placeholder="Hospital" />
+          </FormField>
         </div>
-        <div className="space-y-2">
-          <Label>Hospital</Label>
-          <Input {...register("hospital_name")} placeholder="Hospital name" />
-        </div>
-      </div>
 
-      {/* Visit Date */}
-      <div className="space-y-2">
-        <Label>Visit Date</Label>
-        <Input type="date" {...register("visit_date")} />
-      </div>
+        <FormField label="Visit date" optional>
+          <FormInput type="date" {...register("visit_date")} />
+        </FormField>
 
-      {/* Diagnosis */}
-      <div className="space-y-2">
-        <Label>Diagnosis</Label>
-        <Input {...register("diagnosis")} placeholder="e.g. Viral fever" />
-      </div>
+        <FormField label="Diagnosis" optional>
+          <FormInput {...register("diagnosis")} placeholder="e.g. Viral fever" />
+        </FormField>
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes</Label>
-        <Textarea {...register("notes")} placeholder="Additional notes..." rows={3} />
-      </div>
+        <FormField label="Notes" optional>
+          <FormTextarea
+            {...register("notes")}
+            placeholder="Additional notes..."
+            rows={3}
+          />
+        </FormField>
 
-      {/* Tags */}
-      <div className="space-y-2">
-        <Label>Tags</Label>
-        <TagInput
-          tags={tags}
-          onChange={(newTags) => setValue("tags", newTags)}
-          placeholder="Add tag and press Enter"
-        />
-      </div>
+        <FormField label="Tags" optional>
+          <TagInput
+            tags={tags}
+            onChange={(newTags) => setValue("tags", newTags)}
+            placeholder="Add tag and press Enter"
+          />
+        </FormField>
+      </FormGroup>
 
-      {/* Images */}
-      <div className="space-y-2">
-        <Label>Photos / Documents</Label>
+      <FormGroup title="Photos & documents">
         <div className="grid grid-cols-4 gap-2">
           {previews.map((url, i) => (
-            <div key={i} className="relative aspect-square rounded-lg overflow-hidden border">
+            <div
+              key={i}
+              className="relative aspect-square rounded-xl overflow-hidden bg-muted"
+            >
               <img src={url} alt="" className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => removeImage(i)}
-                className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5"
+                className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-transform"
               >
                 <X className="h-3 w-3 text-white" />
               </button>
@@ -215,10 +207,12 @@ export function RecordForm({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary transition-colors"
+              className="aspect-square rounded-xl bg-muted/60 flex flex-col items-center justify-center gap-1.5 hover:bg-muted transition-colors active:scale-[0.97]"
             >
               <ImagePlus className="h-5 w-5 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground">Add</span>
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Add
+              </span>
             </button>
           )}
         </div>
@@ -230,11 +224,25 @@ export function RecordForm({
           onChange={handleImageAdd}
           className="hidden"
         />
-      </div>
+      </FormGroup>
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? "Saving..." : "Save Record"}
-      </Button>
+      <FormStickyAction>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded-2xl text-[15px] font-semibold shadow-lg shadow-primary/15 transition-transform active:scale-[0.98]"
+          style={{ height: "52px" }}
+        >
+          {isSubmitting ? (
+            <>
+              <div className="h-4 w-4 border-[2.5px] border-primary-foreground/40 border-t-primary-foreground rounded-full animate-spin mr-2" />
+              Saving...
+            </>
+          ) : (
+            "Save record"
+          )}
+        </Button>
+      </FormStickyAction>
     </form>
   );
 }

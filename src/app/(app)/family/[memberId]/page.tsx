@@ -168,9 +168,17 @@ export default function MemberDetailPage({ params }: { params: Promise<{ memberI
 
         {/* Avatar + Info */}
         <div className="flex flex-col items-center pt-2 pb-6 px-4">
-          <div className={`h-20 w-20 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-            <span className="text-2xl font-bold text-white drop-shadow-sm">{initials}</span>
-          </div>
+          {member.avatar_url ? (
+            <img
+              src={member.avatar_url}
+              alt={member.name}
+              className="h-20 w-20 rounded-full object-cover shadow-lg border-2 border-primary-foreground/20"
+            />
+          ) : (
+            <div className={`h-20 w-20 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+              <span className="text-2xl font-bold text-white drop-shadow-sm">{initials}</span>
+            </div>
+          )}
           <h1 className="text-xl font-bold mt-3 tracking-tight">{member.name}</h1>
           <p className="text-primary-foreground/50 text-sm mt-0.5">
             {RELATION_LABELS[member.relation] || member.relation}

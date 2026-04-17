@@ -8,8 +8,8 @@ import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
@@ -264,50 +264,62 @@ export default function LoginPage() {
             style={{ position: "absolute", left: "-9999px", opacity: 0 }}
           />
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="text-[13px] font-medium text-foreground/80 px-1">
+              Email
+            </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                className="pl-10"
+                className={cn(
+                  "h-12 rounded-xl bg-muted/60 border-0 pl-11 pr-4 text-[15px] shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:bg-muted/80 transition-colors"
+                )}
                 autoComplete="email"
                 {...register("email")}
               />
             </div>
             {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
+              <p className="text-[12px] text-destructive px-1 pt-0.5">{errors.email.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="text-[13px] font-medium text-foreground/80 px-1">
+              Password
+            </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder={isSignup ? "Min 8 chars, uppercase + number" : "Enter your password"}
-                className="pl-10 pr-10"
+                className={cn(
+                  "h-12 rounded-xl bg-muted/60 border-0 pl-11 pr-11 text-[15px] shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:bg-muted/80 transition-colors"
+                )}
                 autoComplete={isSignup ? "new-password" : "current-password"}
                 {...register("password")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
+              <p className="text-[12px] text-destructive px-1 pt-0.5">{errors.password.message}</p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full h-12 rounded-xl text-[15px] font-semibold shadow-md shadow-primary/15 transition-transform active:scale-[0.98]"
+            disabled={loading}
+          >
             {loading
               ? isSignup ? "Creating account..." : "Logging in..."
               : isSignup ? "Sign Up" : "Login"

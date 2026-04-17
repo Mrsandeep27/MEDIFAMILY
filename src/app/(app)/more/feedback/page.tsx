@@ -12,11 +12,16 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppHeader } from "@/components/layout/app-header";
+import {
+  FormField,
+  FormGroup,
+  FormTextarea,
+} from "@/components/ui/form-primitives";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const categories = [
   { value: "review", label: "Review", icon: Star, color: "text-yellow-500" },
@@ -94,99 +99,113 @@ export default function FeedbackPage() {
   return (
     <div>
       <AppHeader title="Feedback & Reviews" showBack />
-      <div className="p-4 space-y-4">
-        <Card className="bg-primary/5 border-primary/20">
+      <div className="p-4">
+        <Card className="bg-primary/5 border-primary/20 mb-6">
           <CardContent className="py-3">
-            <p className="text-sm text-muted-foreground">
-              Your feedback helps us improve MediFamily. Report bugs, suggest features, or just tell us what you think!
+            <p className="text-[13px] text-muted-foreground">
+              Your feedback helps us improve MediFamily. Report bugs, suggest features, or tell us what you think.
             </p>
           </CardContent>
         </Card>
 
-        {/* Category Selection */}
-        <div className="grid grid-cols-4 gap-2">
-          {categories.map((cat) => {
-            const Icon = cat.icon;
-            const isSelected = category === cat.value;
-            return (
-              <button
-                key={cat.value}
-                onClick={() => setCategory(cat.value)}
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${
-                  isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted"
-                }`}
-              >
-                <Icon className={`h-5 w-5 ${isSelected ? cat.color : "text-muted-foreground"}`} />
-                <span className="text-[10px] font-medium">{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <FormGroup title="Category">
+          <div className="grid grid-cols-4 gap-2">
+            {categories.map((cat) => {
+              const Icon = cat.icon;
+              const isSelected = category === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => setCategory(cat.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-[0.97]",
+                    isSelected
+                      ? "bg-primary/10 ring-1 ring-primary/40"
+                      : "bg-muted/60 hover:bg-muted"
+                  )}
+                >
+                  <Icon className={cn("h-5 w-5", isSelected ? cat.color : "text-muted-foreground")} />
+                  <span className="text-[11px] font-medium">{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </FormGroup>
 
-        {/* Star Rating (for review/testimonial) */}
         {(category === "review" || category === "testimonial") && (
-          <div className="text-center space-y-1">
-            <p className="text-sm font-medium">Rate your experience</p>
-            <div className="flex justify-center gap-1">
+          <FormGroup title="Rating">
+            <div className="flex justify-center gap-1 py-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
                   onClick={() => setRating(star)}
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
-                  className="p-1"
+                  className="p-1 active:scale-90 transition-transform"
                 >
                   <Star
-                    className={`h-8 w-8 transition-colors ${
+                    className={cn(
+                      "h-9 w-9 transition-colors",
                       star <= (hoverRating || rating)
                         ? "text-yellow-400 fill-yellow-400"
                         : "text-muted-foreground/30"
-                    }`}
+                    )}
                   />
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {rating === 1 && "Poor"}
-              {rating === 2 && "Fair"}
-              {rating === 3 && "Good"}
-              {rating === 4 && "Very Good"}
-              {rating === 5 && "Excellent!"}
-            </p>
-          </div>
+            {rating > 0 && (
+              <p className="text-center text-[13px] font-medium text-muted-foreground">
+                {rating === 1 && "Poor"}
+                {rating === 2 && "Fair"}
+                {rating === 3 && "Good"}
+                {rating === 4 && "Very Good"}
+                {rating === 5 && "Excellent!"}
+              </p>
+            )}
+          </FormGroup>
         )}
 
-        {/* Message */}
-        <div className="space-y-1">
-          <p className="text-sm font-medium">
-            {category === "bug" && "Describe the bug — what happened?"}
-            {category === "feature" && "What feature would you like?"}
-            {category === "review" && "Tell us what you think"}
-            {category === "testimonial" && "Share your story"}
-          </p>
-          <Textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={
-              category === "bug"
-                ? "I was trying to... and it showed..."
-                : category === "feature"
-                ? "I wish MediFamily could..."
-                : "Your feedback here..."
-            }
-            rows={4}
-            maxLength={2000}
-            className="text-sm"
-          />
-          <p className="text-[10px] text-muted-foreground text-right">{message.length}/2000</p>
-        </div>
+        <FormGroup
+          title={
+            category === "bug"
+              ? "Describe the bug"
+              : category === "feature"
+              ? "Your idea"
+              : category === "review"
+              ? "Your review"
+              : "Your story"
+          }
+        >
+          <FormField label="Message">
+            <FormTextarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={
+                category === "bug"
+                  ? "I was trying to... and it showed..."
+                  : category === "feature"
+                  ? "I wish MediFamily could..."
+                  : "Your feedback here..."
+              }
+              rows={5}
+              maxLength={2000}
+            />
+            <p className="text-[11px] text-muted-foreground text-right pt-1">
+              {message.length}/2000
+            </p>
+          </FormField>
+        </FormGroup>
 
-        {/* Submit */}
-        <Button className="w-full" onClick={handleSubmit} disabled={loading || !message.trim()}>
+        <Button
+          className="w-full h-12 rounded-xl text-[15px] font-semibold shadow-md shadow-primary/15 transition-transform active:scale-[0.98]"
+          onClick={handleSubmit}
+          disabled={loading || !message.trim()}
+        >
           {loading ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
           ) : (
-            <><Send className="h-4 w-4 mr-2" />Submit Feedback</>
+            <><Send className="h-4 w-4 mr-2" />Submit feedback</>
           )}
         </Button>
       </div>

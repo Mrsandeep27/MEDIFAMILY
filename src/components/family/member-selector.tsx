@@ -28,7 +28,7 @@ export function MemberSelector({
               : "hover:bg-muted"
           )}
         >
-          <MemberAvatar name={member.name} size="md" />
+          <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size="md" />
           <span className="text-[11px] font-medium truncate max-w-[60px]">
             {member.name.split(" ")[0]}
           </span>

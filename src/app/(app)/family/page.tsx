@@ -88,13 +88,6 @@ export default function FamilyPage() {
               );
             })}
 
-            {/* Add member CTA */}
-            <Link href="/family/add">
-              <div className="rounded-2xl border-2 border-dashed border-border/50 py-4 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-border transition-colors active:scale-[0.98] mt-2">
-                <Plus className="h-4 w-4" />
-                <span className="text-sm font-semibold">Add Family Member</span>
-              </div>
-            </Link>
           </div>
         )}
       </div>

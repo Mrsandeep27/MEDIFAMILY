@@ -16,8 +16,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  FormField,
+  FormInput,
+  FormTextarea,
+  formSelectTriggerClasses,
+} from "@/components/ui/form-primitives";
 import {
   Select,
   SelectContent,
@@ -212,45 +216,40 @@ export default function AppointmentsPage() {
               <DialogHeader>
                 <DialogTitle>New Appointment</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Doctor Name *</Label>
-                  <Input
+              <div className="space-y-4 pt-2">
+                <FormField label="Doctor name *">
+                  <FormInput
                     value={doctorName}
                     onChange={(e) => setDoctorName(e.target.value)}
                     placeholder="e.g. Dr. Sharma"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Hospital</Label>
-                  <Input
+                </FormField>
+                <FormField label="Hospital" optional>
+                  <FormInput
                     value={hospital}
                     onChange={(e) => setHospital(e.target.value)}
                     placeholder="e.g. Apollo Hospital"
                   />
-                </div>
+                </FormField>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Date *</Label>
-                    <Input
+                  <FormField label="Date *">
+                    <FormInput
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Time *</Label>
-                    <Input
+                  </FormField>
+                  <FormField label="Time *">
+                    <FormInput
                       type="time"
                       value={time}
                       onChange={(e) => setTime(e.target.value)}
                     />
-                  </div>
+                  </FormField>
                 </div>
-                <div className="space-y-2">
-                  <Label>Family Member *</Label>
+                <FormField label="Family member *">
                   <Select value={memberId} onValueChange={(v) => setMemberId(v || "")}>
-                    <SelectTrigger>
+                    <SelectTrigger className={formSelectTriggerClasses}>
                       <SelectValue placeholder="Select member" />
                     </SelectTrigger>
                     <SelectContent>
@@ -261,26 +260,27 @@ export default function AppointmentsPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Purpose</Label>
-                  <Input
+                </FormField>
+                <FormField label="Purpose" optional>
+                  <FormInput
                     value={purpose}
                     onChange={(e) => setPurpose(e.target.value)}
                     placeholder="e.g. Follow-up, Consultation"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea
+                </FormField>
+                <FormField label="Notes" optional>
+                  <FormTextarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Any additional notes..."
                     rows={3}
                   />
-                </div>
-                <Button className="w-full" onClick={handleAdd}>
-                  Add Appointment
+                </FormField>
+                <Button
+                  className="w-full h-12 rounded-xl text-[15px] font-semibold shadow-md shadow-primary/15 transition-transform active:scale-[0.98]"
+                  onClick={handleAdd}
+                >
+                  Add appointment
                 </Button>
               </div>
             </DialogContent>

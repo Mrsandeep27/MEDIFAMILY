@@ -20,8 +20,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  FormField,
+  FormInput,
+  formSelectTriggerClasses,
+} from "@/components/ui/form-primitives";
 import {
   Select,
   SelectContent,
@@ -221,19 +224,17 @@ export default function RemindersPage() {
               <DialogHeader>
                 <DialogTitle>{t("reminders.add")}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t("reminders.medicine_name")} *</Label>
-                  <Input
+              <div className="space-y-4 pt-2">
+                <FormField label={`${t("reminders.medicine_name")} *`}>
+                  <FormInput
                     value={newMedicineName}
                     onChange={(e) => setNewMedicineName(e.target.value)}
                     placeholder="e.g. Paracetamol"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("home.family_members")} *</Label>
+                </FormField>
+                <FormField label={`${t("home.family_members")} *`}>
                   <Select value={newMemberId} onValueChange={(v) => setNewMemberId(v || "")}>
-                    <SelectTrigger>
+                    <SelectTrigger className={formSelectTriggerClasses}>
                       <SelectValue placeholder="Select member" />
                     </SelectTrigger>
                     <SelectContent>
@@ -242,33 +243,32 @@ export default function RemindersPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>{t("reminders.time")}</Label>
-                    <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("reminders.dosage")}</Label>
-                    <Input value={newDosage} onChange={(e) => setNewDosage(e.target.value)} placeholder="e.g. 500mg" />
-                  </div>
+                  <FormField label={t("reminders.time")}>
+                    <FormInput type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
+                  </FormField>
+                  <FormField label={t("reminders.dosage")}>
+                    <FormInput value={newDosage} onChange={(e) => setNewDosage(e.target.value)} placeholder="e.g. 500mg" />
+                  </FormField>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("reminders.days")}</Label>
-                  <div className="flex gap-1">
+                <FormField label={t("reminders.days")}>
+                  <div className="flex gap-1.5">
                     {ALL_DAYS.map((day) => (
                       <button
                         key={day}
                         onClick={() => toggleDay(day)}
-                        className={`w-9 h-9 rounded-full text-xs font-medium transition-colors ${
-                          newDays.includes(day) ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        className={`flex-1 h-10 rounded-lg text-[13px] font-semibold transition-all active:scale-[0.95] ${
+                          newDays.includes(day)
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/60 text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         {DAY_LABELS[day][0]}
                       </button>
                     ))}
                   </div>
-                </div>
+                </FormField>
                 <div className="flex items-center gap-2">
                   <Badge
                     variant={newBeforeFood ? "default" : "outline"}
@@ -278,7 +278,12 @@ export default function RemindersPage() {
                     {newBeforeFood ? t("reminders.before_food") : t("reminders.after_food")}
                   </Badge>
                 </div>
-                <Button className="w-full" onClick={handleAdd}>{t("reminders.add")}</Button>
+                <Button
+                  className="w-full h-12 rounded-xl text-[15px] font-semibold shadow-md shadow-primary/15 transition-transform active:scale-[0.98]"
+                  onClick={handleAdd}
+                >
+                  {t("reminders.add")}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

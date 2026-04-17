@@ -592,13 +592,19 @@ export default function OnboardingPage() {
   const [scannedMeds, setScannedMeds] = useState<ExtractedMed[]>([]);
   const [showBadge, setShowBadge] = useState<string | null>(null);
 
+  // Track whether the wizard is actively in progress so the `hasCompletedOnboarding`
+  // flag (set after Step 1 creates the self member) doesn't bounce the user to /home
+  // mid-wizard.
+  const wizardActiveRef = useRef(false);
+
   // ---- Session check + existing-member detection ----
   useEffect(() => {
     let cancelled = false;
 
     const verifyAndRoute = async () => {
-      // Fast path: local flag says onboarded
-      if (hasCompletedOnboarding && user) {
+      // Fast path: local flag says onboarded — but only if the wizard
+      // hasn't started yet. Once the user is in Step 1+ we let them finish.
+      if (hasCompletedOnboarding && user && !wizardActiveRef.current) {
         window.location.replace("/home");
         return;
       }
@@ -681,9 +687,14 @@ export default function OnboardingPage() {
     };
   }, [user, hasCompletedOnboarding, setUser, setHasCompletedOnboarding]);
 
-  // ---- Step 1: Save self profile (MANDATORY — marks onboarding complete) ----
+  // ---- Step 1: Save self profile ----
+  // Creates the self member. Does NOT mark onboarding complete — that happens
+  // only when the user finishes or skips out of the final step via goHome().
+  // Otherwise the useEffect guard above sees the flag and bounces the user
+  // to /home before they can reach Steps 2-4.
   const handleProfileSubmit = async (data: MemberFormData) => {
     setLoading(true);
+    wizardActiveRef.current = true;
     try {
       // Guard: check if a self member already exists (prevents duplicates
       // when Google OAuth re-triggers onboarding on every login)
@@ -696,20 +707,18 @@ export default function OnboardingPage() {
           .filter((m) => m.relation === "self" && !m.is_deleted)
           .toArray();
         if (localMembers.length > 0) {
-          // Self already exists locally — skip creation
+          // Self already exists locally — skip creation, advance wizard
           setSelfMemberId(localMembers[0].id);
           setSelfMemberName(localMembers[0].name);
-          setHasCompletedOnboarding(true);
           setShowBadge("Profile Created");
           return;
         }
       }
 
       if (existingSelf) {
-        // Self already exists via live query — skip creation
+        // Self already exists via live query — skip creation, advance wizard
         setSelfMemberId(existingSelf.id);
         setSelfMemberName(existingSelf.name);
-        setHasCompletedOnboarding(true);
         setShowBadge("Profile Created");
         return;
       }
@@ -718,17 +727,11 @@ export default function OnboardingPage() {
       setSelfMemberId(id);
       setSelfMemberName(data.name);
 
-      // AWAIT sync — ensures the cloud has the self member before we mark
-      // onboarding complete. Otherwise the next login may not find them in
-      // the cloud and bounce back to onboarding.
-      try {
-        await syncAll();
-      } catch (err) {
-        // Don't block onboarding on sync failures (offline-first), but log it
-        console.warn("Sync after onboarding failed (will retry):", err);
-      }
+      // Fire-and-forget sync — don't block wizard on network
+      syncAll().catch((err) =>
+        console.warn("Sync after profile create failed (will retry):", err)
+      );
 
-      setHasCompletedOnboarding(true);
       setShowBadge("Profile Created");
     } catch (err) {
       console.error("Onboarding error:", err);
@@ -766,8 +769,11 @@ export default function OnboardingPage() {
     setShowBadge("Never Miss a Dose");
   };
 
-  // ---- Go home ----
+  // ---- Finish wizard and go home ----
+  // Single source of truth for "onboarding complete" — only set here so the
+  // user can reach all 4 steps even if they refresh mid-wizard.
   const goHome = () => {
+    setHasCompletedOnboarding(true);
     window.location.replace("/home");
   };
 
