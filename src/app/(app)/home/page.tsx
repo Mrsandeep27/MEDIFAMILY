@@ -81,9 +81,21 @@ export default function HomePage() {
   }, []);
 
   const selfMember = members.find((m) => m.relation === "self");
-  const greeting = selfMember
-    ? `${t("home.greeting")}, ${selfMember.name.split(" ")[0]}`
+  const firstName = selfMember?.name.split(" ")[0];
+
+  // Time-aware greeting — feels alive vs. static "Hi, Sandeep"
+  const hour = new Date().getHours();
+  const timeGreeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = firstName
+    ? `${timeGreeting}, ${firstName}`
     : t("home.welcome");
+
+  const todayLabel = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   // Load upcoming appointments
   useEffect(() => {
@@ -147,48 +159,63 @@ export default function HomePage() {
       <PWAInstallBanner />
 
       {/* Header */}
-      <div className="bg-primary text-primary-foreground px-4 pt-6 pb-8 rounded-b-3xl">
-        <div className="flex items-center justify-between mb-4">
+      <div className="relative bg-primary text-primary-foreground px-4 pt-6 pb-9 rounded-b-[2rem] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-500">
+        {/* Subtle decorative glow — creates depth without being busy */}
+        <div className="pointer-events-none absolute -top-20 -right-16 h-56 w-56 rounded-full bg-primary-foreground/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-primary-foreground/5 blur-3xl" />
+
+        <div className="relative flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
               alt="MediFamily"
-              width={36}
-              height={36}
-              className="rounded-lg bg-white p-0.5"
+              width={40}
+              height={40}
+              className="rounded-xl bg-white p-1 shadow-sm"
             />
-            <div>
-              <h1 className="text-xl font-bold">{greeting}</h1>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/60">
+                {todayLabel}
+              </p>
+              <h1 className="text-xl font-extrabold tracking-tight leading-tight mt-0.5 truncate">
+                {greeting}
+              </h1>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <NotificationCenter />
           </div>
         </div>
 
         {/* Search */}
-        <div className="mb-4">
+        <div className="relative mb-5">
           <GlobalSearch />
         </div>
 
-        {/* 3 Main AI Actions */}
-        <div data-tour="home-ai-row" className="grid grid-cols-3 gap-3">
-          <Link href="/ai-doctor">
-            <div className="flex flex-col items-center gap-2 bg-primary-foreground/10 rounded-2xl p-4 hover:bg-primary-foreground/20 transition-colors">
-              <Stethoscope className="h-7 w-7" />
-              <span className="text-xs font-medium">{t("home.ai_doctor")}</span>
+        {/* 3 Main AI Actions — distinct soft tints per tool for visual rhythm */}
+        <div data-tour="home-ai-row" className="relative grid grid-cols-3 gap-2.5">
+          <Link href="/ai-doctor" className="group">
+            <div className="flex flex-col items-center gap-2 bg-primary-foreground/12 hover:bg-primary-foreground/20 rounded-2xl p-3.5 transition-all active:scale-[0.97]">
+              <div className="h-11 w-11 rounded-2xl bg-primary-foreground/15 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Stethoscope className="h-5 w-5" />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight">{t("home.ai_doctor")}</span>
             </div>
           </Link>
-          <Link href="/medicine">
-            <div className="flex flex-col items-center gap-2 bg-primary-foreground/10 rounded-2xl p-4 hover:bg-primary-foreground/20 transition-colors">
-              <Pill className="h-7 w-7" />
-              <span className="text-xs font-medium">{t("home.medicine_info")}</span>
+          <Link href="/medicine" className="group">
+            <div className="flex flex-col items-center gap-2 bg-primary-foreground/12 hover:bg-primary-foreground/20 rounded-2xl p-3.5 transition-all active:scale-[0.97]">
+              <div className="h-11 w-11 rounded-2xl bg-primary-foreground/15 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Pill className="h-5 w-5" />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight">{t("home.medicine_info")}</span>
             </div>
           </Link>
-          <Link href="/lab-insights">
-            <div className="flex flex-col items-center gap-2 bg-primary-foreground/10 rounded-2xl p-4 hover:bg-primary-foreground/20 transition-colors">
-              <TestTube className="h-7 w-7" />
-              <span className="text-xs font-medium">{t("home.lab_insights")}</span>
+          <Link href="/lab-insights" className="group">
+            <div className="flex flex-col items-center gap-2 bg-primary-foreground/12 hover:bg-primary-foreground/20 rounded-2xl p-3.5 transition-all active:scale-[0.97]">
+              <div className="h-11 w-11 rounded-2xl bg-primary-foreground/15 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <TestTube className="h-5 w-5" />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight">{t("home.lab_insights")}</span>
             </div>
           </Link>
         </div>
@@ -382,73 +409,87 @@ function TodayCard({
   onAddWater: () => void;
 }) {
   const pct = Math.min(100, Math.round((waterMl / waterTargetMl) * 100));
-  const circumference = 2 * Math.PI * 34;
+  const circumference = 2 * Math.PI * 40;
   const dash = (pct / 100) * circumference;
   const waterL = (waterMl / 1000).toFixed(waterMl % 1000 === 0 ? 0 : 2).replace(/\.?0+$/, "");
   const targetL = (waterTargetMl / 1000).toFixed(waterTargetMl % 1000 === 0 ? 0 : 1).replace(/\.?0+$/, "");
-  const greeting = pct >= 100
+  const subtitle = pct >= 100
     ? "Target hit — great work"
     : pct > 0
-    ? "You're on your way"
-    : "Let's start with a glass of water";
+    ? `${100 - pct}% to daily target`
+    : "Start with a glass of water";
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/20 p-5">
-      <div className="flex items-center gap-4">
-        {/* Progress ring */}
-        <div className="relative h-20 w-20 shrink-0">
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 80 80">
+    <div className="relative rounded-3xl bg-gradient-to-br from-primary/18 via-primary/10 to-transparent border border-primary/25 p-5 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Soft decorative blob */}
+      <div className="pointer-events-none absolute -top-14 -right-14 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+
+      <div className="relative flex items-center gap-4">
+        {/* Progress ring — 96px */}
+        <div className="relative h-24 w-24 shrink-0">
+          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 96 96">
             <circle
-              cx="40"
-              cy="40"
-              r="34"
+              cx="48"
+              cy="48"
+              r="40"
               fill="none"
               stroke="currentColor"
-              strokeWidth="6"
+              strokeWidth="7"
               className="text-muted/30"
             />
             <circle
-              cx="40"
-              cy="40"
-              r="34"
+              cx="48"
+              cy="48"
+              r="40"
               fill="none"
               stroke="currentColor"
-              strokeWidth="6"
+              strokeWidth="7"
               strokeLinecap="round"
               strokeDasharray={`${dash} ${circumference}`}
-              className="text-primary transition-all duration-500"
+              className="text-primary transition-all duration-700 ease-out"
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
             <Droplet
               className={cn(
-                "h-7 w-7 transition-colors",
-                pct > 0 ? "text-primary fill-primary/20" : "text-muted-foreground"
+                "h-5 w-5 transition-colors -mb-0.5",
+                pct > 0 ? "text-primary fill-primary/30" : "text-muted-foreground"
               )}
             />
+            <span className={cn(
+              "font-mono text-[11px] font-bold tabular-nums",
+              pct > 0 ? "text-primary" : "text-muted-foreground"
+            )}>
+              {pct}%
+            </span>
           </div>
         </div>
 
         {/* Copy + streak */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">
               Today
             </p>
             {streak > 0 && (
               <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded-full">
                 <Flame className="h-3 w-3 text-orange-500" />
-                <span className="text-[10px] font-extrabold text-orange-600">
+                <span className="font-mono text-[10px] font-extrabold text-orange-600 tabular-nums">
                   {streak}
                 </span>
               </div>
             )}
           </div>
-          <p className="text-base font-extrabold tracking-tight">
-            {waterL} / {targetL} L
-          </p>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-2xl font-black tracking-tight tabular-nums">
+              {waterL}
+            </span>
+            <span className="text-sm font-bold text-muted-foreground">
+              / {targetL} L
+            </span>
+          </div>
           <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-            {greeting}
+            {subtitle}
           </p>
         </div>
 
@@ -456,10 +497,10 @@ function TodayCard({
         <button
           type="button"
           onClick={onAddWater}
-          className="h-12 px-4 rounded-2xl bg-primary text-primary-foreground text-[13px] font-bold flex items-center gap-1.5 shadow-md shadow-primary/20 active:scale-95 transition-transform shrink-0"
+          className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/25 active:scale-90 hover:scale-105 transition-transform shrink-0"
+          aria-label="Add a glass of water"
         >
-          <Plus className="h-4 w-4" />
-          Glass
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
       </div>
     </div>

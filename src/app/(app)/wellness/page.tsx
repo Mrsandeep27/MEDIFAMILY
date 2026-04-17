@@ -155,66 +155,77 @@ export default function WellnessPage() {
 
       <div className="p-4 space-y-5">
         {/* ═══════ DATE + STREAK + SCORE HERO ═══════ */}
-        <div className="rounded-3xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-border/40 p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="relative rounded-3xl bg-gradient-to-br from-primary/12 via-primary/5 to-transparent border border-primary/20 p-5 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+
+          <div className="relative flex items-center justify-between mb-5">
             <div>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.14em]">
                 Today
               </p>
-              <p className="text-base font-bold">{today}</p>
+              <p className="text-base font-extrabold tracking-tight mt-0.5">{today}</p>
             </div>
-            <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-full">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-extrabold text-orange-600">
-                {streak}
-              </span>
-              <span className="text-[11px] font-semibold text-orange-600/80">
-                day{streak === 1 ? "" : "s"}
-              </span>
-            </div>
+            {streak > 0 && (
+              <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-full">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="font-mono text-sm font-extrabold text-orange-600 tabular-nums">
+                  {streak}
+                </span>
+                <span className="text-[11px] font-semibold text-orange-600/80">
+                  day{streak === 1 ? "" : "s"}
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-end justify-between">
+          <div className="relative flex items-end justify-between">
             <div>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.14em]">
                 Health Score
               </p>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className={cn("text-5xl font-black tracking-tight", scoreColor)}>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className={cn("font-mono text-6xl font-black tracking-tight tabular-nums leading-none", scoreColor)}>
                   {score}
                 </span>
-                <span className="text-lg font-bold text-muted-foreground">/100</span>
+                <span className="text-base font-bold text-muted-foreground leading-none">
+                  / 100
+                </span>
               </div>
-              <p className={cn("text-xs font-bold mt-0.5", scoreColor)}>
+              <p className={cn("text-[13px] font-bold mt-1.5", scoreColor)}>
                 {scoreLabel}
               </p>
             </div>
-            {/* Circular progress ring */}
-            <div className="relative h-20 w-20 shrink-0">
-              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 80 80">
+            {/* Circular progress ring — 96px, thicker */}
+            <div className="relative h-24 w-24 shrink-0">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 96 96">
                 <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
+                  cx="48"
+                  cy="48"
+                  r="40"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="6"
+                  strokeWidth="7"
                   className="text-muted/30"
                 />
                 <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
+                  cx="48"
+                  cy="48"
+                  r="40"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="6"
+                  strokeWidth="7"
                   strokeLinecap="round"
-                  strokeDasharray={`${(score / 100) * 213.6} 213.6`}
-                  className={scoreColor}
+                  strokeDasharray={`${(score / 100) * 251.2} 251.2`}
+                  className={cn(scoreColor, "transition-all duration-700 ease-out")}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <TrendingUp className={cn("h-6 w-6", scoreColor)} />
+                <div className="flex flex-col items-center">
+                  <TrendingUp className={cn("h-5 w-5 -mb-0.5", scoreColor)} />
+                  <span className={cn("font-mono text-[10px] font-extrabold tabular-nums", scoreColor)}>
+                    {score}%
+                  </span>
+                </div>
               </div>
             </div>
           </div>
