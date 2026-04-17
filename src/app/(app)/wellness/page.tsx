@@ -96,20 +96,31 @@ export default function WellnessPage() {
     weeklyTarget
   );
 
-  const scoreColor =
-    score >= 75
-      ? "text-emerald-500"
-      : score >= 50
-      ? "text-amber-500"
-      : "text-rose-500";
-  const scoreLabel =
-    score >= 75
-      ? "Excellent"
-      : score >= 50
-      ? "Good"
-      : score >= 25
-      ? "Fair"
-      : "Needs work";
+  // Day-0 fresh accounts should never see red/amber — that's demotivating.
+  // If the user hasn't logged anything yet, frame it as "Let's begin" with
+  // the neutral primary accent. Only surface warning colors once they've
+  // been active for a while and actually fall behind.
+  const hasAnyActivity =
+    recentEntries.length > 0 || workoutsThisWeek > 0 || (todayEntry?.water_ml ?? 0) > 0;
+
+  const scoreColor = !hasAnyActivity
+    ? "text-primary"
+    : score >= 75
+    ? "text-emerald-500"
+    : score >= 50
+    ? "text-amber-500"
+    : score >= 25
+    ? "text-amber-500"
+    : "text-muted-foreground";
+  const scoreLabel = !hasAnyActivity
+    ? "Let's begin"
+    : score >= 75
+    ? "Excellent"
+    : score >= 50
+    ? "Good"
+    : score >= 25
+    ? "Getting there"
+    : "Tap a goal to start";
 
   const handleWeightSave = async () => {
     const kg = parseFloat(weightInput);
@@ -394,9 +405,19 @@ export default function WellnessPage() {
             </div>
 
             {workouts.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground text-center py-3">
-                No workouts yet. Tap Log to add your first.
-              </p>
+              <Link href="/wellness/workout/add" className="block">
+                <div className="rounded-xl border-2 border-dashed border-border/60 p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Plus className="h-5 w-5 text-emerald-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-bold">Log your first workout</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Even 10 minutes counts
+                    </p>
+                  </div>
+                </div>
+              </Link>
             ) : (
               <div className="space-y-2">
                 {workouts.slice(0, 3).map((w) => (

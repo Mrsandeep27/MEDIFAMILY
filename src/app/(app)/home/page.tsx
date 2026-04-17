@@ -34,6 +34,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { APP_NAME } from "@/constants/config";
 import { PWAInstallBanner } from "@/components/pwa/install-button";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { useWellness, computeStreak } from "@/hooks/use-wellness";
+import { Droplet, Plus, Flame } from "lucide-react";
+import { MemberAvatar } from "@/components/family/member-avatar";
+import { cn } from "@/lib/utils";
 
 const moodOptionDefs = [
   { value: "great", icon: Smile, labelKey: "mood.great", color: "text-green-500", bg: "bg-green-500/20" },
@@ -64,9 +68,10 @@ export default function HomePage() {
   const { locale, t } = useLocale();
   const user = useAuthStore((s) => s.user);
   const { members } = useMembers();
+  const { todayEntry, recentEntries, goals, addWater } = useWellness();
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const [tipExpanded, setTipExpanded] = useState(false);
+  const [tipExpanded, setTipExpanded] = useState(true); // expanded by default — never truncate
   const [appointments, setAppointments] = useState<Array<{ date: string; time: string; doctor_name: string; purpose: string }>>([]);
   // Rotate tip on every mount (each time user lands on home) — pick a fresh
   // random key so revisiting feels alive instead of stuck on one tip.
@@ -190,16 +195,48 @@ export default function HomePage() {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Health Tip — tap to expand */}
+        {/* Family switcher chips — quick deep-link to any member */}
+        {members.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+            {members.map((m) => (
+              <Link
+                key={m.id}
+                href={`/family/${m.id}`}
+                className="shrink-0 flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+              >
+                <MemberAvatar
+                  name={m.name}
+                  avatarUrl={m.avatar_url}
+                  size="lg"
+                />
+                <span className="text-[11px] font-semibold text-foreground/80 max-w-[64px] truncate">
+                  {m.relation === "self" ? "You" : m.name.split(" ")[0]}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Today hero — wellness ring + streak + CTA */}
+        <TodayCard
+          waterMl={todayEntry?.water_ml ?? 0}
+          waterTargetMl={goals?.water_target_ml ?? 2000}
+          streak={computeStreak(recentEntries)}
+          onAddWater={() => addWater(250)}
+        />
+
+        {/* Health Tip — always expanded so it never truncates mid-word */}
         <button
           type="button"
           onClick={() => setTipExpanded((v) => !v)}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-left shadow-md hover:shadow-lg transition-shadow"
+          className="w-full flex items-start gap-3 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-left shadow-md hover:shadow-lg transition-shadow"
         >
-          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
             <Lightbulb className="h-4 w-4 text-white" />
           </div>
-          <p className={`text-sm font-semibold text-white ${tipExpanded ? "" : "truncate"}`}>{t(tipKey)}</p>
+          <p className="text-sm font-semibold text-white leading-relaxed">
+            {t(tipKey)}
+          </p>
         </button>
 
 
@@ -324,6 +361,107 @@ export default function HomePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Today hero card — the first thing users see after the header.
+ * Shows a circular hydration progress ring, current check-in streak,
+ * and a primary "Log water" action so the home screen never feels dead.
+ */
+function TodayCard({
+  waterMl,
+  waterTargetMl,
+  streak,
+  onAddWater,
+}: {
+  waterMl: number;
+  waterTargetMl: number;
+  streak: number;
+  onAddWater: () => void;
+}) {
+  const pct = Math.min(100, Math.round((waterMl / waterTargetMl) * 100));
+  const circumference = 2 * Math.PI * 34;
+  const dash = (pct / 100) * circumference;
+  const waterL = (waterMl / 1000).toFixed(waterMl % 1000 === 0 ? 0 : 2).replace(/\.?0+$/, "");
+  const targetL = (waterTargetMl / 1000).toFixed(waterTargetMl % 1000 === 0 ? 0 : 1).replace(/\.?0+$/, "");
+  const greeting = pct >= 100
+    ? "Target hit — great work"
+    : pct > 0
+    ? "You're on your way"
+    : "Let's start with a glass of water";
+
+  return (
+    <div className="rounded-3xl bg-gradient-to-br from-primary/15 via-primary/8 to-transparent border border-primary/20 p-5">
+      <div className="flex items-center gap-4">
+        {/* Progress ring */}
+        <div className="relative h-20 w-20 shrink-0">
+          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 80 80">
+            <circle
+              cx="40"
+              cy="40"
+              r="34"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="6"
+              className="text-muted/30"
+            />
+            <circle
+              cx="40"
+              cy="40"
+              r="34"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circumference}`}
+              className="text-primary transition-all duration-500"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Droplet
+              className={cn(
+                "h-7 w-7 transition-colors",
+                pct > 0 ? "text-primary fill-primary/20" : "text-muted-foreground"
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Copy + streak */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Today
+            </p>
+            {streak > 0 && (
+              <div className="flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded-full">
+                <Flame className="h-3 w-3 text-orange-500" />
+                <span className="text-[10px] font-extrabold text-orange-600">
+                  {streak}
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="text-base font-extrabold tracking-tight">
+            {waterL} / {targetL} L
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+            {greeting}
+          </p>
+        </div>
+
+        {/* CTA */}
+        <button
+          type="button"
+          onClick={onAddWater}
+          className="h-12 px-4 rounded-2xl bg-primary text-primary-foreground text-[13px] font-bold flex items-center gap-1.5 shadow-md shadow-primary/20 active:scale-95 transition-transform shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          Glass
+        </button>
+      </div>
     </div>
   );
 }
