@@ -35,6 +35,7 @@ import { APP_NAME } from "@/constants/config";
 import { PWAInstallBanner } from "@/components/pwa/install-button";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { useWellness, computeStreak } from "@/hooks/use-wellness";
+import { useReminders } from "@/hooks/use-reminders";
 import { Droplet, Plus, Flame } from "lucide-react";
 import { MemberAvatar } from "@/components/family/member-avatar";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const { members } = useMembers();
   const { todayEntry, recentEntries, goals, addWater } = useWellness();
+  const { todayReminders } = useReminders();
   const [showFeeling, setShowFeeling] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [tipExpanded, setTipExpanded] = useState(true); // expanded by default — never truncate
@@ -167,11 +169,15 @@ export default function HomePage() {
               className="rounded-xl bg-white p-1 shadow-sm"
             />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/60">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground/60">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]"
+                  aria-hidden="true"
+                />
                 {todayLabel}
               </p>
               <h1 className="text-xl font-extrabold tracking-tight leading-tight mt-0.5 truncate">
-                {greeting}
+                {firstName ? `Hi, ${firstName}` : greeting}
               </h1>
             </div>
           </div>
@@ -244,6 +250,9 @@ export default function HomePage() {
           streak={computeStreak(recentEntries)}
           onAddWater={() => addWater(250)}
         />
+
+        {/* Next medicine reminder — elevated card with clear CTA */}
+        <NextMedicineCard reminders={todayReminders} />
 
         {/* Health Tip — always expanded so it never truncates mid-word */}
         <button
@@ -382,6 +391,78 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Pick the next upcoming reminder based on the current wall-clock time.
+// Matches the design's "NEXT MEDICINE · 10:30 AM" pattern.
+function pickNextReminder<T extends { time: string }>(reminders: T[]): T | null {
+  if (!reminders.length) return null;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const parseMinutes = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const sorted = [...reminders].sort(
+    (a, b) => parseMinutes(a.time) - parseMinutes(b.time)
+  );
+  return sorted.find((r) => parseMinutes(r.time) >= nowMinutes) ?? sorted[0];
+}
+
+function formatReminderTime(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (Number.isNaN(h) || Number.isNaN(m)) return time;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${m.toString().padStart(2, "0")} ${suffix}`;
+}
+
+function NextMedicineCard({
+  reminders,
+}: {
+  reminders: Array<{
+    id: string;
+    medicine_name: string;
+    dosage?: string;
+    time: string;
+    before_food: boolean;
+  }>;
+}) {
+  const next = pickNextReminder(reminders);
+  if (!next) return null;
+
+  const subParts: string[] = [];
+  if (next.dosage) subParts.push(next.dosage);
+  subParts.push(next.before_food ? "before food" : "with food");
+
+  return (
+    <Link
+      href="/reminders"
+      className="relative flex items-center gap-3 rounded-3xl px-3.5 py-3 overflow-hidden text-white shadow-[0_8px_22px_rgba(240,90,31,0.3)] active:scale-[0.98] transition-transform"
+      style={{
+        background:
+          "radial-gradient(ellipse at top right, rgba(255,255,255,0.15) 0%, transparent 60%), linear-gradient(135deg, #FF8A4C 0%, #F05A1F 100%)",
+      }}
+    >
+      <div className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center bg-white/20 border border-white/20">
+        <Pill className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-mono text-[9px] font-extrabold tracking-[0.16em] opacity-90">
+          NEXT MEDICINE · {formatReminderTime(next.time)}
+        </p>
+        <p className="text-[13px] font-bold leading-snug truncate mt-0.5">
+          {next.medicine_name}
+          {subParts.length ? ` · ${subParts.join(" · ")}` : ""}
+        </p>
+      </div>
+      <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#F05A1F] shadow-sm">
+        Taken
+      </span>
+    </Link>
   );
 }
 

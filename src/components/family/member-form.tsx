@@ -1,31 +1,38 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, ChevronDown, Pencil, X } from "lucide-react";
+import { Camera, ChevronRight, Plus, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  FormField,
-  FormGroup,
-  FormInput,
-  FormPillGroup,
-  FormStickyAction,
-  formSelectTriggerClasses,
-} from "@/components/ui/form-primitives";
-import { memberSchema, type MemberFormData } from "@/lib/utils/validators";
-import { RELATION_LABELS, BLOOD_GROUPS } from "@/constants/config";
-import { TagInput } from "@/components/family/tag-input";
+import type { MemberFormData } from "@/lib/utils/validators";
 import { compressToWebP } from "@/lib/utils/image";
 import { cn } from "@/lib/utils";
+
+type Relation = MemberFormData["relation"];
+
+// A1 design uses compact, familial labels. Maps to full schema relations.
+const RELATIONSHIPS: Array<{ id: Relation; label: string }> = [
+  { id: "self", label: "Self" },
+  { id: "spouse", label: "Spouse" },
+  { id: "mother", label: "Mom" },
+  { id: "father", label: "Dad" },
+  { id: "son", label: "Son" },
+  { id: "daughter", label: "Daughter" },
+  { id: "brother", label: "Brother" },
+  { id: "sister", label: "Sister" },
+  { id: "other", label: "Other" },
+];
+
+const CONDITION_PRESETS = [
+  "Diabetes",
+  "High BP",
+  "Cholesterol",
+  "Asthma",
+  "Heart",
+  "Thyroid",
+  "Allergies",
+];
+
+const BLOOD_CHIPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 interface MemberFormProps {
   onSubmit: (data: MemberFormData) => void;
@@ -36,59 +43,54 @@ interface MemberFormProps {
   hideRelation?: boolean;
 }
 
-const GENDER_OPTIONS: Array<{ value: "male" | "female" | "other"; label: string }> = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
-];
-
 export function MemberForm({
   onSubmit,
   loading,
-  submitLabel = "Save",
+  submitLabel,
   defaultValues,
   defaultRelation,
   hideRelation,
 }: MemberFormProps) {
-  const hasExtraDetails = !!(
-    (defaultValues?.allergies && defaultValues.allergies.length > 0) ||
-    (defaultValues?.chronic_conditions && defaultValues.chronic_conditions.length > 0) ||
-    defaultValues?.emergency_contact_name ||
-    defaultValues?.emergency_contact_phone
+  const [name, setName] = useState(defaultValues?.name || "");
+  const [dob, setDob] = useState(defaultValues?.date_of_birth || "");
+  const [rel, setRel] = useState<Relation>(
+    (defaultValues?.relation as Relation) ||
+      (defaultRelation as Relation) ||
+      "self"
   );
-  const [showMore, setShowMore] = useState(hasExtraDetails);
+  const [bloodGroup, setBloodGroup] = useState(defaultValues?.blood_group || "");
+  const [conditions, setConditions] = useState<string[]>(
+    defaultValues?.chronic_conditions || []
+  );
+  const [allergies, setAllergies] = useState<string[]>(
+    defaultValues?.allergies || []
+  );
+  const [contactName, setContactName] = useState(
+    defaultValues?.emergency_contact_name || ""
+  );
+  const [contactPhone, setContactPhone] = useState(
+    defaultValues?.emergency_contact_phone || ""
+  );
+  const [avatarUrl, setAvatarUrl] = useState(defaultValues?.avatar_url || "");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<MemberFormData>({
-    resolver: zodResolver(memberSchema),
-    defaultValues: {
-      name: "",
-      relation: (defaultRelation as MemberFormData["relation"]) || "self",
-      date_of_birth: "",
-      blood_group: undefined,
-      gender: undefined,
-      allergies: [],
-      chronic_conditions: [],
-      emergency_contact_name: "",
-      emergency_contact_phone: "",
-      avatar_url: "",
-      ...defaultValues,
-    },
-  });
+  const age = dob ? ageFrom(dob) : null;
+  const ready = name.trim().length > 0 && !!dob && !!rel;
 
-  const allergies = watch("allergies") || [];
-  const chronicConditions = watch("chronic_conditions") || [];
-  const avatarUrl = watch("avatar_url") || "";
-  const name = watch("name") || "";
-  const bloodGroup = watch("blood_group") || "";
-  const gender = watch("gender") || "";
+  const progress = [
+    name.trim().length > 0,
+    !!dob,
+    !!rel,
+    conditions.length > 0,
+    contactName.trim().length > 0,
+  ];
+
+  const toggleCondition = (c: string) => {
+    setConditions((s) =>
+      s.includes(c) ? s.filter((x) => x !== c) : [...s, c]
+    );
+  };
 
   const handleAvatarSelect = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -106,7 +108,7 @@ export function MemberForm({
         maxSizeKB: 200,
         maxDim: 512,
       });
-      setValue("avatar_url", dataUrl, { shouldDirty: true });
+      setAvatarUrl(dataUrl);
     } catch (err) {
       console.error("Avatar compression failed:", err);
       toast.error("Could not process that image. Try another.");
@@ -115,222 +117,320 @@ export function MemberForm({
     }
   };
 
-  const initials =
-    name
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "?";
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ready || loading) return;
+    if (contactPhone && !/^[6-9]\d{9}$/.test(contactPhone)) {
+      toast.error("Enter a valid 10-digit mobile number");
+      return;
+    }
+    onSubmit({
+      name: name.trim(),
+      relation: rel,
+      date_of_birth: dob,
+      blood_group: (bloodGroup as MemberFormData["blood_group"]) || "",
+      gender: "",
+      allergies,
+      chronic_conditions: conditions,
+      emergency_contact_name: contactName.trim(),
+      emergency_contact_phone: contactPhone.trim(),
+      avatar_url: avatarUrl,
+    });
+  };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="pb-32">
-      {/* ═══════ PROFILE PHOTO ═══════ */}
-      <div className="flex flex-col items-center pt-2 pb-8">
-        <div className="relative">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col min-h-[100vh] pb-28"
+    >
+      {/* Progress dots */}
+      <div className="flex gap-1.5 px-5 pt-2 pb-4">
+        {progress.map((on, i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors",
+              on ? "bg-foreground" : "bg-muted/60"
+            )}
+          />
+        ))}
+      </div>
+
+      <div className="flex-1 px-5 space-y-6">
+        {/* Photo */}
+        <div className="flex flex-col items-center gap-3">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingAvatar}
-            className="h-28 w-28 rounded-full overflow-hidden bg-muted flex items-center justify-center active:scale-[0.98] transition-transform disabled:opacity-60 shadow-sm"
-            aria-label="Upload profile photo"
+            className="relative h-24 w-24 rounded-full border-[1.5px] border-dashed border-muted-foreground/40 bg-muted/40 flex items-center justify-center overflow-hidden active:scale-[0.98] transition-transform"
+            aria-label="Add photo"
           >
             {uploadingAvatar ? (
               <div className="h-6 w-6 border-[2.5px] border-primary/30 border-t-primary rounded-full animate-spin" />
             ) : avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarUrl}
                 alt="Profile"
                 className="h-full w-full object-cover"
               />
-            ) : (
-              <span className="text-3xl font-semibold text-muted-foreground/70">
-                {initials}
+            ) : name ? (
+              <span className="text-2xl font-extrabold text-muted-foreground">
+                {initialsFor(name)}
               </span>
+            ) : (
+              <Plus className="h-7 w-7 text-muted-foreground" />
             )}
+            <span className="absolute bottom-1 right-1 h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center shadow-sm ring-2 ring-background">
+              <Camera className="h-3 w-3" />
+            </span>
           </button>
-
-          {/* Edit photo floating button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingAvatar}
-            className="absolute -bottom-1 -right-1 h-10 px-3.5 rounded-full bg-primary text-primary-foreground flex items-center gap-1.5 text-xs font-semibold shadow-md ring-4 ring-background active:scale-95 transition-transform disabled:opacity-60"
-          >
+          <p className="text-[11px] text-muted-foreground font-medium">
             {avatarUrl ? (
               <>
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
+                <b className="text-foreground">Photo added</b> · Tap to change
               </>
             ) : (
               <>
-                <Camera className="h-3.5 w-3.5" />
-                Add photo
+                Tap to add a <b className="text-foreground">photo</b> (optional)
               </>
             )}
-          </button>
-
-          {avatarUrl && !uploadingAvatar && (
-            <button
-              type="button"
-              onClick={() => setValue("avatar_url", "", { shouldDirty: true })}
-              className="absolute -top-1 -left-1 h-7 w-7 rounded-full bg-background text-muted-foreground hover:text-destructive flex items-center justify-center shadow-sm ring-1 ring-border/50 active:scale-95 transition-transform"
-              aria-label="Remove photo"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarSelect}
+          />
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleAvatarSelect}
-        />
-      </div>
+        <Field label="Full name">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Meera Kapoor"
+            className={cn(
+              "w-full h-[52px] rounded-2xl border bg-card px-4 text-[15px] font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors",
+              name ? "border-foreground/20" : "border-border/50"
+            )}
+          />
+        </Field>
 
-      {/* ═══════ PERSONAL ═══════ */}
-      <FormGroup title="Personal">
-        <FormField label="Full name" error={errors.name?.message}>
-          <FormInput placeholder="e.g. Sandeep Kumar" {...register("name")} />
-        </FormField>
+        <Field label="Date of birth">
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              className={cn(
+                "flex-1 h-[52px] rounded-2xl border bg-card px-4 text-[15px] font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors",
+                dob ? "border-foreground/20" : "border-border/50"
+              )}
+            />
+            {age != null && (
+              <div className="shrink-0 h-[52px] px-4 rounded-2xl bg-muted/60 flex items-center justify-center font-mono text-[13px] font-extrabold">
+                {age} yr
+              </div>
+            )}
+          </div>
+        </Field>
 
         {!hideRelation && (
-          <FormField label="Relation" error={errors.relation?.message}>
-            <Select
-              defaultValue={defaultValues?.relation || defaultRelation || "self"}
-              onValueChange={(val) =>
-                setValue("relation", val as MemberFormData["relation"])
-              }
-            >
-              <SelectTrigger className={formSelectTriggerClasses}>
-                <SelectValue placeholder="Select relation" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(RELATION_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
+          <Field label="Relationship">
+            <div className="flex flex-wrap gap-2">
+              {RELATIONSHIPS.map((r) => (
+                <Chip
+                  key={r.id}
+                  active={rel === r.id}
+                  onClick={() => setRel(r.id)}
+                  label={r.label}
+                />
+              ))}
+            </div>
+          </Field>
         )}
 
-        <FormField label="Date of birth" optional>
-          <FormInput type="date" {...register("date_of_birth")} />
-        </FormField>
-
-        <FormField label="Gender" optional>
-          <FormPillGroup
-            value={gender as "male" | "female" | "other" | ""}
-            onChange={(val) => setValue("gender", val, { shouldDirty: true })}
-            options={GENDER_OPTIONS}
-          />
-        </FormField>
-      </FormGroup>
-
-      {/* ═══════ MEDICAL ═══════ */}
-      <FormGroup title="Medical">
-        <FormField label="Blood group" optional>
-          <Select
-            value={bloodGroup || undefined}
-            onValueChange={(val) =>
-              setValue("blood_group", val as MemberFormData["blood_group"], {
-                shouldDirty: true,
-              })
-            }
-          >
-            <SelectTrigger className={formSelectTriggerClasses}>
-              <SelectValue placeholder="Select blood group" />
-            </SelectTrigger>
-            <SelectContent>
-              {BLOOD_GROUPS.map((bg) => (
-                <SelectItem key={bg} value={bg}>
-                  {bg}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-      </FormGroup>
-
-      {/* ═══════ MORE TOGGLE ═══════ */}
-      <button
-        type="button"
-        onClick={() => setShowMore(!showMore)}
-        className="w-full flex items-center justify-between px-1 py-4 text-[14px] font-medium text-foreground/80 hover:text-foreground transition-colors"
-      >
-        <span>More details</span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform duration-200",
-            showMore && "rotate-180"
-          )}
-        />
-      </button>
-
-      {showMore && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-          <FormGroup title="Health alerts">
-            <FormField label="Allergies" optional>
-              <TagInput
-                tags={allergies}
-                onChange={(tags) => setValue("allergies", tags)}
-                placeholder="e.g. Peanuts, Penicillin"
+        <Field label="Blood group" hint="Optional">
+          <div className="flex flex-wrap gap-2">
+            {BLOOD_CHIPS.map((bg) => (
+              <Chip
+                key={bg}
+                active={bloodGroup === bg}
+                onClick={() =>
+                  setBloodGroup((current) => (current === bg ? "" : bg))
+                }
+                label={bg}
               />
-            </FormField>
-            <FormField label="Chronic conditions" optional>
-              <TagInput
-                tags={chronicConditions}
-                onChange={(tags) => setValue("chronic_conditions", tags)}
-                placeholder="e.g. Diabetes, Hypertension"
-              />
-            </FormField>
-          </FormGroup>
+            ))}
+          </div>
+        </Field>
 
-          <FormGroup title="Emergency contact">
-            <FormField label="Name" optional>
-              <FormInput
-                placeholder="Full name"
-                {...register("emergency_contact_name")}
+        <Field label="Conditions" hint="Optional · pick any">
+          <div className="flex flex-wrap gap-2">
+            {CONDITION_PRESETS.map((c) => (
+              <Chip
+                key={c}
+                active={conditions.includes(c)}
+                onClick={() => toggleCondition(c)}
+                label={c}
               />
-            </FormField>
-            <FormField
-              label="Phone"
-              optional
-              error={errors.emergency_contact_phone?.message}
-            >
-              <FormInput
-                type="tel"
-                placeholder="10-digit mobile number"
-                maxLength={10}
-                {...register("emergency_contact_phone")}
-              />
-            </FormField>
-          </FormGroup>
-        </div>
-      )}
+            ))}
+          </div>
+        </Field>
 
-      <FormStickyAction>
-        <Button
+        <Field label="Allergies" hint="Optional · pick any">
+          <div className="flex flex-wrap gap-2">
+            {["Peanuts", "Penicillin", "Dust", "Pollen", "Lactose"].map((a) => (
+              <Chip
+                key={a}
+                active={allergies.includes(a)}
+                onClick={() =>
+                  setAllergies((s) =>
+                    s.includes(a) ? s.filter((x) => x !== a) : [...s, a]
+                  )
+                }
+                label={a}
+              />
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Emergency contact" hint="Optional">
+          <div className="rounded-2xl border border-border/50 bg-muted/30 p-3 space-y-2">
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-[#DFF3E7] text-[#1F6A49] flex items-center justify-center shrink-0">
+                <Shield className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[12.5px] font-bold">
+                  Someone to call in urgency
+                </p>
+                <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                  We only share their details when you tap SOS.
+                </p>
+              </div>
+            </div>
+            <input
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              placeholder="Contact name"
+              className="w-full h-11 rounded-xl bg-card border border-border/40 px-3.5 text-[14px] font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={contactPhone}
+              onChange={(e) =>
+                setContactPhone(e.target.value.replace(/\D/g, ""))
+              }
+              placeholder="10-digit mobile number"
+              className="w-full h-11 rounded-xl bg-card border border-border/40 px-3.5 text-[14px] font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        </Field>
+      </div>
+
+      {/* Sticky footer */}
+      <div className="sticky bottom-0 z-20 bg-background/95 backdrop-blur-sm border-t border-border/40 px-4 pt-3 pb-4">
+        <button
           type="submit"
-          disabled={loading}
-          className="w-full rounded-2xl text-[15px] font-semibold shadow-lg shadow-primary/15 transition-transform active:scale-[0.98]"
-          style={{ height: "52px" }}
+          disabled={!ready || loading}
+          className={cn(
+            "w-full h-[52px] rounded-2xl inline-flex items-center justify-center gap-2 text-[14px] font-extrabold tracking-tight transition-all",
+            ready
+              ? "bg-foreground text-background active:scale-[0.98] shadow-[0_8px_18px_rgba(11,11,12,0.2)]"
+              : "bg-muted/60 text-muted-foreground"
+          )}
         >
           {loading ? (
             <>
-              <div className="h-4 w-4 border-[2.5px] border-primary-foreground/40 border-t-primary-foreground rounded-full animate-spin mr-2" />
+              <div className="h-4 w-4 border-[2.5px] border-background/40 border-t-background rounded-full animate-spin" />
               Saving...
             </>
+          ) : ready ? (
+            <>
+              {submitLabel || `Save ${name.split(" ")[0] || "member"}`}
+              <ChevronRight className="h-4 w-4" />
+            </>
           ) : (
-            submitLabel
+            "Fill in name, DOB and relationship"
           )}
-        </Button>
-      </FormStickyAction>
+        </button>
+        <p className="text-[11px] text-muted-foreground text-center mt-2 font-medium">
+          You can edit anytime from the family screen.
+        </p>
+      </div>
     </form>
   );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground font-mono">
+          {label}
+        </p>
+        {hint && (
+          <span className="text-[10.5px] font-medium text-muted-foreground/80">
+            {hint}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center h-10 px-4 rounded-full text-[13px] font-bold transition-colors",
+        active
+          ? "bg-foreground text-background"
+          : "bg-muted/50 text-foreground/80 border border-border/50 hover:bg-muted"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ageFrom(dob: string): number | null {
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }

@@ -1,11 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, FileText, TestTube, Syringe, Receipt, Hospital, File } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { RECORD_TYPE_LABELS } from "@/constants/config";
-import type { HealthRecord } from "@/lib/db/schema";
+import {
+  ChevronRight,
+  FileText,
+  TestTube,
+  Syringe,
+  Receipt,
+  Hospital,
+  File,
+  ImageIcon,
+} from "lucide-react";
+import type { HealthRecord, RecordType } from "@/lib/db/schema";
+
+// Plain-language type words (designed for elder readability per R1 spec)
+const TYPE_WORDS: Record<RecordType, string> = {
+  prescription: "Medicine",
+  lab_report: "Blood test",
+  vaccination: "Vaccine",
+  bill: "Medical bill",
+  discharge_summary: "Hospital stay",
+  other: "Record",
+};
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   prescription: FileText,
@@ -16,13 +32,14 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   other: File,
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  prescription: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  lab_report: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-  vaccination: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  bill: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
-  discharge_summary: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  other: "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300",
+// Soft pastel tints — match the R1 design tokens (--sky / --mint / --peach etc)
+const TYPE_TINT: Record<string, { bg: string; fg: string }> = {
+  prescription: { bg: "bg-[#FBE7DE]", fg: "text-[#9A3E1A]" },
+  lab_report: { bg: "bg-[#E4EEF9]", fg: "text-[#1E4E86]" },
+  vaccination: { bg: "bg-[#F6EDD0]", fg: "text-[#7A5B10]" },
+  bill: { bg: "bg-[#F6E2E5]", fg: "text-[#8C2A34]" },
+  discharge_summary: { bg: "bg-[#ECE7F6]", fg: "text-[#4A3B7A]" },
+  other: { bg: "bg-muted", fg: "text-foreground/70" },
 };
 
 interface RecordCardProps {
@@ -32,55 +49,66 @@ interface RecordCardProps {
 
 export function RecordCard({ record, memberName }: RecordCardProps) {
   const Icon = TYPE_ICONS[record.type] || File;
-  const colorClass = TYPE_COLORS[record.type] || TYPE_COLORS.other;
-  const date = record.visit_date
-    ? new Date(record.visit_date).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+  const tint = TYPE_TINT[record.type] || TYPE_TINT.other;
+  const word = TYPE_WORDS[record.type] || "Record";
+  const when = record.visit_date ? relativeDate(record.visit_date) : null;
+  const sub = record.doctor_name
+    ? `Dr. ${record.doctor_name}`
+    : memberName
+    ? memberName
     : null;
 
   return (
-    <Link href={`/records/${record.id}`}>
-      <Card className="hover:bg-muted/50 transition-colors">
-        <CardContent className="flex items-center gap-3 p-4">
-          <div className={`rounded-lg p-2.5 ${colorClass}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate">{record.title}</h3>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-xs text-muted-foreground">
-                {RECORD_TYPE_LABELS[record.type]}
-              </span>
-              {date && (
-                <span className="text-xs text-muted-foreground">{date}</span>
-              )}
-            </div>
-            {(record.doctor_name || memberName) && (
-              <div className="flex items-center gap-2 mt-0.5">
-                {record.doctor_name && (
-                  <span className="text-xs text-muted-foreground truncate">
-                    Dr. {record.doctor_name}
-                  </span>
-                )}
-                {memberName && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    {memberName}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-          {record.image_urls.length > 0 && (
-            <Badge variant="secondary" className="text-[10px] shrink-0">
-              {record.image_urls.length} img
-            </Badge>
+    <Link
+      href={`/records/${record.id}`}
+      className="block rounded-2xl bg-card border border-border/40 px-3.5 py-3 hover:bg-muted/30 transition-colors active:scale-[0.99]"
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`h-11 w-11 shrink-0 rounded-xl ${tint.bg} ${tint.fg} flex items-center justify-center`}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {word.toUpperCase()}
+            {when ? ` · ${when.toUpperCase()}` : ""}
+          </p>
+          <p className="text-[15px] font-extrabold tracking-tight leading-tight mt-0.5 truncate">
+            {record.title}
+          </p>
+          {sub && (
+            <p className="text-[11.5px] text-muted-foreground font-medium mt-0.5 truncate">
+              {sub}
+            </p>
           )}
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        </CardContent>
-      </Card>
+          {record.image_urls.length > 0 && (
+            <span className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+              <ImageIcon className="h-3 w-3" />
+              {record.image_urls.length} image{record.image_urls.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 mt-2" />
+      </div>
     </Link>
   );
+}
+
+function relativeDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const diffMs = Date.now() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 0) {
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  }
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return "1 week ago";
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 60) return "1 month ago";
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
