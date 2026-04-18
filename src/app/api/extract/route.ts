@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 const VISION_PROMPT = `You are an expert Indian medical prescription reader. You can accurately read handwritten doctor prescriptions, even messy cursive handwriting.
 
@@ -94,12 +89,8 @@ Rules:
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError) {
+    const authUser = await getUserFromRequest(request);
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -148,7 +139,7 @@ export async function POST(request: NextRequest) {
           maxOutputTokens: 2048,
           feature: "extract",
           systemInstruction: VISION_PROMPT,
-          userId: authData.user?.id,
+          userId: authUser.userId,
           jsonMode: true,
         });
       } else {
@@ -160,7 +151,7 @@ export async function POST(request: NextRequest) {
             maxOutputTokens: 1024,
             feature: "extract",
             systemInstruction: TEXT_ONLY_PROMPT,
-            userId: authData.user?.id,
+            userId: authUser.userId,
             jsonMode: true,
           }
         );

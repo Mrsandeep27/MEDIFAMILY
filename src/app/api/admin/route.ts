@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 // Admin emails — set in Vercel env var (comma-separated)
 function getAdminEmails(): string[] {
@@ -13,16 +8,12 @@ function getAdminEmails(): string[] {
   return emails.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 }
 
-// Verify admin from Supabase Auth token
+// Verify admin from Supabase Auth token (via shared 30s auth cache)
 async function verifyAdmin(request: NextRequest): Promise<{ email: string } | null> {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  const authUser = await getUserFromRequest(request);
+  if (!authUser?.email) return null;
 
-  const token = authHeader.slice(7);
-  const { data, error } = await supabaseAuth.auth.getUser(token);
-  if (error || !data.user?.email) return null;
-
-  const email = data.user.email.toLowerCase();
+  const email = authUser.email.toLowerCase();
   const adminEmails = getAdminEmails();
 
   if (adminEmails.length === 0 || !adminEmails.includes(email)) {

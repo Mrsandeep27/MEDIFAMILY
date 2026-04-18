@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/db/prisma";
 import { draftRuleFromBadAnswer, isAutoApprovable } from "@/lib/ai/medical/rule-writer";
 import { invalidateRulesCache } from "@/lib/ai/medical/rules-server";
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 /**
  * POST /api/feedback/ai-message
@@ -13,24 +13,15 @@ import { invalidateRulesCache } from "@/lib/ai/medical/rules-server";
  * Fire-and-forget from the client side — never throws past the catch.
  */
 
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 interface ConvMsg { role: string; text: string }
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const authUser = await getUserFromRequest(request);
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError || !authData?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const userId = authData.user.id;
+    const userId = authUser.userId;
 
     const body = await request.json() as {
       conversation?: ConvMsg[];

@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 function generateInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -14,17 +9,12 @@ function generateInviteCode(): string {
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
-// Verify user from Supabase auth — NEVER trust client-provided headers for identity
+// Verify user from Supabase auth — NEVER trust client-provided headers for identity.
+// Uses the shared 30s auth cache in @/lib/supabase/auth-cache.
 async function getUser(request: NextRequest): Promise<{ id: string; email: string } | null> {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (!error && data.user) {
-      return { id: data.user.id, email: data.user.email || "" };
-    }
-  }
-
-  return null;
+  const authUser = await getUserFromRequest(request);
+  if (!authUser) return null;
+  return { id: authUser.userId, email: authUser.email };
 }
 
 // Ensure a row exists in public.users for this auth user.

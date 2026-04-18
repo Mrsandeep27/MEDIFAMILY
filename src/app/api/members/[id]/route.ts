@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 async function getUserId(request: NextRequest): Promise<string | null> {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const { data, error } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (!error && data.user) return data.user.id;
-  }
-  return null;
+  const authUser = await getUserFromRequest(request);
+  return authUser?.userId ?? null;
 }
 
 // DELETE: Hard-delete a member and ALL their related records.

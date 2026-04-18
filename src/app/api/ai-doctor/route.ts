@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 import { sanitizePromptInput } from "@/lib/ai/sanitize";
 import { loadActiveRules } from "@/lib/ai/medical/rules-server";
 import { detectSafetyViolations } from "@/lib/ai/medical/safety-detector";
 import { draftRuleFromBadAnswer, isAutoApprovable } from "@/lib/ai/medical/rule-writer";
 import { prisma } from "@/lib/db/prisma";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 // Persona — sent as systemInstruction so Gemini caches it across calls.
 // The dynamic LIVE MEDICAL RULES block from active_rules table is appended
@@ -55,16 +50,13 @@ interface PatientPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication — prevents cost abuse and unaudited PII processing
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Require authentication — prevents cost abuse and unaudited PII processing.
+    // Uses the shared 30s auth cache to avoid redundant GoTrue round-trips.
+    const authUser = await getUserFromRequest(request);
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { data: authData, error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError || !authData?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const userId = authData.user.id;
+    const userId = authUser.userId;
 
     const body = await request.json();
     const {

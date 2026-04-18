@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 import { sanitizePromptInput } from "@/lib/ai/sanitize";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 // System instruction — cached by Gemini across calls for speed
 const MEDICINE_SYSTEM = `You are a professional Indian pharmacist. Identify medicines and explain clearly.
@@ -20,12 +15,8 @@ Max 3 uses, 3 common SEs, 2 serious SEs, 2 warnings. Prices in ₹.`;
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError) {
+    const authUser = await getUserFromRequest(request);
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

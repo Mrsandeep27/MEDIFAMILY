@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabase/server";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 const ALLOWED_TABLES = [
   "members", "health_records", "medicines", "reminders",
@@ -32,51 +27,10 @@ function sanitizeItem(table: string, item: Record<string, unknown>): Record<stri
   return clean;
 }
 
-// Short-lived auth cache — avoids duplicate GoTrue calls within a sync cycle
-// Push and pull from same client hit within seconds; caching halves GoTrue load
-const authCache = new Map<string, { userId: string; expires: number }>();
-const AUTH_CACHE_TTL_MS = 30_000; // 30 seconds
-
-function pruneAuthCache() {
-  if (authCache.size > 500) {
-    const now = Date.now();
-    for (const [k, v] of authCache) {
-      if (v.expires < now) authCache.delete(k);
-    }
-  }
-}
-
-// Get Supabase user from cookie/session
-async function getUser(request: NextRequest): Promise<{ userId: string; email: string } | null> {
-  // Try Authorization header first (Supabase access token)
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
-
-    const { data, error } = await supabaseAuth.auth.getUser(token);
-    if (!error && data.user) {
-      authCache.set(token, { userId: data.user.id, expires: Date.now() + AUTH_CACHE_TTL_MS });
-      pruneAuthCache();
-      return { userId: data.user.id, email: data.user.email || "" };
-    }
-  }
-
-  // Try cookie-based session (sb-* cookies from Supabase Auth)
-  const cookies = request.headers.get("cookie") || "";
-  const accessTokenMatch = cookies.match(/sb-[^=]+-auth-token[^=]*=([^;]+)/);
-  if (accessTokenMatch) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(accessTokenMatch[1]));
-      const token = Array.isArray(parsed) ? parsed[0] : parsed?.access_token;
-      if (token) {
-        const { data, error } = await supabaseAuth.auth.getUser(token);
-        if (!error && data.user) return { userId: data.user.id, email: data.user.email || "" };
-      }
-    } catch { /* ignore parse errors */ }
-  }
-
-  return null;
-}
+// Auth verification uses a shared 30s cache in @/lib/supabase/auth-cache,
+// so repeated push+pull calls (and calls to other endpoints with the same
+// token) coalesce into one GoTrue round-trip per 30s window.
+const getUser = getUserFromRequest;
 
 // Ensure a row exists in public.users for this auth user.
 // members.user_id has a FK to public.users — without this, member upserts fail.

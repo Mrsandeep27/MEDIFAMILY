@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 import { sanitizePromptInput } from "@/lib/ai/sanitize";
-
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 // System instruction — cached by Gemini across calls
 const LAB_SYSTEM = `Professional Indian doctor explaining lab results to a patient's family. Clear, specific, no jargon.
@@ -20,12 +15,8 @@ Max 10 markers. Each explanation max 1 sentence. Critical values → "Go to doct
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const { error: authError } = await supabaseAuth.auth.getUser(authHeader.slice(7));
-    if (authError) {
+    const authUser = await getUserFromRequest(request);
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
