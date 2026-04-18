@@ -57,13 +57,18 @@ export function triggerSync(): void {
 }
 
 /**
- * Batched sync — ONE API call for push, ONE for pull (instead of 14)
+ * Batched sync — ONE API call for push, ONE for pull (instead of 14).
+ *
+ * Pass `options.force: true` to bypass the "nothing to do" gate. Used
+ * for interactive flows (e.g. post-login fresh pull on a new device).
  */
-export async function syncAll(): Promise<SyncResult> {
+export async function syncAll(
+  options: { force?: boolean } = {}
+): Promise<SyncResult> {
   // If sync is already running, wait for it instead of starting a new one
   if (activeSyncPromise) return activeSyncPromise;
 
-  activeSyncPromise = _doSync();
+  activeSyncPromise = _doSync(options.force ?? false);
   try {
     return await activeSyncPromise;
   } finally {
@@ -91,8 +96,35 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-async function _doSync(): Promise<SyncResult> {
+const LAST_PULL_KEY = "medifamily_last_pull_at";
+
+function readLastPullAt(): number {
+  if (typeof localStorage === "undefined") return 0;
+  const raw = localStorage.getItem(LAST_PULL_KEY);
+  return raw ? parseInt(raw, 10) || 0 : 0;
+}
+
+function writeLastPullAt(ts: number): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(LAST_PULL_KEY, ts.toString());
+}
+
+async function _doSync(force: boolean): Promise<SyncResult> {
   const result: SyncResult = { pushed: 0, pulled: 0, errors: [] };
+
+  // ── EARLY GATE: if nothing to push and we pulled recently, skip entirely.
+  // This is the single biggest saving — idle tabs stop pinging Supabase
+  // every interval tick when the user hasn't done anything. Push-on-mutation
+  // and focus events still bypass this via the `force` flag.
+  if (!force) {
+    const { MIN_PULL_INTERVAL_MS } = await import("@/constants/config");
+    const sinceLastPull = Date.now() - readLastPullAt();
+    const hasAnyPending = await getPendingCount().then((n) => n > 0).catch(() => true);
+    if (!hasAnyPending && sinceLastPull < MIN_PULL_INTERVAL_MS) {
+      return result; // nothing to push, pulled recently — no network call
+    }
+  }
+
   const token = await getAuthToken();
 
   try {
@@ -237,6 +269,9 @@ async function _doSync(): Promise<SyncResult> {
             setSyncTimestamp(remote, finalWatermark);
           }
         }
+        // Record successful pull time so the early gate can skip redundant
+        // pulls for the next MIN_PULL_INTERVAL_MS.
+        writeLastPullAt(Date.now());
       } else {
         result.errors.push(`Pull failed: HTTP ${response.status}`);
         if (response.status === 401 || response.status === 403) return result;

@@ -7,11 +7,16 @@ export const APP_DESCRIPTION =
 export const PIN_LENGTH = 4;
 export const PIN_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-// Sync — auto cloud sync cadence. Aggressive enough that users see their
-// data in Supabase within a couple minutes, conservative enough to avoid
-// hammering the API on every page. Event-based triggers (focus, online,
-// post-mutation) cover the short gaps.
-export const SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+// Sync — background safety-net interval. Most real sync traffic comes
+// from event-based triggers (mutation, focus, online-reconnect) which
+// only fire when there's actually something to do. The interval is
+// intentionally long so idle tabs don't hammer the API.
+export const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Don't pull fresh server data more often than this — bail early on
+// interval/focus events when nothing has changed locally and we pulled
+// recently. Pushes of pending items are never gated by this.
+export const MIN_PULL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Reminders
 export const REMINDER_CHECK_INTERVAL_MS = 60 * 1000; // 1 minute

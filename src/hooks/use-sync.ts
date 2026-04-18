@@ -81,32 +81,34 @@ export function useSync() {
   }, []);
 
   // Auto-sync:
-  //  - 2s after mount (push anything queued while offline or from last session)
-  //  - Every SYNC_INTERVAL_MS on an interval
-  //  - When the browser comes back online (fires both online + visibility)
-  //  - When the tab regains focus (user was on another tab and came back)
+  //  - 3s after mount (push anything queued while offline; pulls only if
+  //    it's been a while since last pull — gated inside syncAll)
+  //  - Every SYNC_INTERVAL_MS (15 min) as a safety net. Gated too — no-op
+  //    when nothing pending and we pulled recently.
+  //  - On 'online' reconnect — forced, since server may have new data we
+  //    couldn't fetch while offline.
+  // Mutation writes (addMember/addRecord/etc) trigger an immediate push
+  // via triggerSync() in each mutation hook, so data lands in the cloud
+  // within ~1s of being saved. No need to re-sync on focus/visibility.
   useEffect(() => {
     if (!isOnline || !user || syncLoopRunning) return;
     syncLoopRunning = true;
 
-    const initTimeout = setTimeout(() => sync(), 2000);
+    const initTimeout = setTimeout(() => sync(), 3000);
     intervalRef.current = setInterval(sync, SYNC_INTERVAL_MS);
 
-    const handleFocus = () => sync();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") sync();
+    const handleOnline = () => {
+      // Force a full sync — offline gap means we likely missed remote updates
+      import("@/lib/db/sync").then(({ syncAll }) =>
+        syncAll({ force: true }).catch(() => {})
+      );
     };
-    const handleOnline = () => sync();
 
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("online", handleOnline);
 
     return () => {
       clearTimeout(initTimeout);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", handleOnline);
       syncLoopRunning = false;
     };
