@@ -76,6 +76,7 @@ export function MemberForm({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const age = dob ? ageFrom(dob) : null;
+  // Name + DOB + relation all required by product decision.
   const ready = name.trim().length > 0 && !!dob && !!rel;
 
   const progress = [
@@ -206,7 +207,7 @@ export function MemberForm({
           />
         </div>
 
-        <Field label="Full name">
+        <Field label="Full name" hint="Required">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -218,7 +219,7 @@ export function MemberForm({
           />
         </Field>
 
-        <Field label="Date of birth">
+        <Field label="Date of birth" hint="Required">
           <div className="flex items-center gap-2">
             <input
               type="date"
@@ -356,7 +357,18 @@ export function MemberForm({
               <ChevronRight className="h-4 w-4" />
             </>
           ) : (
-            "Fill in name, DOB and relationship"
+            // Specific prompt — tell the user exactly what's missing.
+            // Never mention fields that are hidden (e.g. relationship in onboarding).
+            (() => {
+              const missing: string[] = [];
+              if (name.trim().length === 0) missing.push("name");
+              if (!dob) missing.push("date of birth");
+              if (!hideRelation && !rel) missing.push("relationship");
+              if (missing.length === 0) return "Continue";
+              if (missing.length === 1) return `Add your ${missing[0]}`;
+              if (missing.length === 2) return `Add ${missing[0]} and ${missing[1]}`;
+              return `Add ${missing.slice(0, -1).join(", ")}, and ${missing.at(-1)}`;
+            })()
           )}
         </button>
         <p className="text-[11px] text-muted-foreground text-center mt-2 font-medium">
