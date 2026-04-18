@@ -36,6 +36,26 @@ const LOCAL_ONLY_FIELDS = new Set([
 // Async lock: prevents overlapping syncs (Promise-based, truly atomic)
 let activeSyncPromise: Promise<SyncResult> | null = null;
 
+// Debounce for fire-and-forget triggers — coalesces a burst of mutations
+// (e.g. saving a record + its medicines + reminders) into one sync call.
+let triggerTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Fire-and-forget sync trigger. Debounced to 800ms so multiple rapid
+ * mutations (save a record, then add medicines, then reminders) collapse
+ * into a single push cycle instead of hammering the API.
+ *
+ * Errors are swallowed — the interval and focus/online events will retry.
+ */
+export function triggerSync(): void {
+  if (typeof window === "undefined") return;
+  if (triggerTimer) clearTimeout(triggerTimer);
+  triggerTimer = setTimeout(() => {
+    triggerTimer = null;
+    syncAll().catch(() => {});
+  }, 800);
+}
+
 /**
  * Batched sync — ONE API call for push, ONE for pull (instead of 14)
  */

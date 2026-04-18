@@ -8,6 +8,7 @@ import type { HealthRecord, RecordType } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
 import type { RecordFormData } from "@/lib/utils/validators";
 import { MAX_IMAGES_PER_RECORD } from "@/constants/config";
+import { triggerSync } from "@/lib/db/sync";
 
 export function useRecords(memberId?: string) {
   const user = useAuthStore((s) => s.user);
@@ -63,6 +64,7 @@ export function useRecords(memberId?: string) {
     };
 
     await db.records.add(record);
+    triggerSync();
     return id;
   };
 
@@ -93,6 +95,7 @@ export function useRecords(memberId?: string) {
     }
 
     await db.records.update(id, updateData);
+    triggerSync();
   };
 
   const deleteRecord = async (id: string): Promise<void> => {
@@ -101,6 +104,7 @@ export function useRecords(memberId?: string) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   const searchRecords = async (query: string): Promise<HealthRecord[]> => {

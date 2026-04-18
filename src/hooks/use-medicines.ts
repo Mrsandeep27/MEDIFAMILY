@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db/dexie";
 import type { Medicine, Frequency } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { triggerSync } from "@/lib/db/sync";
 
 export interface MedicineFormData {
   record_id: string;
@@ -66,6 +67,7 @@ export function useMedicines(memberId?: string, recordId?: string) {
       is_deleted: false,
     };
     await db.medicines.add(medicine);
+    triggerSync();
     return id;
   };
 
@@ -78,6 +80,7 @@ export function useMedicines(memberId?: string, recordId?: string) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   const deleteMedicine = async (id: string): Promise<void> => {
@@ -86,6 +89,7 @@ export function useMedicines(memberId?: string, recordId?: string) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   return {

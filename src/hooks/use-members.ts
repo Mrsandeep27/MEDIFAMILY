@@ -7,6 +7,7 @@ import type { Member, Relation, BloodGroup, Gender } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { createClient } from "@/lib/supabase/client";
+import { triggerSync } from "@/lib/db/sync";
 
 export function useMembers() {
   const user = useAuthStore((s) => s.user);
@@ -109,6 +110,9 @@ export function useMembers() {
       is_deleted: false,
     };
     await db.members.add(member);
+    // Push to cloud immediately (debounced) so data lands in Supabase within
+    // a second or two instead of waiting for the auto-sync interval.
+    triggerSync();
     return id;
   };
 
@@ -124,6 +128,7 @@ export function useMembers() {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   const deleteMember = async (id: string): Promise<void> => {

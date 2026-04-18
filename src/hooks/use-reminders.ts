@@ -11,6 +11,7 @@ import type {
   Frequency,
 } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { triggerSync } from "@/lib/db/sync";
 
 export interface ReminderFormData {
   medicine_id: string;
@@ -70,6 +71,7 @@ export function useReminders(memberId?: string) {
       is_deleted: false,
     };
     await db.reminders.add(reminder);
+    triggerSync();
     return id;
   };
 
@@ -82,6 +84,7 @@ export function useReminders(memberId?: string) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   const toggleReminder = async (id: string): Promise<void> => {
@@ -94,6 +97,7 @@ export function useReminders(memberId?: string) {
         sync_status: "pending",
       });
     });
+    triggerSync();
   };
 
   const deleteReminder = async (id: string): Promise<void> => {
@@ -102,6 +106,7 @@ export function useReminders(memberId?: string) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   const logReminder = async (
@@ -132,6 +137,7 @@ export function useReminders(memberId?: string) {
       is_deleted: false,
     };
     await db.reminderLogs.add(log);
+    triggerSync();
   };
 
   return {

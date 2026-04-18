@@ -80,18 +80,34 @@ export function useSync() {
     } catch {}
   }, []);
 
-  // Auto-sync: delay first sync 3s after mount, then every 30 min
+  // Auto-sync:
+  //  - 2s after mount (push anything queued while offline or from last session)
+  //  - Every SYNC_INTERVAL_MS on an interval
+  //  - When the browser comes back online (fires both online + visibility)
+  //  - When the tab regains focus (user was on another tab and came back)
   useEffect(() => {
     if (!isOnline || !user || syncLoopRunning) return;
     syncLoopRunning = true;
 
-    // Delay initial sync to let app load first (reduces burst on page open)
-    const initTimeout = setTimeout(() => sync(), 3000);
-
+    const initTimeout = setTimeout(() => sync(), 2000);
     intervalRef.current = setInterval(sync, SYNC_INTERVAL_MS);
+
+    const handleFocus = () => sync();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    const handleOnline = () => sync();
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", handleOnline);
+
     return () => {
       clearTimeout(initTimeout);
       if (intervalRef.current) clearInterval(intervalRef.current);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", handleOnline);
       syncLoopRunning = false;
     };
   }, [isOnline, user, sync]);

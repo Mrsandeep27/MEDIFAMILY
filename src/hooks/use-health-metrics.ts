@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db/dexie";
 import type { HealthMetric, MetricType } from "@/lib/db/schema";
+import { triggerSync } from "@/lib/db/sync";
 
 export interface MetricFormData {
   member_id: string;
@@ -50,6 +51,7 @@ export function useHealthMetrics(memberId?: string, type?: MetricType) {
       is_deleted: false,
     };
     await db.healthMetrics.add(metric);
+    triggerSync();
     return id;
   };
 
@@ -59,6 +61,7 @@ export function useHealthMetrics(memberId?: string, type?: MetricType) {
       updated_at: new Date().toISOString(),
       sync_status: "pending",
     });
+    triggerSync();
   };
 
   return {
