@@ -132,15 +132,15 @@ export default function WellnessGoalsPage() {
               type="button"
               onClick={() => setGymEnabled(!gymEnabled)}
               className={cn(
-                "relative h-7 w-12 rounded-full transition-colors shrink-0",
+                "relative h-7 w-[52px] rounded-full transition-colors shrink-0",
                 gymEnabled ? "bg-primary" : "bg-muted"
               )}
               aria-label="Toggle gym mode"
             >
               <span
                 className={cn(
-                  "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
-                  gymEnabled ? "translate-x-5" : "translate-x-0.5"
+                  "absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform",
+                  gymEnabled ? "translate-x-[26px]" : "translate-x-1"
                 )}
               />
             </button>
