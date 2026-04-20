@@ -325,45 +325,49 @@ export default function LabInsightsPage() {
         }
       };
 
-      const BATCH_SIZE = 4;
+      // Fire ALL pages in parallel. With 7 Gemini keys and 5 RPM each (~35 RPM),
+      // 25 pages in parallel uses ~70% of our rate budget for 12 seconds.
+      // Each request still only hits a single key thanks to the round-robin.
       setPageProgress({ current: 0, total: pages.length, stage: "analyzing" });
 
-      for (let i = 0; i < pages.length; i += BATCH_SIZE) {
-        const batch = pages.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map((p) => analyzePage(p)));
-
-        for (const result of results) {
+      // Track completion as pages finish so progress updates live
+      const pagePromises = pages.map((p) =>
+        analyzePage(p).then((result) => {
           completedCount++;
           setPageProgress({ current: completedCount, total: pages.length, stage: "analyzing" });
+          return result;
+        })
+      );
+      const allResults = await Promise.all(pagePromises);
 
-          if (!result.data) {
-            failedCount++;
-            continue;
+      // Sort by page number so markers appear in document order
+      allResults.sort((a, b) => a.pageNum - b.pageNum);
+
+      for (const result of allResults) {
+        if (!result.data) {
+          failedCount++;
+          continue;
+        }
+        const pageData = result.data;
+
+        if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
+        if (!aggregated.lab_name && pageData.lab_name) aggregated.lab_name = pageData.lab_name;
+        if (!aggregated.report_date && pageData.report_date) aggregated.report_date = pageData.report_date;
+
+        if (Array.isArray(pageData.markers)) {
+          for (const m of pageData.markers) {
+            if (!m || !m.name) continue;
+            const key = String(m.name).toLowerCase().trim();
+            if (seenMarkers.has(key)) continue;
+            seenMarkers.add(key);
+            aggregated.markers.push(m);
           }
-          const pageData = result.data;
+        }
 
-          // Capture patient/lab/date from first page that has it
-          if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
-          if (!aggregated.lab_name && pageData.lab_name) aggregated.lab_name = pageData.lab_name;
-          if (!aggregated.report_date && pageData.report_date) aggregated.report_date = pageData.report_date;
-
-          // Merge markers, skipping duplicates
-          if (Array.isArray(pageData.markers)) {
-            for (const m of pageData.markers) {
-              if (!m || !m.name) continue;
-              const key = String(m.name).toLowerCase().trim();
-              if (seenMarkers.has(key)) continue;
-              seenMarkers.add(key);
-              aggregated.markers.push(m);
-            }
-          }
-
-          // Collect urgent flags
-          if (Array.isArray(pageData.urgent_attention)) {
-            for (const u of pageData.urgent_attention) {
-              if (u && !aggregated.urgent_attention!.includes(u)) {
-                aggregated.urgent_attention!.push(u);
-              }
+        if (Array.isArray(pageData.urgent_attention)) {
+          for (const u of pageData.urgent_attention) {
+            if (u && !aggregated.urgent_attention!.includes(u)) {
+              aggregated.urgent_attention!.push(u);
             }
           }
         }

@@ -34,10 +34,13 @@ export async function renderPdfPages(
   const total = Math.min(pdf.numPages, MAX_PDF_PAGES);
   const pages: PdfPage[] = [];
 
-  for (let i = 1; i <= total; i++) {
-    const page = await pdf.getPage(i);
-    // Scale 2x for high-quality text (lab reports have small fonts)
-    const viewport = page.getViewport({ scale: 2.0 });
+  // Render pages in parallel (PDF.js handles this fine, main cost is
+  // canvas.toDataURL on the main thread).
+  const renderOne = async (pageNum: number): Promise<PdfPage> => {
+    const page = await pdf.getPage(pageNum);
+    // Scale 1.7x — enough for lab text (small fonts ok, ~150dpi),
+    // much faster upload than 2x (payload halved)
+    const viewport = page.getViewport({ scale: 1.7 });
 
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -51,11 +54,18 @@ export async function renderPdfPages(
       canvas,
     } as Parameters<typeof page.render>[0]).promise;
 
-    // JPEG at 85% quality is a good balance (usually 200-400 KB per page)
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    pages.push({ pageNum: i, totalPages: total, dataUrl });
+    // JPEG at 82% — typical size ~150-250 KB per page
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+    if (onProgress) {
+      onProgress(Math.min(pageNum, total), total);
+    }
+    return { pageNum, totalPages: total, dataUrl };
+  };
 
-    if (onProgress) onProgress(i, total);
+  // Sequential render to keep progress updates accurate and memory bounded
+  // (8-page PDF = up to 8 canvases at once if parallel = memory spike)
+  for (let i = 1; i <= total; i++) {
+    pages.push(await renderOne(i));
   }
 
   return pages;

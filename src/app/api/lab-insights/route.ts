@@ -71,7 +71,11 @@ export async function POST(request: NextRequest) {
       const response = await callGemini(parts, {
         feature: "lab-insights",
         jsonMode: true,
-        maxOutputTokens: 1000,
+        // 1500 tokens = enough for ~10 markers per page; bigger budget
+        // prevents JSON truncation on dense CBC panels.
+        maxOutputTokens: 1500,
+        // Low temperature = deterministic, faster token generation
+        temperature: 0.05,
         systemInstruction: LAB_SYSTEM,
       });
       const parsed = parseJsonResponse(response);
