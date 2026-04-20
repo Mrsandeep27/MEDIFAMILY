@@ -24,8 +24,9 @@ export async function renderPdfPages(
   // Dynamic import so pdf.js only loads when needed
   const pdfjsLib = await import("pdfjs-dist");
 
-  // Configure worker (use unpkg CDN to avoid bundler issues)
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+  // Worker is served from /public/pdf.worker.min.mjs to stay same-origin
+  // (CSP forbids loading workers from CDNs).
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
