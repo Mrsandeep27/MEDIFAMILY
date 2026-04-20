@@ -258,47 +258,13 @@ export default function LabInsightsPage() {
       const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
       if (session?.access_token) authHeaders["Authorization"] = `Bearer ${session.access_token}`;
 
-      // Step 1: render all pages to images (client-side with PDF.js)
-      const { renderPdfPages, MAX_PDF_PAGES } = await import("@/lib/pdf/extract-pages");
-      setPageProgress({ current: 0, total: 0, stage: "rendering" });
-
-      let pages;
-      try {
-        pages = await renderPdfPages(file, (rendered, total) => {
-          setPageProgress({ current: rendered, total, stage: "rendering" });
-        });
-      } catch (err) {
-        console.error("PDF render failed:", err);
-        toast.error("Couldn't open PDF. Try uploading each page as an image instead.");
-        return;
-      }
-
-      if (pages.length === 0) {
-        toast.error("PDF has no readable pages.");
-        return;
-      }
-
-      if (pages.length >= MAX_PDF_PAGES) {
-        toast.info(`Report has many pages — reading first ${MAX_PDF_PAGES}`);
-      }
-
-      // Use first page as preview thumbnail
-      setPreviewUrl(pages[0].dataUrl);
-
-      // Step 2: analyze pages in PARALLEL batches of 4 (with 7 Gemini keys
-      // we have ~35 RPM total capacity, so 4 concurrent is safe and fast).
-      // Each page is isolated so one slow page doesn't block the others.
-      const aggregated: LabInsight = {
-        markers: [],
-        summary: "",
-        urgent_attention: [],
-      };
-      const seenMarkers = new Set<string>(); // dedupe by lowercase name
-      let completedCount = 0;
-      let failedCount = 0;
+      // Pipeline: as each page finishes rendering, fire its Gemini call
+      // immediately — don't wait for all pages to render first.
+      const { streamPdfPages, MAX_PDF_PAGES } = await import("@/lib/pdf/extract-pages");
 
       // Per-page analyzer with 1 retry on failure
-      const analyzePage = async (p: typeof pages[0], attempt = 0): Promise<{ pageNum: number; data: Partial<LabInsight> | null }> => {
+      type PdfPageResult = { pageNum: number; data: Partial<LabInsight> | null };
+      const analyzePage = async (p: { pageNum: number; totalPages: number; dataUrl: string }, attempt = 0): Promise<PdfPageResult> => {
         try {
           const res = await fetch("/api/lab-insights", {
             method: "POST",
@@ -325,20 +291,67 @@ export default function LabInsightsPage() {
         }
       };
 
-      // Fire ALL pages in parallel. With 7 Gemini keys and 5 RPM each (~35 RPM),
-      // 25 pages in parallel uses ~70% of our rate budget for 12 seconds.
-      // Each request still only hits a single key thanks to the round-robin.
-      setPageProgress({ current: 0, total: pages.length, stage: "analyzing" });
+      setPageProgress({ current: 0, total: 0, stage: "rendering" });
+      const analysisPromises: Promise<PdfPageResult>[] = [];
+      let totalPages = 0;
+      let firstPagePreviewSet = false;
+      let analyzedCount = 0;
 
-      // Track completion as pages finish so progress updates live
-      const pagePromises = pages.map((p) =>
-        analyzePage(p).then((result) => {
-          completedCount++;
-          setPageProgress({ current: completedCount, total: pages.length, stage: "analyzing" });
-          return result;
-        })
-      );
-      const allResults = await Promise.all(pagePromises);
+      try {
+        totalPages = await streamPdfPages(
+          file,
+          // Each page fires as soon as it's rendered — kick off analysis immediately
+          (p) => {
+            if (!firstPagePreviewSet) {
+              setPreviewUrl(p.dataUrl);
+              firstPagePreviewSet = true;
+            }
+            // Switch to "analyzing" stage once first page starts analysis
+            setPageProgress((prev) => ({
+              current: prev.current,
+              total: p.totalPages,
+              stage: "analyzing",
+            }));
+            const promise = analyzePage(p).then((result) => {
+              analyzedCount++;
+              setPageProgress({
+                current: analyzedCount,
+                total: p.totalPages,
+                stage: "analyzing",
+              });
+              return result;
+            });
+            analysisPromises.push(promise);
+          },
+          // onProgress during render (only shown while analyzing hasn't started yet)
+          (rendered, total) => {
+            setPageProgress((prev) => prev.stage === "rendering" ? { current: rendered, total, stage: "rendering" } : prev);
+          }
+        );
+      } catch (err) {
+        console.error("PDF render failed:", err);
+        toast.error("Couldn't open PDF. Try uploading each page as an image instead.");
+        return;
+      }
+
+      if (totalPages === 0) {
+        toast.error("PDF has no readable pages.");
+        return;
+      }
+
+      if (totalPages >= MAX_PDF_PAGES) {
+        toast.info(`Report has many pages — reading first ${MAX_PDF_PAGES}`);
+      }
+
+      const aggregated: LabInsight = {
+        markers: [],
+        summary: "",
+        urgent_attention: [],
+      };
+      const seenMarkers = new Set<string>();
+      let failedCount = 0;
+
+      const allResults = await Promise.all(analysisPromises);
 
       // Sort by page number so markers appear in document order
       allResults.sort((a, b) => a.pageNum - b.pageNum);
