@@ -13,7 +13,7 @@ import {
   Wind,
   Apple,
   ChevronRight,
-  Bell,
+  Settings,
 } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { Button } from "@/components/ui/button";
@@ -128,7 +128,7 @@ export default function WellnessPage() {
         </div>
         <Link href="/wellness/goals" aria-label="Goals">
           <button className="h-9 w-9 rounded-xl bg-muted/60 border border-border/50 flex items-center justify-center active:scale-95 transition-transform">
-            <Bell className="h-4 w-4" />
+            <Settings className="h-4 w-4" />
           </button>
         </Link>
       </div>
