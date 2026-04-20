@@ -262,9 +262,13 @@ export default function LabInsightsPage() {
       // immediately — don't wait for all pages to render first.
       const { streamPdfPages, MAX_PDF_PAGES } = await import("@/lib/pdf/extract-pages");
 
-      // Per-page analyzer with 1 retry on failure
+      // Per-page analyzer with retry logic:
+      // - 5xx or network errors: retry once
+      // - Response parsed but markers[] empty: retry up to twice (dense CBC
+      //   pages occasionally return empty on first pass due to token caps)
       type PdfPageResult = { pageNum: number; data: Partial<LabInsight> | null };
       const analyzePage = async (p: { pageNum: number; totalPages: number; dataUrl: string }, attempt = 0): Promise<PdfPageResult> => {
+        const MAX_ATTEMPTS = 3;
         try {
           const res = await fetch("/api/lab-insights", {
             method: "POST",
@@ -272,21 +276,31 @@ export default function LabInsightsPage() {
             body: JSON.stringify({ image: p.dataUrl, locale }),
           });
           if (!res.ok) {
-            if (attempt < 1 && res.status >= 500) {
-              await new Promise((r) => setTimeout(r, 1500));
+            if (attempt < MAX_ATTEMPTS - 1 && (res.status >= 500 || res.status === 429)) {
+              await new Promise((r) => setTimeout(r, 1500 + attempt * 1000));
               return analyzePage(p, attempt + 1);
             }
-            console.warn(`Page ${p.pageNum} failed with status ${res.status}`);
+            console.warn(`Page ${p.pageNum} failed with status ${res.status} after ${attempt + 1} attempts`);
             return { pageNum: p.pageNum, data: null };
           }
           const data = await res.json();
-          return { pageNum: p.pageNum, data };
-        } catch (err) {
-          if (attempt < 1) {
-            await new Promise((r) => setTimeout(r, 1500));
+          // If the response has NO markers AND NO patient info, the page
+          // likely dropped out due to token limit or parse failure. Retry.
+          const hasAnything = (Array.isArray(data.markers) && data.markers.length > 0)
+            || data.patient_name
+            || data.lab_name;
+          if (!hasAnything && attempt < MAX_ATTEMPTS - 1) {
+            console.warn(`Page ${p.pageNum} returned empty — retrying (attempt ${attempt + 2})`);
+            await new Promise((r) => setTimeout(r, 800));
             return analyzePage(p, attempt + 1);
           }
-          console.warn(`Page ${p.pageNum} error:`, err);
+          return { pageNum: p.pageNum, data };
+        } catch (err) {
+          if (attempt < MAX_ATTEMPTS - 1) {
+            await new Promise((r) => setTimeout(r, 1500 + attempt * 1000));
+            return analyzePage(p, attempt + 1);
+          }
+          console.warn(`Page ${p.pageNum} error after ${attempt + 1} attempts:`, err);
           return { pageNum: p.pageNum, data: null };
         }
       };

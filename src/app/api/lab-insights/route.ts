@@ -71,9 +71,10 @@ export async function POST(request: NextRequest) {
       const response = await callGemini(parts, {
         feature: "lab-insights",
         jsonMode: true,
-        // 1500 tokens = enough for ~10 markers per page; bigger budget
-        // prevents JSON truncation on dense CBC panels.
-        maxOutputTokens: 1500,
+        // 4000 tokens = accommodates dense CBC panels (20+ markers with full
+        // explanations). Previously 1500 caused JSON truncation on page 1
+        // of Indian lab reports that pack all blood cell counts on one page.
+        maxOutputTokens: 4000,
         // Low temperature = deterministic, faster token generation
         temperature: 0.05,
         systemInstruction: LAB_SYSTEM,

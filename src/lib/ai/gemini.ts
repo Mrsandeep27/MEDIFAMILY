@@ -215,15 +215,14 @@ export function parseJsonResponse(text: string): Record<string, unknown> {
   const firstBrace = cleaned.indexOf("{");
   const lastBrace = cleaned.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const slice = cleaned.substring(firstBrace, lastBrace + 1);
     try {
-      return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+      return JSON.parse(slice);
     } catch {
-      // JSON might be truncated — try to repair by closing open strings/arrays/objects
-      let partial = cleaned.substring(firstBrace, lastBrace + 1);
-      // Close any unclosed strings
+      // First try: basic close (handles missing brace at end)
+      let partial = slice;
       const quoteCount = (partial.match(/(?<!\\)"/g) || []).length;
       if (quoteCount % 2 !== 0) partial += '"';
-      // Close unclosed arrays and objects
       const openBrackets = (partial.match(/\[/g) || []).length - (partial.match(/]/g) || []).length;
       const openBraces = (partial.match(/\{/g) || []).length - (partial.match(/}/g) || []).length;
       for (let i = 0; i < openBrackets; i++) partial += "]";
@@ -231,7 +230,27 @@ export function parseJsonResponse(text: string): Record<string, unknown> {
       try {
         return JSON.parse(partial);
       } catch {
-        // Still failed — return empty
+        // Second try: truncate at the last complete marker object and re-close.
+        // Common Gemini truncation looks like:
+        //   {"markers":[{...},{...},{"name":"X","value":"1",  <-- cut here
+        // Trim back to the last "}," (end of a complete marker), then close.
+        const upToFirstBrace = cleaned.substring(firstBrace);
+        const lastCompleteItem = Math.max(
+          upToFirstBrace.lastIndexOf("},"),
+          upToFirstBrace.lastIndexOf("}]"),
+        );
+        if (lastCompleteItem > 0) {
+          let repaired = upToFirstBrace.substring(0, lastCompleteItem + 1);
+          const ob = (repaired.match(/\[/g) || []).length - (repaired.match(/]/g) || []).length;
+          const oc = (repaired.match(/\{/g) || []).length - (repaired.match(/}/g) || []).length;
+          for (let i = 0; i < ob; i++) repaired += "]";
+          for (let i = 0; i < oc; i++) repaired += "}";
+          try {
+            return JSON.parse(repaired);
+          } catch {
+            // Still failed — return empty
+          }
+        }
       }
     }
   }
