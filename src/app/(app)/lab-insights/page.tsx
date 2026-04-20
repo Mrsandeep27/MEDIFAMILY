@@ -285,17 +285,20 @@ export default function LabInsightsPage() {
       // Use first page as preview thumbnail
       setPreviewUrl(pages[0].dataUrl);
 
-      // Step 2: analyze each page sequentially (rate limits require this)
+      // Step 2: analyze pages in PARALLEL batches of 4 (with 7 Gemini keys
+      // we have ~35 RPM total capacity, so 4 concurrent is safe and fast).
+      // Each page is isolated so one slow page doesn't block the others.
       const aggregated: LabInsight = {
         markers: [],
         summary: "",
         urgent_attention: [],
       };
       const seenMarkers = new Set<string>(); // dedupe by lowercase name
+      let completedCount = 0;
+      let failedCount = 0;
 
-      for (const p of pages) {
-        setPageProgress({ current: p.pageNum, total: p.totalPages, stage: "analyzing" });
-
+      // Per-page analyzer with 1 retry on failure
+      const analyzePage = async (p: typeof pages[0], attempt = 0): Promise<{ pageNum: number; data: Partial<LabInsight> | null }> => {
         try {
           const res = await fetch("/api/lab-insights", {
             method: "POST",
@@ -303,10 +306,41 @@ export default function LabInsightsPage() {
             body: JSON.stringify({ image: p.dataUrl, locale }),
           });
           if (!res.ok) {
+            if (attempt < 1 && res.status >= 500) {
+              await new Promise((r) => setTimeout(r, 1500));
+              return analyzePage(p, attempt + 1);
+            }
             console.warn(`Page ${p.pageNum} failed with status ${res.status}`);
-            continue; // skip failed page, continue with others
+            return { pageNum: p.pageNum, data: null };
           }
-          const pageData = await res.json();
+          const data = await res.json();
+          return { pageNum: p.pageNum, data };
+        } catch (err) {
+          if (attempt < 1) {
+            await new Promise((r) => setTimeout(r, 1500));
+            return analyzePage(p, attempt + 1);
+          }
+          console.warn(`Page ${p.pageNum} error:`, err);
+          return { pageNum: p.pageNum, data: null };
+        }
+      };
+
+      const BATCH_SIZE = 4;
+      setPageProgress({ current: 0, total: pages.length, stage: "analyzing" });
+
+      for (let i = 0; i < pages.length; i += BATCH_SIZE) {
+        const batch = pages.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map((p) => analyzePage(p)));
+
+        for (const result of results) {
+          completedCount++;
+          setPageProgress({ current: completedCount, total: pages.length, stage: "analyzing" });
+
+          if (!result.data) {
+            failedCount++;
+            continue;
+          }
+          const pageData = result.data;
 
           // Capture patient/lab/date from first page that has it
           if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
@@ -332,10 +366,11 @@ export default function LabInsightsPage() {
               }
             }
           }
-        } catch (err) {
-          console.warn(`Page ${p.pageNum} error:`, err);
-          // continue with other pages
         }
+      }
+
+      if (failedCount > 0) {
+        toast.warning(`${failedCount} page(s) couldn't be read. Results may be incomplete.`);
       }
 
       if (aggregated.markers.length === 0) {
