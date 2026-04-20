@@ -157,6 +157,8 @@ export default function LabInsightsPage() {
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Multi-page PDF progress state
+  const [pageProgress, setPageProgress] = useState<{ current: number; total: number; stage: "rendering" | "analyzing" | "" }>({ current: 0, total: 0, stage: "" });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,38 +166,56 @@ export default function LabInsightsPage() {
 
     setImageBlob(file);
     setSaved(false);
-
-    if (file.type === "application/pdf") {
-      setPreviewUrl(null);
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        analyzeReport(dataUrl, true);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setPreviewUrl(dataUrl);
-        analyzeReport(dataUrl, false);
-      };
-      reader.readAsDataURL(file);
-    }
+    setInsights(null);
     e.target.value = "";
 
     // Auto-select self member if only one
     if (members.length === 1) {
       setSelectedMemberId(members[0].id);
     }
+
+    if (file.type === "application/pdf") {
+      setPreviewUrl(null);
+      await analyzePdfReport(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setPreviewUrl(dataUrl);
+        analyzeImageReport(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const analyzeReport = async (dataUrl: string, isPdf = false) => {
-    setIsAnalyzing(true);
-    try {
-      // Compress images before sending (PDFs sent as-is)
-      const payload = isPdf ? dataUrl : await compressDataUrl(dataUrl, 1400, 0.75);
+  const autoSelectMemberFromReport = (patientName: string) => {
+    if (!patientName || members.length <= 1 || selectedMemberId) return;
+    const pname = patientName.toLowerCase().trim();
+    const match = members.find((m) => {
+      const name = m.name.toLowerCase().trim();
+      const firstName = name.split(" ")[0];
+      const patientFirst = pname.split(" ")[0];
+      return (
+        name === pname ||
+        name.includes(pname) ||
+        pname.includes(name) ||
+        firstName === patientFirst ||
+        pname.includes(firstName) ||
+        firstName.includes(patientFirst)
+      );
+    });
+    if (match) {
+      setSelectedMemberId(match.id);
+      toast.info(`Auto-selected ${match.name} (matched "${patientName}")`);
+    }
+  };
 
+  // Single-image analysis (JPG/PNG photos)
+  const analyzeImageReport = async (dataUrl: string) => {
+    setIsAnalyzing(true);
+    setPageProgress({ current: 0, total: 1, stage: "analyzing" });
+    try {
+      const payload = await compressDataUrl(dataUrl, 1600, 0.85);
       const { createClient } = await import("@/lib/supabase/client");
       const { data: { session } } = await createClient().auth.getSession();
 
@@ -216,39 +236,128 @@ export default function LabInsightsPage() {
 
       const data = await res.json();
       setInsights(data);
-
-      // Auto-select family member by matching patient name from lab report
-      if (data.patient_name && members.length > 1 && !selectedMemberId) {
-        const patientName = data.patient_name.toLowerCase().trim();
-        const match = members.find((m) => {
-          const name = m.name.toLowerCase().trim();
-          const firstName = name.split(" ")[0];
-          const patientFirst = patientName.split(" ")[0];
-          return (
-            name === patientName ||
-            name.includes(patientName) ||
-            patientName.includes(name) ||
-            firstName === patientFirst ||
-            patientName.includes(firstName) ||
-            firstName.includes(patientFirst)
-          );
-        });
-        if (match) {
-          setSelectedMemberId(match.id);
-          toast.info(`Auto-selected ${match.name} (matched "${data.patient_name}" from report)`);
-        }
-      }
+      if (data.patient_name) autoSelectMemberFromReport(data.patient_name);
 
       const abnormal = (data.markers || []).filter((m: LabMarker) => m.status !== "normal").length;
-      if (abnormal > 0) {
-        toast.warning(`${abnormal} marker(s) need attention`);
-      } else {
-        toast.success("All markers look normal!");
-      }
+      if (abnormal > 0) toast.warning(`${abnormal} marker(s) need attention`);
+      else toast.success("All markers look normal!");
     } catch {
       toast.error("Failed to analyze. Check internet connection.");
     } finally {
       setIsAnalyzing(false);
+      setPageProgress({ current: 0, total: 0, stage: "" });
+    }
+  };
+
+  // Multi-page PDF analysis: render each page -> Gemini -> merge results
+  const analyzePdfReport = async (file: File) => {
+    setIsAnalyzing(true);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const { data: { session } } = await createClient().auth.getSession();
+      const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) authHeaders["Authorization"] = `Bearer ${session.access_token}`;
+
+      // Step 1: render all pages to images (client-side with PDF.js)
+      const { renderPdfPages, MAX_PDF_PAGES } = await import("@/lib/pdf/extract-pages");
+      setPageProgress({ current: 0, total: 0, stage: "rendering" });
+
+      let pages;
+      try {
+        pages = await renderPdfPages(file, (rendered, total) => {
+          setPageProgress({ current: rendered, total, stage: "rendering" });
+        });
+      } catch (err) {
+        console.error("PDF render failed:", err);
+        toast.error("Couldn't open PDF. Try uploading each page as an image instead.");
+        return;
+      }
+
+      if (pages.length === 0) {
+        toast.error("PDF has no readable pages.");
+        return;
+      }
+
+      if (pages.length >= MAX_PDF_PAGES) {
+        toast.info(`Report has many pages — reading first ${MAX_PDF_PAGES}`);
+      }
+
+      // Use first page as preview thumbnail
+      setPreviewUrl(pages[0].dataUrl);
+
+      // Step 2: analyze each page sequentially (rate limits require this)
+      const aggregated: LabInsight = {
+        markers: [],
+        summary: "",
+        urgent_attention: [],
+      };
+      const seenMarkers = new Set<string>(); // dedupe by lowercase name
+
+      for (const p of pages) {
+        setPageProgress({ current: p.pageNum, total: p.totalPages, stage: "analyzing" });
+
+        try {
+          const res = await fetch("/api/lab-insights", {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify({ image: p.dataUrl, locale }),
+          });
+          if (!res.ok) {
+            console.warn(`Page ${p.pageNum} failed with status ${res.status}`);
+            continue; // skip failed page, continue with others
+          }
+          const pageData = await res.json();
+
+          // Capture patient/lab/date from first page that has it
+          if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
+          if (!aggregated.lab_name && pageData.lab_name) aggregated.lab_name = pageData.lab_name;
+          if (!aggregated.report_date && pageData.report_date) aggregated.report_date = pageData.report_date;
+
+          // Merge markers, skipping duplicates
+          if (Array.isArray(pageData.markers)) {
+            for (const m of pageData.markers) {
+              if (!m || !m.name) continue;
+              const key = String(m.name).toLowerCase().trim();
+              if (seenMarkers.has(key)) continue;
+              seenMarkers.add(key);
+              aggregated.markers.push(m);
+            }
+          }
+
+          // Collect urgent flags
+          if (Array.isArray(pageData.urgent_attention)) {
+            for (const u of pageData.urgent_attention) {
+              if (u && !aggregated.urgent_attention!.includes(u)) {
+                aggregated.urgent_attention!.push(u);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`Page ${p.pageNum} error:`, err);
+          // continue with other pages
+        }
+      }
+
+      if (aggregated.markers.length === 0) {
+        toast.error("Couldn't read any markers from the report. Try a clearer scan.");
+        return;
+      }
+
+      // Step 3: generate overall summary from all markers
+      aggregated.summary = buildLocalSummary(aggregated.markers);
+
+      setInsights(aggregated);
+      if (aggregated.patient_name) autoSelectMemberFromReport(aggregated.patient_name);
+
+      const abnormal = aggregated.markers.filter((m) => m.status !== "normal").length;
+      if (abnormal > 0) toast.warning(`${abnormal} marker(s) need attention`);
+      else toast.success(`All ${aggregated.markers.length} markers look normal!`);
+    } catch (err) {
+      console.error("PDF analysis failed:", err);
+      toast.error("Failed to analyze PDF. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+      setPageProgress({ current: 0, total: 0, stage: "" });
     }
   };
 
@@ -305,9 +414,9 @@ export default function LabInsightsPage() {
           </>
         )}
 
-        {/* Loading */}
+        {/* Loading with page-by-page progress */}
         {isAnalyzing && (
-          <div className="flex flex-col items-center py-16 space-y-4">
+          <div className="flex flex-col items-center py-12 space-y-4">
             {previewUrl ? (
               <div className="w-24 h-32 rounded-xl overflow-hidden border shadow">
                 <img src={previewUrl} alt="" className="w-full h-full object-cover" />
@@ -318,8 +427,35 @@ export default function LabInsightsPage() {
               </div>
             )}
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">{t("lab.analyzing")}</p>
-            <p className="text-xs text-muted-foreground">Reading markers and checking ranges</p>
+
+            {pageProgress.total > 0 ? (
+              <>
+                <p className="text-sm font-medium">
+                  {pageProgress.stage === "rendering"
+                    ? `Preparing page ${pageProgress.current} of ${pageProgress.total}`
+                    : `Reading page ${pageProgress.current} of ${pageProgress.total}`}
+                </p>
+                {/* Progress bar */}
+                <div className="w-full max-w-xs h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{
+                      width: `${Math.round((pageProgress.current / pageProgress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {pageProgress.stage === "rendering"
+                    ? "Converting PDF to readable images..."
+                    : "Extracting every marker. This preserves accuracy."}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">{t("lab.analyzing")}</p>
+                <p className="text-xs text-muted-foreground">Reading markers and checking ranges</p>
+              </>
+            )}
           </div>
         )}
 
@@ -584,6 +720,30 @@ export default function LabInsightsPage() {
       </div>
     </div>
   );
+}
+
+// Build a simple summary from aggregated markers (no extra AI call)
+function buildLocalSummary(markers: LabMarker[]): string {
+  const abnormal = markers.filter((m) => m.status !== "normal");
+  if (abnormal.length === 0) {
+    return `All ${markers.length} markers are within normal ranges. Your report looks healthy overall.`;
+  }
+  const critical = abnormal.filter((m) => m.status === "critical");
+  const high = abnormal.filter((m) => m.status === "high");
+  const low = abnormal.filter((m) => m.status === "low");
+
+  const parts: string[] = [];
+  if (critical.length > 0) {
+    parts.push(`${critical.length} critical marker(s): ${critical.map((m) => m.name).join(", ")} — consult a doctor immediately.`);
+  }
+  if (high.length > 0) {
+    parts.push(`${high.length} high: ${high.slice(0, 4).map((m) => m.name).join(", ")}${high.length > 4 ? "..." : ""}.`);
+  }
+  if (low.length > 0) {
+    parts.push(`${low.length} low: ${low.slice(0, 4).map((m) => m.name).join(", ")}${low.length > 4 ? "..." : ""}.`);
+  }
+  parts.push(`${markers.length - abnormal.length} of ${markers.length} markers are normal. Please review abnormal values with your doctor.`);
+  return parts.join(" ");
 }
 
 function compressDataUrl(

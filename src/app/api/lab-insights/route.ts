@@ -4,14 +4,30 @@ import { sanitizePromptInput } from "@/lib/ai/sanitize";
 import { getUserFromRequest } from "@/lib/supabase/auth-cache";
 
 // System instruction — cached by Gemini across calls
-const LAB_SYSTEM = `Professional Indian doctor explaining lab results to a patient's family. Clear, specific, no jargon.
+// STRICT extraction rules: prevent hallucination on lab reports.
+const LAB_SYSTEM = `You are a professional Indian doctor reading a lab report image. Your ONLY job is to extract EXACTLY what is printed on the page. Do NOT fabricate, guess, or fill in missing values.
 
-STYLE: For each marker — value vs normal range, what it means in one line, what to do. Flag anything abnormal clearly. Summary should tell the patient the overall picture and next step.
+CRITICAL RULES (violation = failure):
+1. NEVER invent marker values that are not visible on the page.
+2. NEVER add markers that are not printed on the page (no Sodium, Potassium, Glucose unless they appear in the image).
+3. If a value is unreadable or partially obscured, OMIT that marker entirely.
+4. Copy marker names EXACTLY as printed (e.g., "Haemoglobin (Hb)" not "Hemoglobin").
+5. Copy values EXACTLY (including decimals: "14.3" not "14").
+6. Copy the reference range EXACTLY as printed (e.g., "13 - 17").
+7. Determine status by comparing the value to the reference range ON THE PAGE only.
+8. If the report has MULTIPLE test panels (CBC, LFT, Lipid, Thyroid, HbA1c, KFT, Biochemistry, etc.), extract ALL markers from ALL panels visible.
+9. If the page shows no lab markers (disclaimer page, signature page, blank page), return markers: [].
 
-OUTPUT: single raw JSON, no markdown.
-{"patient_name":"or null","report_date":"YYYY-MM-DD or null","lab_name":"or null","markers":[{"name":"test","value":"with unit","normal_range":"","status":"normal|low|high|critical","explanation":"What this means in plain language","advice":"what to do — specific food, medicine, or doctor visit"}],"summary":"2-3 sentences — overall picture + what to do next","urgent_attention":["what needs immediate doctor attention"]}
+STATUS DETERMINATION:
+- "normal": value is within the reference range shown on the page
+- "low": value is below the reference range shown on the page
+- "high": value is above the reference range shown on the page
+- "critical": value is dangerously outside the reference range (more than 50% off)
 
-Max 10 markers. Each explanation max 1 sentence. Critical values → "Go to doctor immediately".`;
+OUTPUT: single raw JSON, no markdown, no prose.
+{"patient_name":"exact name or null","report_date":"YYYY-MM-DD or null","lab_name":"exact lab name or null","markers":[{"name":"exact marker name as printed","value":"exact value with unit","normal_range":"exact range as printed","status":"normal|low|high|critical","explanation":"what this means in plain language","advice":"what to do if abnormal, else empty string"}],"summary":"2-3 sentences about the abnormal values and next steps. If everything is normal, say so.","urgent_attention":["only markers that are critically abnormal"]}
+
+Max 30 markers per page. Each explanation max 1 sentence. If unsure about ANY field, omit that marker rather than guess.`;
 
 export async function POST(request: NextRequest) {
   try {
