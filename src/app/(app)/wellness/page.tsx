@@ -33,6 +33,7 @@ import {
   computeHealthScore,
 } from "@/hooks/use-wellness";
 import { useWorkouts, workoutDaysThisWeek } from "@/hooks/use-workouts";
+import { useMembers } from "@/hooks/use-members";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -46,6 +47,9 @@ export default function WellnessPage() {
     setWeight,
   } = useWellness();
   const { workouts } = useWorkouts();
+  const { members } = useMembers();
+  const selfMember = members.find((m) => m.relation === "self");
+  const displayName = selfMember?.name.split(" ")[0] || "there";
 
   const [weightDialogOpen, setWeightDialogOpen] = useState(false);
   const [weightInput, setWeightInput] = useState("");
@@ -119,7 +123,7 @@ export default function WellnessPage() {
             Wellness · {todayLabel.toUpperCase()}
           </p>
           <h1 className="font-serif text-[34px] font-bold tracking-tight leading-none mt-1.5">
-            Sandeep
+            {displayName}
           </h1>
         </div>
         <Link href="/wellness/goals" aria-label="Goals">
