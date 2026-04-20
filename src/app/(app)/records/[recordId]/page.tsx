@@ -376,7 +376,10 @@ function LabAnalysisView({ analysis }: { analysis: {
       )}
 
       {/* Marker Cards */}
-      {analysis.markers.map((marker, i) => {
+      {[...analysis.markers].sort((a, b) => {
+        const rank: Record<string, number> = { critical: 0, high: 1, low: 2, normal: 3 };
+        return (rank[a.status] ?? 4) - (rank[b.status] ?? 4);
+      }).map((marker, i) => {
         const status = (marker.status as keyof typeof labStatusConfig) || "normal";
         const cfg = labStatusConfig[status] || labStatusConfig.normal;
         const Icon = cfg.icon;

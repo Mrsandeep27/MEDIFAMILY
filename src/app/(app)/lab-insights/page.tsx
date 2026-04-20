@@ -395,7 +395,15 @@ export default function LabInsightsPage() {
         return;
       }
 
-      // Step 3: generate overall summary from all markers
+      // Step 3: sort markers by severity — critical first, normal last
+      const severityRank: Record<string, number> = { critical: 0, high: 1, low: 2, normal: 3 };
+      aggregated.markers.sort((a, b) => {
+        const aRank = severityRank[a.status] ?? 4;
+        const bRank = severityRank[b.status] ?? 4;
+        return aRank - bRank;
+      });
+
+      // Step 4: generate overall summary from sorted markers
       aggregated.summary = buildLocalSummary(aggregated.markers);
 
       setInsights(aggregated);
@@ -586,9 +594,12 @@ export default function LabInsightsPage() {
               </div>
             )}
 
-            {/* Markers List */}
+            {/* Markers List — sorted by severity (critical/high first, normal last) */}
             <div className="space-y-2">
-              {insights.markers.map((marker, i) => {
+              {[...insights.markers].sort((a, b) => {
+                const rank: Record<string, number> = { critical: 0, high: 1, low: 2, normal: 3 };
+                return (rank[a.status] ?? 4) - (rank[b.status] ?? 4);
+              }).map((marker, i) => {
                 const config = statusColors[marker.status] || statusColors.normal;
                 const Icon = config.icon;
                 return (
