@@ -170,7 +170,7 @@ export default function FamilyPage() {
             <p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-white/50">
               FAMILY · {todayLabel.toUpperCase()}
             </p>
-            <h1 className="font-serif text-[28px] font-bold tracking-tight leading-none mt-1">
+            <h1 className="text-[28px] font-bold tracking-tight leading-none mt-1">
               Household
             </h1>
           </div>
@@ -297,7 +297,7 @@ function TotalCell({
   return (
     <div className="flex-1">
       <p
-        className={`font-serif text-[26px] font-bold tracking-tight leading-none ${
+        className={`text-[26px] font-bold tracking-tight leading-none ${
           accent ? "text-[#FFB26E]" : ""
         }`}
       >

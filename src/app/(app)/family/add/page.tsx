@@ -163,7 +163,7 @@ export default function AddMemberPage() {
           <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
             Add a family member
           </p>
-          <h1 className="font-serif text-[30px] font-bold tracking-tight leading-tight mt-1.5">
+          <h1 className="text-[30px] font-bold tracking-tight leading-tight mt-1.5">
             Tell us a bit about them
           </h1>
           <p className="text-[13px] text-muted-foreground leading-relaxed mt-2">

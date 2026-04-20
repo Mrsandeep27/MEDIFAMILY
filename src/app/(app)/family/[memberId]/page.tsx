@@ -173,7 +173,7 @@ export default function MemberDetailPage({
             />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="font-serif text-[26px] font-bold tracking-tight leading-none truncate">
+            <h1 className="text-[26px] font-bold tracking-tight leading-none truncate">
               {member.name.split(" ")[0]}
             </h1>
             <p className="text-[12.5px] text-white/60 font-medium mt-1.5">

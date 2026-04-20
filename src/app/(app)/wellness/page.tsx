@@ -122,7 +122,7 @@ export default function WellnessPage() {
           <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
             Wellness · {todayLabel.toUpperCase()}
           </p>
-          <h1 className="font-serif text-[34px] font-bold tracking-tight leading-none mt-1.5">
+          <h1 className="text-[34px] font-bold tracking-tight leading-none mt-1.5">
             {displayName}
           </h1>
         </div>
@@ -148,7 +148,7 @@ export default function WellnessPage() {
               TODAY&apos;S TRAINING
             </span>
           </div>
-          <h2 className="font-serif text-[40px] font-bold tracking-tight leading-none mt-3">
+          <h2 className="text-[40px] font-bold tracking-tight leading-none mt-3">
             {gymTitle}
           </h2>
 
@@ -202,7 +202,7 @@ export default function WellnessPage() {
               AI Coach · Today
             </span>
           </div>
-          <p className="font-serif text-[22px] font-semibold tracking-tight leading-snug mt-2.5">
+          <p className="text-[22px] font-semibold tracking-tight leading-snug mt-2.5">
             {coachQuote}
           </p>
         </div>
@@ -238,7 +238,7 @@ export default function WellnessPage() {
 
         {/* Programs — editorial carousel row */}
         <div className="flex items-baseline justify-between pt-1">
-          <h2 className="font-serif text-[22px] font-semibold tracking-tight">
+          <h2 className="text-[22px] font-semibold tracking-tight">
             Programs
           </h2>
           <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground">
@@ -390,7 +390,7 @@ export default function WellnessPage() {
 function GymMeta({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex-1">
-      <p className="font-serif text-[26px] font-bold tracking-tight leading-none">
+      <p className="text-[26px] font-bold tracking-tight leading-none">
         {value}
       </p>
       <p className="font-mono text-[8.5px] font-extrabold uppercase tracking-[0.16em] text-white/55 mt-1">
@@ -422,7 +422,7 @@ function MetricCard({
       <div className="h-8 w-8 rounded-lg bg-muted/60 flex items-center justify-center text-foreground/70 mb-3">
         <Icon className="h-3.5 w-3.5" />
       </div>
-      <p className="font-serif text-[26px] font-bold tracking-tight leading-none">
+      <p className="text-[26px] font-bold tracking-tight leading-none">
         {num}
         {unit ? (
           <span className="text-[14px] font-semibold text-muted-foreground ml-0.5">
@@ -486,7 +486,7 @@ function ProgramCard({
       <p className={cn("font-mono text-[9.5px] font-extrabold tracking-[0.14em]", t.kicker)}>
         {kicker}
       </p>
-      <p className="font-serif text-[17px] font-semibold tracking-tight leading-tight mt-1.5">
+      <p className="text-[17px] font-semibold tracking-tight leading-tight mt-1.5">
         {title}
       </p>
       <p className={cn("text-[11px] font-medium mt-1", t.sub)}>{sub}</p>
