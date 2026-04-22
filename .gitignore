@@ -27,6 +27,7 @@
 
 # IDE
 .cursor/
+.claude/settings.local.json
 
 # debug
 npm-debug.log*

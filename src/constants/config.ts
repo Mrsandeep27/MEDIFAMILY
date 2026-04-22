@@ -33,6 +33,14 @@ export const SHARE_LINK_OPTIONS_HOURS = [1, 6, 24, 72, 168]; // 1hr, 6hr, 24hr, 
 export const MAX_IMAGE_SIZE_KB = 500;
 export const MAX_IMAGES_PER_RECORD = 10;
 
+// AI quota — monthly cap across all AI features (prescription scan, lab report,
+// AI doctor, medicine info). Applied to every user identically until pricing
+// tiers launch. Care home pilots are whitelisted via AI_QUOTA_UNLIMITED_USERS
+// env var (comma-separated Supabase user IDs).
+export const MONTHLY_AI_QUOTA = 15;
+export const AI_FEATURES = ["extract", "lab-insights", "medicine-info", "ai-doctor"] as const;
+export type AIFeature = (typeof AI_FEATURES)[number];
+
 // Record types
 export const RECORD_TYPE_LABELS: Record<string, string> = {
   prescription: "Prescription",

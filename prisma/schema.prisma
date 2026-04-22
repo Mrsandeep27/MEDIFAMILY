@@ -295,6 +295,26 @@ model RuleCandidate {
 }
 
 // ============================================================
+// Admin user overrides — per-user tweaks set from the admin UI.
+// All fields nullable; NULL = "use the default for this user".
+// NOTE: user_id here is the Supabase auth UUID (auth.users.id),
+// NOT the Prisma User.id, because AI usage is keyed by Supabase auth.
+// ============================================================
+model UserOverride {
+  user_id          String   @id  // Supabase auth user UUID
+  email            String?              // snapshot for admin UI readability
+  ai_quota_limit   Int?                 // NULL=default (15), -1=unlimited, else custom
+  member_cap       Int?                 // NULL=default (6),  -1=unlimited, else custom
+  plan             String?              // free|plus|family|care_home|pilot
+  note             String?              // admin-facing note (e.g. "Sunshine Care Home pilot")
+  updated_at       DateTime @default(now()) @updatedAt
+  updated_by       String?              // admin email who made the change
+
+  @@index([email])
+  @@map("user_overrides")
+}
+
+// ============================================================
 // API Usage Tracking
 // ============================================================
 model ApiUsage {

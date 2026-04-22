@@ -38,6 +38,7 @@ import { useWellness, computeStreak } from "@/hooks/use-wellness";
 import { useReminders } from "@/hooks/use-reminders";
 import { Droplet, Plus, Flame } from "lucide-react";
 import { MemberAvatar } from "@/components/family/member-avatar";
+import { AIQuotaBadge } from "@/components/common/ai-quota-badge";
 import { cn } from "@/lib/utils";
 
 const moodOptionDefs = [
@@ -218,6 +219,9 @@ export default function HomePage() {
             </div>
           </Link>
         </div>
+
+        {/* Monthly AI quota badge — hidden for unlimited users */}
+        <AIQuotaBadge />
       </div>
 
       <div className="px-4 space-y-4">

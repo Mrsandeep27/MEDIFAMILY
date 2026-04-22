@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMembers } from "@/hooks/use-members";
 import { useHealthMetrics } from "@/hooks/use-health-metrics";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 import { toast } from "sonner";
 
 interface RiskResult {
@@ -136,7 +137,11 @@ Return ONLY valid JSON:
         body: JSON.stringify({ message: prompt, language: "en" }),
       });
 
-      if (!res.ok) throw new Error("AI analysis failed");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        if (handleQuotaError(errBody)) return;
+        throw new Error("AI analysis failed");
+      }
 
       const data = await res.json();
       // Parse JSON from AI response

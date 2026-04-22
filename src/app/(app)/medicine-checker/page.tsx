@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMedicines } from "@/hooks/use-medicines";
 import { useMembers } from "@/hooks/use-members";
 import { createClient } from "@/lib/supabase/client";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 import { toast } from "sonner";
 
 interface Interaction {
@@ -123,6 +124,7 @@ export default function MedicineCheckerPage() {
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
+        if (handleQuotaError(errBody)) return;
         throw new Error(errBody.error || "Failed to check interactions");
       }
 

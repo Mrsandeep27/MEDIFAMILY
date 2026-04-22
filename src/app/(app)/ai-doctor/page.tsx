@@ -34,6 +34,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { useMembers } from "@/hooks/use-members";
 import { useMedicines } from "@/hooks/use-medicines";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 import { toast } from "sonner";
 
 interface AIResponse {
@@ -197,11 +198,13 @@ export default function AIDoctorPage() {
         setExpandedCards((prev) => new Set([...prev, messages.length + 1]));
       } else {
         const err = await res.json().catch(() => ({}));
-        setMessages((prev) => [...prev, {
-          id: newMsgId(),
-          role: "ai",
-          text: err.error || t("ai_doctor.error"),
-        }]);
+        if (!handleQuotaError(err)) {
+          setMessages((prev) => [...prev, {
+            id: newMsgId(),
+            role: "ai",
+            text: err.error || t("ai_doctor.error"),
+          }]);
+        }
       }
     } catch {
       clearTimeout(slowTimer);

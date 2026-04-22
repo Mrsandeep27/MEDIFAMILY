@@ -6,6 +6,7 @@ import { detectSafetyViolations } from "@/lib/ai/medical/safety-detector";
 import { draftRuleFromBadAnswer, isAutoApprovable } from "@/lib/ai/medical/rule-writer";
 import { prisma } from "@/lib/db/prisma";
 import { getUserFromRequest } from "@/lib/supabase/auth-cache";
+import { enforceQuota } from "@/lib/ai/quota";
 
 // Persona — sent as systemInstruction so Gemini caches it across calls.
 // The dynamic LIVE MEDICAL RULES block from active_rules table is appended
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = authUser.userId;
+
+    const quotaBlock = await enforceQuota(userId);
+    if (quotaBlock) return NextResponse.json(quotaBlock.body, { status: quotaBlock.status });
 
     const body = await request.json();
     const {

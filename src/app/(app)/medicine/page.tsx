@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { AppHeader } from "@/components/layout/app-header";
 import { useCamera } from "@/hooks/use-camera";
 import { useLocale } from "@/lib/i18n/use-locale";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 import { toast } from "sonner";
 
 interface MedicineInfo {
@@ -90,6 +91,7 @@ export default function MedicinePage() {
 
       if (!res.ok) {
         const err = await res.json();
+        if (handleQuotaError(err)) return;
         toast.error(err.error || "Failed to analyze medicine");
         return;
       }
@@ -183,6 +185,10 @@ export default function MedicinePage() {
 
       // Remove the "taking time" message if it was added
       setChatMessages((prev) => prev.filter((m) => !m.text.includes("Taking") && !m.text.includes("समय लग")));
+
+      if (!res.ok && handleQuotaError(data)) {
+        return;
+      }
 
       if (res.ok && data.answer) {
         setChatMessages((prev) => [...prev, { role: "ai", text: data.answer }]);

@@ -21,6 +21,11 @@ import {
   UsersRound,
   Mail,
   Activity,
+  Shield,
+  Search,
+  Trash2,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +38,19 @@ import { toast } from "sonner";
 import { Toaster } from "sonner";
 import { PWAInstallButton } from "@/components/pwa/install-button";
 
-type Tab = "overview" | "feedback" | "users" | "families" | "records" | "api-usage";
+type Tab = "overview" | "feedback" | "users" | "families" | "records" | "api-usage" | "overrides";
+
+interface UserOverride {
+  user_id: string;
+  email: string | null;
+  ai_quota_limit: number | null;
+  member_cap: number | null;
+  plan: string | null;
+  note: string | null;
+  updated_at: string;
+  updated_by: string | null;
+  used_this_month?: number;
+}
 
 interface Stats {
   totalMembers: number;
@@ -73,6 +90,17 @@ export default function AdminPage() {
   const [records, setRecords] = useState<Array<Record<string, unknown>>>([]);
   const [apiUsage, setApiUsage] = useState<Record<string, unknown> | null>(null);
   const [feedbackFilter, setFeedbackFilter] = useState("all");
+  // Overrides tab state
+  const [overrides, setOverrides] = useState<UserOverride[]>([]);
+  const [overrideSearch, setOverrideSearch] = useState("");
+  const [overrideSearchResult, setOverrideSearchResult] = useState<{ user_id: string; email: string | null } | null>(null);
+  // Form state for new/edit override
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingEmail, setEditingEmail] = useState("");
+  const [editAiLimit, setEditAiLimit] = useState("");
+  const [editMemberCap, setEditMemberCap] = useState("");
+  const [editPlan, setEditPlan] = useState("");
+  const [editNote, setEditNote] = useState("");
 
   const handleLogin = async () => {
     setLoading(true);
@@ -124,6 +152,10 @@ export default function AdminPage() {
 
   const fetchSection = async (section: Tab) => {
     try {
+      if (section === "overrides") {
+        await fetchOverrides();
+        return;
+      }
       const params = new URLSearchParams({ section });
       if (section === "feedback" && feedbackFilter !== "all") {
         params.set("status", feedbackFilter);
@@ -140,6 +172,92 @@ export default function AdminPage() {
       if (section === "records") setRecords(data.records || []);
       if (section === "api-usage") setApiUsage(data);
     } catch {}
+  };
+
+  const fetchOverrides = async (search?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/admin/overrides?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setOverrides(data.overrides || []);
+      setOverrideSearchResult(data.searchResult || null);
+    } catch {}
+  };
+
+  const saveOverride = async () => {
+    if (!editingUserId) {
+      toast.error("No user selected");
+      return;
+    }
+    const body: Record<string, unknown> = {
+      user_id: editingUserId,
+      email: editingEmail || null,
+      plan: editPlan || null,
+      note: editNote || null,
+    };
+    body.ai_quota_limit = editAiLimit === "" ? null : Number(editAiLimit);
+    body.member_cap = editMemberCap === "" ? null : Number(editMemberCap);
+    const res = await fetch("/api/admin/overrides", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      toast.success("Override saved");
+      resetOverrideForm();
+      fetchOverrides();
+    } else {
+      toast.error("Failed to save");
+    }
+  };
+
+  const deleteOverride = async (user_id: string) => {
+    if (!confirm("Remove this override? User reverts to default limits.")) return;
+    const res = await fetch("/api/admin/overrides", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ user_id }),
+    });
+    if (res.ok) {
+      toast.success("Override removed");
+      fetchOverrides();
+    }
+  };
+
+  const resetMonthlyUsage = async (user_id: string) => {
+    if (!confirm("Delete this user's AI usage records for the current month?")) return;
+    const res = await fetch("/api/admin/overrides", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ user_id, action: "reset_monthly_usage" }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      toast.success(`Cleared ${data.deleted} records — quota reset`);
+      fetchOverrides();
+    }
+  };
+
+  const resetOverrideForm = () => {
+    setEditingUserId(null);
+    setEditingEmail("");
+    setEditAiLimit("");
+    setEditMemberCap("");
+    setEditPlan("");
+    setEditNote("");
+  };
+
+  const editExistingOverride = (o: UserOverride) => {
+    setEditingUserId(o.user_id);
+    setEditingEmail(o.email || "");
+    setEditAiLimit(o.ai_quota_limit === null ? "" : String(o.ai_quota_limit));
+    setEditMemberCap(o.member_cap === null ? "" : String(o.member_cap));
+    setEditPlan(o.plan || "");
+    setEditNote(o.note || "");
   };
 
   useEffect(() => {
@@ -207,6 +325,7 @@ export default function AdminPage() {
     { id: "families", label: "Families", icon: UsersRound },
     { id: "records", label: "Records", icon: FileText },
     { id: "api-usage", label: "API Usage", icon: Activity },
+    { id: "overrides", label: "Overrides", icon: Shield },
   ];
 
   const catIcon: Record<string, typeof Star> = { review: Star, bug: Bug, feature: Lightbulb, testimonial: Heart };
@@ -430,6 +549,207 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
+        )}
+
+        {/* === OVERRIDES === */}
+        {tab === "overrides" && (
+          <>
+            {/* Search + new user lookup */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  Find user by email
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="pilot@carehome.com"
+                    value={overrideSearch}
+                    onChange={(e) => setOverrideSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && fetchOverrides(overrideSearch)}
+                  />
+                  <Button size="sm" onClick={() => fetchOverrides(overrideSearch)}>
+                    Search
+                  </Button>
+                </div>
+                {overrideSearchResult && (
+                  <div className="flex items-center justify-between p-2 rounded bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800">
+                    <div className="text-sm">
+                      <p className="font-medium">{overrideSearchResult.email}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{overrideSearchResult.user_id}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditingUserId(overrideSearchResult.user_id);
+                        setEditingEmail(overrideSearchResult.email || "");
+                      }}
+                    >
+                      Set override
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Edit / create form */}
+            {editingUserId && (
+              <Card className="border-primary">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Override for {editingEmail || editingUserId.slice(0, 8)}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">
+                      AI quota limit · this month
+                      <span className="text-muted-foreground"> (blank = default 15, -1 = unlimited)</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="15"
+                      value={editAiLimit}
+                      onChange={(e) => setEditAiLimit(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      Member cap
+                      <span className="text-muted-foreground"> (blank = default 6, -1 = unlimited)</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="6"
+                      value={editMemberCap}
+                      onChange={(e) => setEditMemberCap(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Plan label</Label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {["", "free", "plus", "family", "care_home", "pilot"].map((p) => (
+                        <Badge
+                          key={p || "none"}
+                          variant={editPlan === p ? "default" : "outline"}
+                          className="cursor-pointer capitalize"
+                          onClick={() => setEditPlan(p)}
+                        >
+                          {p || "(none)"}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Note (admin-only)</Label>
+                    <Input
+                      placeholder="Sunshine Care Home · pilot signed 2026-04-22"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={saveOverride}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={resetOverrideForm}>
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Existing overrides list */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">
+                {overrides.length} active override{overrides.length !== 1 ? "s" : ""}
+              </p>
+              {overrides.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  No overrides. All users use default limits (15 AI actions / 6 members).
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {overrides.map((o) => {
+                    const aiLabel =
+                      o.ai_quota_limit === -1
+                        ? "Unlimited"
+                        : o.ai_quota_limit === null
+                          ? "Default (15)"
+                          : `${o.ai_quota_limit}/mo`;
+                    const memLabel =
+                      o.member_cap === -1
+                        ? "Unlimited"
+                        : o.member_cap === null
+                          ? "Default (6)"
+                          : `${o.member_cap} members`;
+                    const isUnlimited = o.ai_quota_limit === -1;
+                    return (
+                      <Card key={o.user_id}>
+                        <CardContent className="py-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold truncate">{o.email || "(no email)"}</p>
+                                {o.plan && (
+                                  <Badge variant="outline" className="text-[9px] capitalize">
+                                    {o.plan.replace("_", " ")}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground font-mono truncate">{o.user_id}</p>
+                              {o.note && <p className="text-[11px] mt-1 italic text-muted-foreground">{o.note}</p>}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <Badge className={isUnlimited ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>
+                              AI: {aiLabel}
+                            </Badge>
+                            <Badge variant="secondary">Members: {memLabel}</Badge>
+                            {typeof o.used_this_month === "number" && (
+                              <Badge variant="outline">Used: {o.used_this_month} this month</Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-1 pt-1">
+                            <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => editExistingOverride(o)}>
+                              <Eye className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[10px]"
+                              onClick={() => resetMonthlyUsage(o.user_id)}
+                            >
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Reset usage
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[10px] text-red-600 hover:text-red-700"
+                              onClick={() => deleteOverride(o.user_id)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                            <span className="text-[9px] text-muted-foreground ml-auto self-center">
+                              by {o.updated_by || "?"} · {new Date(o.updated_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* === API USAGE === */}

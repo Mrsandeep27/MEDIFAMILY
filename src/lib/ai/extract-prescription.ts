@@ -1,6 +1,7 @@
 "use client";
 
 import type { Frequency } from "@/lib/db/schema";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 
 export interface ExtractedMedicine {
   name: string;
@@ -169,6 +170,13 @@ export async function extractPrescription(
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
+      if (handleQuotaError(errData)) {
+        return {
+          medicines: [],
+          raw_text: ocrText,
+          error: "QUOTA_EXCEEDED",
+        };
+      }
       return {
         medicines: [],
         raw_text: ocrText,

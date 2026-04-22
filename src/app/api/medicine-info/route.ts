@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 import { sanitizePromptInput } from "@/lib/ai/sanitize";
 import { getUserFromRequest } from "@/lib/supabase/auth-cache";
+import { enforceQuota } from "@/lib/ai/quota";
 
 // System instruction — cached by Gemini across calls for speed
 const MEDICINE_SYSTEM = `You are a professional Indian pharmacist. Identify medicines and explain clearly.
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const quotaBlock = await enforceQuota(authUser.userId);
+    if (quotaBlock) return NextResponse.json(quotaBlock.body, { status: quotaBlock.status });
 
     const body = await request.json();
     const { image, action, question, context, locale, type, medicines } = body;

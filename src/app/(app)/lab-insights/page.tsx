@@ -31,6 +31,7 @@ import { useLocale } from "@/lib/i18n/use-locale";
 import { useMembers } from "@/hooks/use-members";
 import { useRecords } from "@/hooks/use-records";
 import { useHealthMetrics } from "@/hooks/use-health-metrics";
+import { handleQuotaError } from "@/lib/ai/quota-client";
 import { toast } from "sonner";
 
 /**
@@ -230,6 +231,7 @@ export default function LabInsightsPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (handleQuotaError(err)) return;
         toast.error(err.error || "Failed to analyze report");
         return;
       }
@@ -276,7 +278,21 @@ export default function LabInsightsPage() {
             body: JSON.stringify({ image: p.dataUrl, locale }),
           });
           if (!res.ok) {
-            if (attempt < MAX_ATTEMPTS - 1 && (res.status >= 500 || res.status === 429)) {
+            // Quota exceeded = hard stop. Don't retry, don't continue — show
+            // upgrade toast via handleQuotaError on the first page that trips.
+            if (res.status === 429) {
+              const body = await res.json().catch(() => ({}));
+              if (body && body.error === "QUOTA_EXCEEDED") {
+                handleQuotaError(body);
+                return { pageNum: p.pageNum, data: null };
+              }
+              // Non-quota 429 (Gemini rate limit) — retry as before
+              if (attempt < MAX_ATTEMPTS - 1) {
+                await new Promise((r) => setTimeout(r, 1500 + attempt * 1000));
+                return analyzePage(p, attempt + 1);
+              }
+            }
+            if (attempt < MAX_ATTEMPTS - 1 && res.status >= 500) {
               await new Promise((r) => setTimeout(r, 1500 + attempt * 1000));
               return analyzePage(p, attempt + 1);
             }
@@ -362,7 +378,14 @@ export default function LabInsightsPage() {
         summary: "",
         urgent_attention: [],
       };
-      const seenMarkers = new Set<string>();
+      // Dedup key = canonical(name) + "|" + canonical(value). Same marker with
+      // same value across pages (summary + detail page) collapses into one.
+      // Same marker with DIFFERENT values (rare — but happens with re-tests)
+      // stays as separate entries. Canonical strips punctuation/whitespace so
+      // "Haemoglobin (Hb)" and "Haemoglobin(Hb)" match.
+      const canonical = (s: string) =>
+        String(s || "").toLowerCase().replace(/[\s().,/\\-]+/g, "").trim();
+      const markersByKey = new Map<string, LabMarker>();
       let failedCount = 0;
 
       const allResults = await Promise.all(analysisPromises);
@@ -384,10 +407,19 @@ export default function LabInsightsPage() {
         if (Array.isArray(pageData.markers)) {
           for (const m of pageData.markers) {
             if (!m || !m.name) continue;
-            const key = String(m.name).toLowerCase().trim();
-            if (seenMarkers.has(key)) continue;
-            seenMarkers.add(key);
-            aggregated.markers.push(m);
+            const key = `${canonical(m.name)}|${canonical(m.value)}`;
+            const existing = markersByKey.get(key);
+            if (!existing) {
+              markersByKey.set(key, m);
+            } else {
+              // Keep the version with the more descriptive name
+              // ("Haemoglobin (Hb)" > "Hb") and richer explanation.
+              if (m.name.length > existing.name.length) existing.name = m.name;
+              if ((m.explanation || "").length > (existing.explanation || "").length) {
+                existing.explanation = m.explanation;
+              }
+              if (!existing.advice && m.advice) existing.advice = m.advice;
+            }
           }
         }
 
@@ -399,6 +431,8 @@ export default function LabInsightsPage() {
           }
         }
       }
+
+      aggregated.markers = Array.from(markersByKey.values());
 
       if (failedCount > 0) {
         toast.warning(`${failedCount} page(s) couldn't be read. Results may be incomplete.`);

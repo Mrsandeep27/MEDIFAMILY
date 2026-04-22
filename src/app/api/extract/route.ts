@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGemini, parseJsonResponse } from "@/lib/ai/gemini";
 import { getUserFromRequest } from "@/lib/supabase/auth-cache";
+import { enforceQuota } from "@/lib/ai/quota";
 
 const VISION_PROMPT = `You are an expert Indian medical prescription reader. You can accurately read handwritten doctor prescriptions, even messy cursive handwriting.
 
@@ -93,6 +94,9 @@ export async function POST(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const quotaBlock = await enforceQuota(authUser.userId);
+    if (quotaBlock) return NextResponse.json(quotaBlock.body, { status: quotaBlock.status });
 
     const body = await request.json();
     const { text, image } = body;
