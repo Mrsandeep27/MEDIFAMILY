@@ -85,7 +85,34 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     // One-time session check — if no session, kick to login
     // Falls back to cached Zustand session when offline
     const supabase = createClient();
+
+    // Fast path: offline + cached auth → skip the Supabase session check
+    // entirely. getSession() silently tries to refresh an expired token over
+    // the network with no timeout, which hangs the loading spinner forever
+    // when there's no internet. Trust the persisted Zustand store instead.
+    if (!navigator.onLine && useAuthStore.getState().user) {
+      setChecked(true);
+      return;
+    }
+
+    // Online path with a 5s safety timeout — even online, Supabase has been
+    // observed hanging during refresh on flaky networks. On timeout, fall
+    // back to cached auth if present, else kick to login.
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      if (useAuthStore.getState().user) {
+        setChecked(true);
+      } else {
+        window.location.replace("/login");
+      }
+    }, 5000);
+
     supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string; email?: string; email_confirmed_at?: string | null; user_metadata?: Record<string, string> } } | null } }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       if (!data.session) {
         // No active session — but check if we're offline with cached auth
         if (!navigator.onLine && useAuthStore.getState().user) {
@@ -140,8 +167,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }
       }
     }).catch(() => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       // Network error — if we have cached user, let them use the app offline
-      if (!navigator.onLine && useAuthStore.getState().user) {
+      if (useAuthStore.getState().user) {
         setChecked(true);
         return;
       }
