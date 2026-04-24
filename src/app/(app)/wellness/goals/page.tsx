@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/form-primitives";
 import { useWellness } from "@/hooks/use-wellness";
 import { seedPresetsIfNeeded } from "@/hooks/use-gym";
+import { AppleSwitch } from "@/components/ui/apple-switch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -128,22 +129,11 @@ export default function WellnessGoalsPage() {
                 Track routines, exercises, and sets (weight × reps). Off by default — most users don&apos;t need this.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setGymEnabled(!gymEnabled)}
-              className={cn(
-                "relative h-7 w-[52px] rounded-full transition-colors shrink-0",
-                gymEnabled ? "bg-primary" : "bg-muted"
-              )}
-              aria-label="Toggle gym mode"
-            >
-              <span
-                className={cn(
-                  "absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform",
-                  gymEnabled ? "translate-x-[26px]" : "translate-x-1"
-                )}
-              />
-            </button>
+            <AppleSwitch
+              checked={gymEnabled}
+              onCheckedChange={setGymEnabled}
+              label="Toggle gym mode"
+            />
           </div>
         </FormGroup>
 
@@ -155,22 +145,11 @@ export default function WellnessGoalsPage() {
                 Add a manual calorie log to your day. You can turn it off anytime.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setCalorieEnabled(!calorieEnabled)}
-              className={cn(
-                "relative h-7 w-12 rounded-full transition-colors shrink-0",
-                calorieEnabled ? "bg-primary" : "bg-muted"
-              )}
-              aria-label="Toggle calorie tracking"
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform",
-                  calorieEnabled ? "translate-x-5" : "translate-x-0.5"
-                )}
-              />
-            </button>
+            <AppleSwitch
+              checked={calorieEnabled}
+              onCheckedChange={setCalorieEnabled}
+              label="Toggle calorie tracking"
+            />
           </div>
           {calorieEnabled && (
             <FormField
