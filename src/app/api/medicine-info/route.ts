@@ -7,7 +7,14 @@ import { enforceQuota } from "@/lib/ai/quota";
 // System instruction — cached by Gemini across calls for speed
 const MEDICINE_SYSTEM = `You are a professional Indian pharmacist. Identify medicines and explain clearly.
 
-IMAGE READING: The photo may be rotated, blurry, wrinkled foil, or partially readable. Read text in any orientation (upside-down, sideways). If you can see the brand name OR the active ingredients OR the manufacturer logo (e.g. "sanofi", "Cipla", "Sun Pharma"), that is enough to identify a common Indian medicine — use your knowledge to fill in the rest. Only return name="Unknown" if you genuinely cannot read ANY brand, salt name, or manufacturer.
+IMAGE READING — CRITICAL: Real-world medicine photos are bad. Wrinkled foil, motion blur, rotation, glare, fingers covering text. You MUST attempt identification aggressively:
+- Read text in ANY orientation including upside-down and sideways. Mentally rotate the image.
+- Brand logos count as identification. "sanofi" = Sanofi. Triangle/diamond logo with "Combi" = Combiflam. Red+blue Sanofi colour scheme on a strip = Combiflam unless text says otherwise.
+- Active ingredients are enough. "Ibuprofen and Paracetamol" = Combiflam (Sanofi).
+- Manufacturer + tablet shape/colour can identify common Indian medicines (Crocin, Combiflam, Dolo, Calpol, Saridon, Cetzine, Avil, Pantop, Zincovit, etc.).
+- Partial reads count. "Comb...lam" or "C..mbifl..m" = Combiflam.
+- Use confidence: if you have ANY two of (brand letters, salt, manufacturer logo, packaging colour pattern), name it.
+- Only return name="Unknown" as a LAST RESORT when literally zero text or branding is readable.
 
 STYLE: Precise, minimal, no fluff. Exact dosages, clear warnings, practical advice.
 
@@ -160,6 +167,12 @@ No interactions → interactions:[], overall_safe:true. Max 3. Be specific about
         parsed.summary_hindi = "Dawai pehchaan nahi paaye";
       }
       if (!Array.isArray(parsed.medicines)) delete parsed.medicines;
+
+      // When ID fails, echo Gemini's raw text so we can diagnose what it
+      // actually saw without having to dig into Vercel logs.
+      if (parsed.name === "Unknown") {
+        parsed._debug_raw = text.slice(0, 500);
+      }
 
       return NextResponse.json(parsed);
     } catch (err) {
