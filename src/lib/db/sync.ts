@@ -173,9 +173,15 @@ async function _doSync(force: boolean): Promise<SyncResult> {
             console.error("[sync] server-rejected items:", data.errors);
           }
 
-          // Mark synced — skip failed items and guard against mid-sync edits
+          // Mark synced — skip failed items and guard against mid-sync edits.
+          // Permanent failures (FK violations, ownership errors, malformed
+          // rows) get parked as `conflict` so they stop re-pushing every
+          // cycle. Transient failures stay `pending` for the next retry.
           const failedIds = new Set<string>(
             Array.isArray(data.failedIds) ? data.failedIds : []
+          );
+          const permanentFailedIds = new Set<string>(
+            Array.isArray(data.permanentFailedIds) ? data.permanentFailedIds : []
           );
           const now = new Date().toISOString();
           for (const { local, remote } of TABLES_TO_SYNC) {
@@ -183,6 +189,10 @@ async function _doSync(force: boolean): Promise<SyncResult> {
               const dexieTable = db.table(local);
               const ids = pushPayload[remote].map((i) => i.id as string);
               for (const id of ids) {
+                if (permanentFailedIds.has(id)) {
+                  await dexieTable.update(id, { sync_status: "conflict" as SyncStatus });
+                  continue;
+                }
                 if (failedIds.has(id)) continue;
                 // Only mark synced if item wasn't edited while push was in-flight
                 const current = await dexieTable.get(id);

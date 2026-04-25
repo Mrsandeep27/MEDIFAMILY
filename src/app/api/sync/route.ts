@@ -7,6 +7,18 @@ const ALLOWED_TABLES = [
   "reminder_logs", "share_links", "health_metrics",
 ];
 
+// Postgres error codes that will never succeed on retry. Anything in this set
+// is sent back in `permanentFailedIds` so the client can park the row as
+// `conflict` instead of looping every sync cycle.
+const PERMANENT_PG_CODES = new Set([
+  "23503", // foreign_key_violation
+  "23502", // not_null_violation
+  "23514", // check_violation
+  "22P02", // invalid_text_representation (bad UUID, etc.)
+  "42703", // undefined_column
+  "42501", // insufficient_privilege
+]);
+
 const ALLOWED_FIELDS: Record<string, Set<string>> = {
   members: new Set(["id", "name", "relation", "date_of_birth", "blood_group", "gender", "allergies", "chronic_conditions", "emergency_contact_name", "emergency_contact_phone", "avatar_url", "is_deleted", "created_at", "updated_at"]),
   health_records: new Set(["id", "member_id", "type", "title", "doctor_name", "hospital_name", "visit_date", "diagnosis", "notes", "image_urls", "raw_ocr_text", "ai_extracted", "tags", "is_deleted", "created_at", "updated_at"]),
@@ -34,7 +46,20 @@ const getUser = getUserFromRequest;
 
 // Ensure a row exists in public.users for this auth user.
 // members.user_id has a FK to public.users — without this, member upserts fail.
+//
+// Failure modes this guards against:
+//   1. Row already exists for this id (re-sync) → fast-path return.
+//   2. Race: two concurrent inserts → 23505 on id PK → row now exists, OK.
+//   3. Email collision: a stale row (different id, same email) holds the
+//      email. Insert with that email would 23505 on the email unique index,
+//      and silently returning would leave NO row for this id → FK fail.
+//      We fall back to inserting with a synthetic, guaranteed-unique email
+//      (`<userId>@medifamily.local`) so the id row is created. The next
+//      time the user logs in via Supabase Auth their real email is still
+//      the source of truth — public.users.email is just a denormalised
+//      cache for legacy non-Supabase auth and isn't used by the FK.
 async function ensureUserRow(userId: string, email: string): Promise<void> {
+  // Fast path — row already exists by id
   const { data: existing } = await supabaseAdmin
     .from("users")
     .select("id")
@@ -43,20 +68,57 @@ async function ensureUserRow(userId: string, email: string): Promise<void> {
   if (existing) return;
 
   const now = new Date().toISOString();
+  const realEmail = email || `${userId}@medifamily.local`;
+  const syntheticEmail = `${userId}@medifamily.local`;
+  const name = email ? email.split("@")[0] : "User";
+
+  // Try with real email first
   const { error } = await supabaseAdmin.from("users").insert({
     id: userId,
-    email: email || `${userId}@medifamily.local`,
+    email: realEmail,
     password_hash: "supabase-auth",
-    name: email ? email.split("@")[0] : "User",
+    name,
     created_at: now,
     updated_at: now,
   });
-  if (error) {
-    // 23505 = unique violation (race) → row exists, fine
-    if (error.code === "23505") return;
-    console.error("[ensureUserRow] failed:", error.message, error.details, error.hint);
-    throw new Error(`ensureUserRow: ${error.message}`);
+  if (!error) return;
+
+  // 23505 + same id → race winner already created the row, we're done.
+  if (error.code === "23505") {
+    const { data: nowExists } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (nowExists) return;
+
+    // Email collided with a different id's row. Retry with the synthetic
+    // email so the id row gets created. (Skip if we already used it.)
+    if (realEmail !== syntheticEmail) {
+      const { error: retryErr } = await supabaseAdmin.from("users").insert({
+        id: userId,
+        email: syntheticEmail,
+        password_hash: "supabase-auth",
+        name,
+        created_at: now,
+        updated_at: now,
+      });
+      if (!retryErr) return;
+      if (retryErr.code === "23505") {
+        const { data: afterRetry } = await supabaseAdmin
+          .from("users")
+          .select("id")
+          .eq("id", userId)
+          .maybeSingle();
+        if (afterRetry) return;
+      }
+      console.error("[ensureUserRow] retry failed:", retryErr.message, retryErr.details, retryErr.hint);
+      throw new Error(`ensureUserRow retry: ${retryErr.message}`);
+    }
   }
+
+  console.error("[ensureUserRow] failed:", error.message, error.details, error.hint);
+  throw new Error(`ensureUserRow: ${error.message}`);
 }
 
 // POST: Push — client sends { tables: { members: [...], health_records: [...] } }
@@ -88,7 +150,16 @@ export async function POST(request: NextRequest) {
       tablesPayload[body.table] = body.items;
     }
 
-    const results = { pushed: 0, errors: [] as string[], failedIds: [] as string[] };
+    // failedIds: per-item failures of any kind (transient + permanent)
+    // permanentFailedIds: subset of failedIds that will NEVER succeed without
+    //   user/admin action — auth/ownership errors, FK violations, malformed
+    //   rows. Client parks these as `conflict` instead of looping forever.
+    const results = {
+      pushed: 0,
+      errors: [] as string[],
+      failedIds: [] as string[],
+      permanentFailedIds: [] as string[],
+    };
 
     // Get user's member IDs for ownership validation
     const { data: userMembers } = await supabaseAdmin
@@ -151,6 +222,7 @@ export async function POST(request: NextRequest) {
           if (existingUserId && existingUserId !== user.userId) {
             results.errors.push(`${item.id}: forbidden`);
             results.failedIds.push(item.id);
+            results.permanentFailedIds.push(item.id);
             continue;
           }
           data.user_id = user.userId;
@@ -159,6 +231,7 @@ export async function POST(request: NextRequest) {
           if (!rid || !userReminderIds.has(rid)) {
             results.errors.push(`${item.id}: unauthorized`);
             results.failedIds.push(item.id);
+            results.permanentFailedIds.push(item.id);
             continue;
           }
           // Existing log must also reference user's reminder
@@ -166,12 +239,14 @@ export async function POST(request: NextRequest) {
           if (existingRid && !userReminderIds.has(existingRid)) {
             results.errors.push(`${item.id}: forbidden`);
             results.failedIds.push(item.id);
+            results.permanentFailedIds.push(item.id);
             continue;
           }
         } else if ("member_id" in data && data.member_id) {
           if (!memberIds.has(data.member_id as string)) {
             results.errors.push(`${item.id}: unauthorized`);
             results.failedIds.push(item.id);
+            results.permanentFailedIds.push(item.id);
             continue;
           }
           // Existing record must also belong to user's member
@@ -179,6 +254,7 @@ export async function POST(request: NextRequest) {
           if (existingMid && !memberIds.has(existingMid)) {
             results.errors.push(`${item.id}: forbidden`);
             results.failedIds.push(item.id);
+            results.permanentFailedIds.push(item.id);
             continue;
           }
         }
@@ -210,6 +286,14 @@ export async function POST(request: NextRequest) {
                 console.error(`Sync upsert ${table}/${id}:`, error.message, error.details, error.hint);
                 results.errors.push(`${id}: ${error.message}`);
                 results.failedIds.push(id);
+                // PG error classes that will never recover via retry:
+                //   23503 foreign_key_violation, 23502 not_null_violation,
+                //   23514 check_violation, 22P02 invalid_text_representation,
+                //   42703 undefined_column, 42501 insufficient_privilege.
+                // Park them as conflict on the client so they stop looping.
+                if (PERMANENT_PG_CODES.has(error.code)) {
+                  results.permanentFailedIds.push(id);
+                }
               } else {
                 results.pushed++;
                 if (table === "members") memberIds.add(data.id as string);

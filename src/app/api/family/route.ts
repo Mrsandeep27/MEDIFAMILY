@@ -34,6 +34,7 @@ async function ensureUserRow(userId: string, email: string): Promise<void> {
     email,
     password_hash: "supabase-auth", // placeholder — auth handled by Supabase Auth
     name: email.split("@")[0],
+    updated_at: new Date().toISOString(),
   });
 }
 
@@ -115,10 +116,17 @@ export async function POST(req: NextRequest) {
           .maybeSingle());
       }
 
-      // Create family
+      // Create family. The id column has no DB-level default (Prisma's
+      // @default(uuid()) is client-side only), so we must generate it here.
       const { data: family, error: famErr } = await supabaseAdmin
         .from("families")
-        .insert({ name: name.trim(), invite_code: inviteCode, created_by: userId })
+        .insert({
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          invite_code: inviteCode,
+          created_by: userId,
+          updated_at: new Date().toISOString(),
+        })
         .select()
         .single();
 
@@ -135,6 +143,7 @@ export async function POST(req: NextRequest) {
       const { error: memErr } = await supabaseAdmin
         .from("family_members")
         .insert({
+          id: crypto.randomUUID(),
           family_id: family.id,
           user_id: userId,
           role: "admin",
@@ -193,6 +202,7 @@ export async function POST(req: NextRequest) {
       const { error: memErr } = await supabaseAdmin
         .from("family_members")
         .insert({
+          id: crypto.randomUUID(),
           family_id: family.id,
           user_id: userId,
           role: "member",
