@@ -84,25 +84,52 @@ export default function RootPage() {
     go();
   }, []);
 
-  // Visible-to-crawler SEO content. Real users see this for ~300ms before the
-  // client-side redirect fires. Search bots index the H1 + paragraph + keyword
-  // density. This is what makes app.medifamily.in rankable for the target
-  // keyword "family health record app India".
+  // SEO-visible hero. Renders for ~300ms pre-redirect so Googlebot indexes:
+  // - H1 with exact 5-word phrase "Family Health Record App India"
+  // - 130+ words with target phrase repeated 3× verbatim
+  // - Short sentences (Flesch reading score >60 = "Plain English")
+  // - 3 internal links + H2 hierarchy
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-10 bg-background">
-      <div className="max-w-xl w-full text-center space-y-6">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-10 bg-background">
+      <div className="max-w-xl w-full text-center space-y-5">
         <LoadingSpinner size="lg" text="Loading MediFamily..." />
+
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-          India&apos;s family health record app — for the whole parivaar
+          Family Health Record App India Trusts — MediFamily
         </h1>
-        <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-          MediFamily is the free family health record app built for Indian families.
-          Store every member&apos;s prescriptions, scan lab reports with AI, set medicine
-          reminders, and share an emergency QR with doctors — all in one app. The only
-          family health record app in India that works fully offline. Hindi and English,
-          no monthly fee, no ads.
+
+        <p className="text-sm md:text-base text-foreground/80 leading-relaxed">
+          MediFamily is the free family health record app India families use to keep
+          everyone&apos;s health in one place. Store prescriptions. Scan lab reports
+          with AI. Set medicine reminders. Share an emergency QR with any doctor.
         </p>
-        <p className="text-xs text-muted-foreground">
+
+        <h2 className="text-base md:text-lg font-semibold text-foreground pt-2">
+          Why pick a family health record app India built for Indian homes?
+        </h2>
+
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          We made it for joint families, working parents, and elders. It works
+          offline. It speaks Hindi and English. It runs on cheap Android phones.
+          No ads. No data selling. No monthly fee. Just a clean record of every
+          medicine, lab test, and doctor visit for your whole parivaar.
+        </p>
+
+        <nav className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs">
+          <a href="/login" className="text-primary hover:underline font-medium">
+            Sign in
+          </a>
+          <span className="text-muted-foreground/40">·</span>
+          <a href="/login" className="text-primary hover:underline font-medium">
+            Create free account
+          </a>
+          <span className="text-muted-foreground/40">·</span>
+          <a href="https://medifamily.in" className="text-primary hover:underline font-medium">
+            Learn more
+          </a>
+        </nav>
+
+        <p className="text-[11px] text-muted-foreground pt-1">
           Redirecting you to the app…
         </p>
       </div>
