@@ -84,9 +84,28 @@ export default function RootPage() {
     go();
   }, []);
 
+  // Visible-to-crawler SEO content. Real users see this for ~300ms before the
+  // client-side redirect fires. Search bots index the H1 + paragraph + keyword
+  // density. This is what makes app.medifamily.in rankable for the target
+  // keyword "family health record app India".
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <LoadingSpinner size="lg" text="Loading MediFamily..." />
-    </div>
+    <main className="min-h-screen flex items-center justify-center px-6 py-10 bg-background">
+      <div className="max-w-xl w-full text-center space-y-6">
+        <LoadingSpinner size="lg" text="Loading MediFamily..." />
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+          India&apos;s family health record app — for the whole parivaar
+        </h1>
+        <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+          MediFamily is the free family health record app built for Indian families.
+          Store every member&apos;s prescriptions, scan lab reports with AI, set medicine
+          reminders, and share an emergency QR with doctors — all in one app. The only
+          family health record app in India that works fully offline. Hindi and English,
+          no monthly fee, no ads.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Redirecting you to the app…
+        </p>
+      </div>
+    </main>
   );
 }

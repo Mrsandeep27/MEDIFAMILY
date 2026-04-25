@@ -16,10 +16,13 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "MediFamily — Your Whole Family's Health, In Your Pocket | Free Offline App",
+  // 60 chars · contains target keyword "family health record app India"
+  title: "Family Health Record App for India — MediFamily | Free",
+  // 158 chars · contains exact target phrase + India + USP
   description:
-    "Free family health app that works without internet. Store prescriptions, track medicines, manage lab reports for parents, kids & grandparents in one app. Made for Indian families.",
+    "MediFamily is India's free family health record app. Store prescriptions, scan lab reports with AI, set medicine reminders. Works offline, in Hindi & English.",
   keywords: [
+    "family health record app India", "family health record app",
     "MediFamily", "medi family", "family health app india", "health records app",
     "prescription scanner ai", "medicine tracker india", "offline health app",
     "ai doctor app india", "digital health records family", "indian health app",
@@ -41,8 +44,8 @@ export const metadata: Metadata = {
     canonical: "https://medifamily.in",
   },
   openGraph: {
-    title: "MediFamily — Your Whole Family's Health, In Your Pocket",
-    description: "Free family health app that works without internet. Prescriptions, medicines, lab reports for your entire family. Made for India.",
+    title: "Family Health Record App for India — MediFamily",
+    description: "India's free family health record app. Store prescriptions, scan lab reports with AI, set medicine reminders. Works offline, in Hindi & English.",
     url: "https://medifamily.in",
     siteName: "MediFamily",
     type: "website",
@@ -52,14 +55,14 @@ export const metadata: Metadata = {
         url: "/og-logo.png",
         width: 1200,
         height: 630,
-        alt: "MediFamily — Your Whole Family's Health, In Your Pocket",
+        alt: "MediFamily — Family Health Record App for India",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MediFamily — Your Whole Family's Health, In Your Pocket",
-    description: "Free family health app that works without internet. Prescriptions, medicines, lab reports for your entire family. Made for India.",
+    title: "Family Health Record App for India — MediFamily",
+    description: "India's free family health record app. Prescriptions, lab reports, medicines — for the whole family. Works offline.",
     images: ["/og-logo.png"],
   },
   robots: {

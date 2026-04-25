@@ -211,7 +211,7 @@ export default function LoginPage() {
         <div className="mx-auto">
           <Image
             src="/logo.png"
-            alt="MediFamily"
+            alt="MediFamily — Family Health Record App for India"
             width={240}
             height={72}
             className="mx-auto object-contain"
@@ -219,6 +219,14 @@ export default function LoginPage() {
             priority
           />
         </div>
+        <h1 className="text-base font-semibold text-foreground pt-1">
+          Family health record app for India
+        </h1>
+        <p className="text-xs text-muted-foreground px-2">
+          Sign in to MediFamily — store prescriptions, scan lab reports,
+          and track medicines for your whole family. Free, offline, in
+          Hindi &amp; English.
+        </p>
       </CardHeader>
       <CardContent>
         {/* Google one-tap sign-in — works for both new and returning users */}
