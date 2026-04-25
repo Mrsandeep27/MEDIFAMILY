@@ -5,13 +5,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Image from "next/image";
-import { Mail, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { useOnline } from "@/hooks/use-online";
 import { toast } from "sonner";
 import { PWAInstallButton } from "@/components/pwa/install-button";
 
@@ -35,12 +36,20 @@ export default function LoginPage() {
   const submittingRef = useRef(false);
   // Timestamp when form rendered — bot detection
   const formRenderedAt = useRef(Date.now());
+  // Offline guard — sign-in flows redirect to supabase.co which fails hard
+  // (Chrome's offline error page) when the user has no internet. Block all
+  // auth attempts and explain instead.
+  const isOnline = useOnline();
 
   // Google OAuth — works for both new signups and existing users.
   // Supabase handles account creation on first use, then redirects to
   // /auth/callback which exchanges the code for a session.
   const handleGoogleSignIn = async () => {
     if (googleLoading) return;
+    if (!isOnline) {
+      toast.error("Sign in needs internet. Reconnect and try again.");
+      return;
+    }
     setGoogleLoading(true);
     try {
       const supabase = createClient();
@@ -77,6 +86,10 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     // Double-submit guard
     if (submittingRef.current) return;
+    if (!isOnline) {
+      toast.error("Sign in needs internet. Reconnect and try again.");
+      return;
+    }
     submittingRef.current = true;
     setLoading(true);
 
@@ -229,13 +242,25 @@ export default function LoginPage() {
         </p>
       </CardHeader>
       <CardContent>
+        {!isOnline && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800 px-3 py-2.5 flex items-start gap-2">
+            <WifiOff className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-xs">
+              <p className="font-semibold text-amber-700 dark:text-amber-200">You&apos;re offline</p>
+              <p className="text-amber-700/80 dark:text-amber-200/80">
+                Sign in needs internet. Reconnect to continue.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Google one-tap sign-in — works for both new and returning users */}
         <Button
           type="button"
           variant="outline"
           className="w-full mb-3 h-11"
           onClick={handleGoogleSignIn}
-          disabled={googleLoading || loading}
+          disabled={googleLoading || loading || !isOnline}
         >
           {googleLoading ? (
             "Opening Google..."
@@ -326,7 +351,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             className="w-full h-12 rounded-xl text-[15px] font-semibold shadow-md shadow-primary/15 transition-transform active:scale-[0.98]"
-            disabled={loading}
+            disabled={loading || !isOnline}
           >
             {loading
               ? isSignup ? "Creating account..." : "Logging in..."

@@ -1,5 +1,14 @@
-const CACHE_NAME = "medifamily-v6";
-const STATIC_ASSETS = ["/login", "/manifest.json"];
+const CACHE_NAME = "medifamily-v7";
+// Pre-cache the app shell so cold offline launch shows the app, not Chrome's
+// dino. Each route's HTML caches itself on first visit via the fetch handler.
+const STATIC_ASSETS = [
+  "/",
+  "/login",
+  "/offline",
+  "/manifest.json",
+  "/logo.png",
+  "/favicon.ico",
+];
 const IS_LOCALHOST =
   self.location.hostname === "localhost" ||
   self.location.hostname === "127.0.0.1";
@@ -147,6 +156,7 @@ self.addEventListener("fetch", (event) => {
   if (IS_LOCALHOST) return;
 
   const { request } = event;
+  const url = new URL(request.url);
 
   // Skip non-GET, API, and non-http(s) requests
   if (
@@ -155,6 +165,18 @@ self.addEventListener("fetch", (event) => {
     !request.url.startsWith("http")
   )
     return;
+
+  // Cross-origin requests (Supabase, Google APIs, fonts) — let the browser
+  // handle them, but DON'T cache. Cross-origin navigations that fail offline
+  // (e.g. an OAuth redirect to supabase.co with no internet) will show
+  // Chrome's offline error — that's expected; we guard those flows in the UI
+  // by disabling sign-in buttons when offline.
+  if (url.origin !== self.location.origin) return;
+
+  // Same-origin: network-first, cache-fallback. For navigations specifically,
+  // if offline AND no cached version, fall back to the dedicated /offline
+  // page so users see a branded MediFamily screen instead of Chrome's dino.
+  const isNavigation = request.mode === "navigate";
 
   event.respondWith(
     fetch(request)
@@ -165,10 +187,22 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches
-          .match(request)
-          .then((cached) => cached || caches.match("/login"));
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (isNavigation) {
+          const fallback =
+            (await caches.match("/offline")) ||
+            (await caches.match("/login")) ||
+            (await caches.match("/"));
+          if (fallback) return fallback;
+        }
+        // Last-resort minimal offline response
+        return new Response("You're offline.", {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { "Content-Type": "text/plain" },
+        });
       })
   );
 });
