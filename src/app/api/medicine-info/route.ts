@@ -169,6 +169,12 @@ No interactions → interactions:[], overall_safe:true. Max 3. Be specific about
     }
   } catch (err) {
     console.error("Medicine info error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    // Surface the actual error message so we can see what's wrong without
+    // having to dig in Vercel logs. Sanitize stack traces away.
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: "AI service error. Please try again.", detail: detail.slice(0, 200) },
+      { status: 500 }
+    );
   }
 }
