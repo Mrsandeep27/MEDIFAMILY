@@ -126,14 +126,25 @@ function StepProfile({
 function StepFamily({
   onSubmit,
   onSkip,
+  onBack,
   loading,
 }: {
   onSubmit: (data: MemberFormData) => void;
   onSkip: () => void;
+  onBack: () => void;
   loading: boolean;
 }) {
   return (
     <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -mt-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
       <div className="text-center space-y-1">
         <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center mx-auto mb-2">
           <Users className="h-6 w-6 text-purple-600" />
@@ -181,10 +192,12 @@ function StepScan({
   selfMemberId,
   onComplete,
   onSkip,
+  onBack,
 }: {
   selfMemberId: string;
   onComplete: (medicines: ExtractedMed[]) => void;
   onSkip: () => void;
+  onBack: () => void;
 }) {
   const { addRecord } = useRecords();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -289,6 +302,15 @@ function StepScan({
 
   return (
     <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -mt-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
       <div className="text-center space-y-1">
         <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mx-auto mb-2">
           <ScanLine className="h-6 w-6 text-blue-600" />
@@ -430,12 +452,14 @@ function StepReminder({
   suggestedMeds,
   onComplete,
   onSkip,
+  onBack,
 }: {
   selfMemberId: string;
   selfMemberName: string;
   suggestedMeds: ExtractedMed[];
   onComplete: () => void;
   onSkip: () => void;
+  onBack: () => void;
 }) {
   const { addReminder } = useReminders();
   const [medicineName, setMedicineName] = useState(suggestedMeds[0]?.name || "");
@@ -473,6 +497,15 @@ function StepReminder({
 
   return (
     <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -mt-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
       <div className="text-center space-y-1">
         <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center mx-auto mb-2">
           <Bell className="h-6 w-6 text-amber-600" />
@@ -832,6 +865,7 @@ export default function OnboardingPage() {
               <StepFamily
                 onSubmit={handleFamilySubmit}
                 onSkip={() => setStep(3)}
+                onBack={() => setStep(1)}
                 loading={loading}
               />
             )}
@@ -841,6 +875,7 @@ export default function OnboardingPage() {
                 selfMemberId={resolvedSelfId}
                 onComplete={handleScanComplete}
                 onSkip={() => setStep(4)}
+                onBack={() => setStep(2)}
               />
             )}
 
@@ -851,6 +886,7 @@ export default function OnboardingPage() {
                 suggestedMeds={scannedMeds}
                 onComplete={handleReminderComplete}
                 onSkip={goHome}
+                onBack={() => setStep(3)}
               />
             )}
           </div>
