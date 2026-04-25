@@ -19,6 +19,34 @@ const PERMANENT_PG_CODES = new Set([
   "42501", // insufficient_privilege
 ]);
 
+// Resolve the set of user_ids that THIS user can read/write through their
+// family groups — themselves + every co-member of every family they belong
+// to. Used by sync to share members + records across family devices.
+//
+// Family groups are opt-in: a user with no family memberships gets back just
+// their own id, so non-family users see zero behaviour change.
+async function getFamilyUserIds(userId: string): Promise<Set<string>> {
+  const ids = new Set<string>([userId]);
+  // 1. Find families this user belongs to.
+  const { data: myMemberships } = await supabaseAdmin
+    .from("family_members")
+    .select("family_id")
+    .eq("user_id", userId);
+  const familyIds = (myMemberships || [])
+    .map((r: { family_id: string }) => r.family_id)
+    .filter(Boolean);
+  if (familyIds.length === 0) return ids;
+  // 2. Find every member (incl. self) of those families.
+  const { data: peers } = await supabaseAdmin
+    .from("family_members")
+    .select("user_id")
+    .in("family_id", familyIds);
+  for (const p of peers || []) {
+    if (p.user_id) ids.add(p.user_id);
+  }
+  return ids;
+}
+
 const ALLOWED_FIELDS: Record<string, Set<string>> = {
   members: new Set(["id", "name", "relation", "date_of_birth", "blood_group", "gender", "allergies", "chronic_conditions", "emergency_contact_name", "emergency_contact_phone", "avatar_url", "is_deleted", "created_at", "updated_at"]),
   health_records: new Set(["id", "member_id", "type", "title", "doctor_name", "hospital_name", "visit_date", "diagnosis", "notes", "image_urls", "raw_ocr_text", "ai_extracted", "tags", "is_deleted", "created_at", "updated_at"]),
@@ -161,11 +189,17 @@ export async function POST(request: NextRequest) {
       permanentFailedIds: [] as string[],
     };
 
-    // Get user's member IDs for ownership validation
+    // Get the set of user_ids this user can write on behalf of — themselves
+    // + every family-mate. Empty family groups (the common case) reduce to
+    // just [user.userId] so non-family users see no behaviour change.
+    const familyUserIds = await getFamilyUserIds(user.userId);
+
+    // Get all member IDs visible to this user via family-mate sharing.
+    // Used for ownership validation on records, medicines, reminders, etc.
     const { data: userMembers } = await supabaseAdmin
       .from("members")
       .select("id")
-      .eq("user_id", user.userId);
+      .in("user_id", [...familyUserIds]);
     const memberIds = new Set((userMembers || []).map((m: { id: string }) => m.id));
 
     // Pre-fetch user's reminder IDs for reminder_logs ownership validation
@@ -217,15 +251,21 @@ export async function POST(request: NextRequest) {
         data.id = item.id;
 
         if (table === "members") {
-          // Block takeover: existing member must belong to this user
+          // Block takeover: existing member must belong to this user OR a
+          // family-mate (so co-managing spouses can edit each other's
+          // members). Hard-fail otherwise — a family-stranger can't take
+          // over a member just by knowing its id.
           const existingUserId = existingOwner.get(item.id);
-          if (existingUserId && existingUserId !== user.userId) {
+          if (existingUserId && !familyUserIds.has(existingUserId)) {
             results.errors.push(`${item.id}: forbidden`);
             results.failedIds.push(item.id);
             results.permanentFailedIds.push(item.id);
             continue;
           }
-          data.user_id = user.userId;
+          // Preserve original creator on edits so leaving the family
+          // doesn't orphan the row. New members are created under the
+          // current user.
+          data.user_id = existingUserId || user.userId;
         } else if (table === "reminder_logs") {
           const rid = data.reminder_id as string;
           if (!rid || !userReminderIds.has(rid)) {
@@ -366,11 +406,16 @@ export async function GET(request: NextRequest) {
       sinceMap[singleTable] = searchParams.get("since") || "2000-01-01T00:00:00Z";
     }
 
-    // Get user's member IDs
+    // Pull data for every user_id this user can see — themselves +
+    // family-mates. For solo users this collapses to just [user.userId].
+    const familyUserIds = [...(await getFamilyUserIds(user.userId))];
+
+    // Member IDs spanning the user + every family-mate, used for child
+    // tables (records, medicines, reminders, metrics, share_links).
     const { data: userMembers } = await supabaseAdmin
       .from("members")
       .select("id")
-      .eq("user_id", user.userId);
+      .in("user_id", familyUserIds);
     const memberIds = (userMembers || []).map((m: { id: string }) => m.id);
 
     const data: Record<string, unknown[]> = {};
@@ -382,7 +427,7 @@ export async function GET(request: NextRequest) {
       if (table === "members") {
         query = supabaseAdmin.from("members")
           .select("*")
-          .eq("user_id", user.userId)
+          .in("user_id", familyUserIds)
           .gt("updated_at", since);
       } else if (table === "reminder_logs") {
         if (memberIds.length === 0) { data[table] = []; continue; }
