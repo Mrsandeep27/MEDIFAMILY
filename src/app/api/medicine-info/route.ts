@@ -7,6 +7,8 @@ import { enforceQuota } from "@/lib/ai/quota";
 // System instruction — cached by Gemini across calls for speed
 const MEDICINE_SYSTEM = `You are a professional Indian pharmacist. Identify medicines and explain clearly.
 
+IMAGE READING: The photo may be rotated, blurry, wrinkled foil, or partially readable. Read text in any orientation (upside-down, sideways). If you can see the brand name OR the active ingredients OR the manufacturer logo (e.g. "sanofi", "Cipla", "Sun Pharma"), that is enough to identify a common Indian medicine — use your knowledge to fill in the rest. Only return name="Unknown" if you genuinely cannot read ANY brand, salt name, or manufacturer.
+
 STYLE: Precise, minimal, no fluff. Exact dosages, clear warnings, practical advice.
 
 OUTPUT: single raw JSON, no markdown.
