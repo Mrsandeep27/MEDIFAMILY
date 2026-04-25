@@ -10,6 +10,14 @@ import { toast } from "sonner";
 // Global: prevent multiple sync loops across re-renders/components
 let syncLoopRunning = false;
 
+// Track consecutive sync failures so we don't toast on every transient blip.
+// Resets to 0 whenever a sync succeeds or has zero pending items left.
+let consecutiveFailures = 0;
+// Don't show the same toast more than once per 10 minutes — even if the user
+// is genuinely stuck, repeating the message every 15 min is annoying.
+let lastToastAt = 0;
+const TOAST_COOLDOWN_MS = 10 * 60 * 1000;
+
 export function useSync() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
@@ -48,21 +56,52 @@ export function useSync() {
         console.error("[sync] errors:", result.errors);
       }
 
-      // Notify user if sync had errors and data is stuck locally
-      if (result.errors.length > 0 && count > 0) {
-        const isAuthError = result.errors.some(e => e.includes("401") || e.includes("Unauthorized"));
+      // Decide whether to surface a user-facing toast:
+      //  - Auth errors: show immediately, user MUST re-login
+      //  - Transient errors (5xx, network, 429, 408): never toast — auto-retry
+      //    will handle. These are tagged with "Transient" prefix.
+      //  - Real per-item rejections: only toast after 3 consecutive failed
+      //    cycles, so a one-off bad row doesn't spam the user.
+      if (result.errors.length === 0 || count === 0) {
+        consecutiveFailures = 0; // success or fully-flushed → reset
+      } else {
+        const isAuthError = result.errors.some(
+          (e) => e.includes("401") || e.includes("403") || e.includes("Unauthorized")
+        );
+        const onlyTransient = result.errors.every((e) => e.includes("Transient"));
+
         if (isAuthError) {
-          toast.error("Session expired. Please re-login to backup your data.", {
-            duration: 10000,
-            action: {
-              label: "Re-login",
-              onClick: () => { window.location.href = "/login"; },
-            },
-          });
+          if (Date.now() - lastToastAt > TOAST_COOLDOWN_MS) {
+            lastToastAt = Date.now();
+            toast.error("Session expired. Please re-login to back up your data.", {
+              duration: 10000,
+              action: {
+                label: "Re-login",
+                onClick: () => {
+                  window.location.href = "/login";
+                },
+              },
+            });
+          }
+        } else if (onlyTransient) {
+          // Don't bump the counter — transient = not the user's data, just network
+          // The next interval cycle will retry automatically.
+          consecutiveFailures = Math.max(0, consecutiveFailures - 1);
         } else {
-          toast.error("Some data failed to sync and is only stored on this device.", {
-            duration: 5000,
-          });
+          consecutiveFailures++;
+          if (consecutiveFailures >= 3 && Date.now() - lastToastAt > TOAST_COOLDOWN_MS) {
+            lastToastAt = Date.now();
+            // Truncate to first 3 problematic ids so the toast stays short
+            const sample = result.errors
+              .filter((e) => !e.includes("Transient"))
+              .slice(0, 3)
+              .map((e) => e.split(":")[0])
+              .join(", ");
+            toast.error(`${count} item(s) couldn't sync to cloud. They're safe on this device.`, {
+              description: sample ? `Affected: ${sample}` : "We'll keep retrying.",
+              duration: 8000,
+            });
+          }
         }
       }
     } catch (err) {

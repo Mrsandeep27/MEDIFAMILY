@@ -166,7 +166,12 @@ async function _doSync(force: boolean): Promise<SyncResult> {
         if (response.ok) {
           const data = await response.json();
           result.pushed = data.pushed || 0;
-          if (data.errors) result.errors.push(...data.errors);
+          if (data.errors && data.errors.length > 0) {
+            result.errors.push(...data.errors);
+            // Log full server-reported errors for debugging — these contain
+            // table + id + Postgres message (e.g. "abc123: violates not-null")
+            console.error("[sync] server-rejected items:", data.errors);
+          }
 
           // Mark synced — skip failed items and guard against mid-sync edits
           const failedIds = new Set<string>(
@@ -188,12 +193,31 @@ async function _doSync(force: boolean): Promise<SyncResult> {
             }
           }
         } else {
-          result.errors.push(`Push failed: HTTP ${response.status}`);
+          // Read response body to surface the actual server error, not just HTTP code.
+          // Many "Push failed" errors are 5xx blips — knowing why matters.
+          let detail = "";
+          try {
+            const body = await response.json();
+            detail = body.detail || body.error || "";
+          } catch {
+            try {
+              detail = await response.text();
+            } catch {
+              /* ignore */
+            }
+          }
+          const transient = response.status >= 500 || response.status === 408 || response.status === 429;
+          result.errors.push(
+            `${transient ? "PushTransient" : "PushFailed"} HTTP ${response.status}${detail ? ` :: ${detail.slice(0, 200)}` : ""}`
+          );
           // Auth failed — pull will fail too, skip it
           if (response.status === 401 || response.status === 403) return result;
         }
       } catch (err) {
-        result.errors.push(`Push: ${err instanceof Error ? err.message : String(err)}`);
+        // Network errors are transient — tag so the UI can suppress the toast.
+        result.errors.push(
+          `PushTransient ${err instanceof Error ? err.message : String(err)}`
+        );
       }
     }
 
@@ -273,11 +297,14 @@ async function _doSync(force: boolean): Promise<SyncResult> {
         // pulls for the next MIN_PULL_INTERVAL_MS.
         writeLastPullAt(Date.now());
       } else {
-        result.errors.push(`Pull failed: HTTP ${response.status}`);
+        const transient = response.status >= 500 || response.status === 408 || response.status === 429;
+        result.errors.push(`${transient ? "PullTransient" : "PullFailed"} HTTP ${response.status}`);
         if (response.status === 401 || response.status === 403) return result;
       }
     } catch (err) {
-      result.errors.push(`Pull: ${err instanceof Error ? err.message : String(err)}`);
+      result.errors.push(
+        `PullTransient ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   } catch (err) {
     result.errors.push(`Sync: ${err instanceof Error ? err.message : String(err)}`);
