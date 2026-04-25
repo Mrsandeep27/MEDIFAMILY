@@ -1,4 +1,4 @@
-const CACHE_NAME = "medifamily-v5";
+const CACHE_NAME = "medifamily-v6";
 const STATIC_ASSETS = ["/login", "/manifest.json"];
 const IS_LOCALHOST =
   self.location.hostname === "localhost" ||

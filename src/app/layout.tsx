@@ -30,10 +30,8 @@ export const metadata: Metadata = {
   creator: "Sandeep Pandey",
   publisher: "MediFamily",
   manifest: "/manifest.json",
-  icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-  },
+  // Icons handled by file-based metadata: src/app/{icon,apple-icon,favicon}.{png,ico}
+  // Don't declare explicit icons here — that overrides Next.js's automatic file pickup.
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -51,9 +49,9 @@ export const metadata: Metadata = {
     locale: "en_IN",
     images: [
       {
-        url: "/logo.png",
-        width: 512,
-        height: 512,
+        url: "/og-logo.png",
+        width: 1200,
+        height: 630,
         alt: "MediFamily — Your Whole Family's Health, In Your Pocket",
       },
     ],
@@ -62,7 +60,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "MediFamily — Your Whole Family's Health, In Your Pocket",
     description: "Free family health app that works without internet. Prescriptions, medicines, lab reports for your entire family. Made for India.",
-    images: ["/logo.png"],
+    images: ["/og-logo.png"],
   },
   robots: {
     index: true,
@@ -97,7 +95,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="apple-touch-icon" href="/logo.png" />
+        {/* apple-touch-icon handled automatically by src/app/apple-icon.png */}
         <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-readable site info" />
       </head>
       <body className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}>
