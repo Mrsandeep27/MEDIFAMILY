@@ -5,27 +5,35 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "@/lib/db/dexie";
 import type { Member, Relation, BloodGroup, Gender } from "@/lib/db/schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { useFamilyGroup } from "@/hooks/use-family-group";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { createClient } from "@/lib/supabase/client";
 import { triggerSync } from "@/lib/db/sync";
 
 export function useMembers() {
   const user = useAuthStore((s) => s.user);
+  // Family-mates' user_ids — empty for solo users. The members live-query
+  // expands to anyOf(self + mates) so co-managing spouses see each other's
+  // members on /family. Family group membership rarely changes mid-session,
+  // so the server round-trip on mount is acceptable.
+  const { familyUserIds } = useFamilyGroup();
 
   // Use single-key index + JS filter. The compound form
   // .where({ user_id, is_deleted: false }) is unreliable in Dexie 4
   // because boolean false doesn't index reliably across browsers, and
   // there's no [user_id+is_deleted] compound index in the schema.
+  const allUserIds = user ? Array.from(new Set([user.id, ...familyUserIds])) : [];
+  const userIdsKey = allUserIds.join(",");
   const members = useLiveQuery(
     () =>
       user
         ? db.members
             .where("user_id")
-            .equals(user.id)
+            .anyOf(allUserIds)
             .filter((m) => !m.is_deleted)
             .toArray()
         : [],
-    [user?.id]
+    [userIdsKey]
   );
 
   const getMember = (id: string) =>

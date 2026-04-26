@@ -10,6 +10,7 @@ import {
   User,
   LogOut,
   Share2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +27,15 @@ import { toast } from "sonner";
 
 export default function FamilyGroupPage() {
   const user = useAuthStore((s) => s.user);
-  const { families, isLoading, createFamily, joinFamily, leaveFamily } =
-    useFamilyGroup();
+  const {
+    families,
+    isLoading,
+    createFamily,
+    joinFamily,
+    leaveFamily,
+    refreshSharedData,
+  } = useFamilyGroup();
+  const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [familyName, setFamilyName] = useState("");
@@ -71,6 +79,18 @@ export default function FamilyGroupPage() {
       toast.error(err instanceof Error ? err.message : "Failed to join family");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshSharedData();
+      toast.success("Family data refreshed — pulling shared records");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to refresh");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -299,6 +319,19 @@ export default function FamilyGroupPage() {
                 </div>
 
                 <Separator />
+
+                {/* Refresh shared data — useful right after joining or
+                    when the other family device added something. */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                  {refreshing ? "Refreshing..." : "Refresh Shared Data"}
+                </Button>
 
                 {/* Leave button */}
                 <Button
