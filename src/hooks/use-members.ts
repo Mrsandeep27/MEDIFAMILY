@@ -24,16 +24,24 @@ export function useMembers() {
   // there's no [user_id+is_deleted] compound index in the schema.
   const allUserIds = user ? Array.from(new Set([user.id, ...familyUserIds])) : [];
   const userIdsKey = allUserIds.join(",");
+  // Each user owns exactly one "self" member — that's THEIR private profile,
+  // not a household member of the family. When two family-mates share, we
+  // only want to merge the non-self members (parents, kids, spouse). The
+  // current user's own self is always visible.
   const members = useLiveQuery(
     () =>
       user
         ? db.members
             .where("user_id")
             .anyOf(allUserIds)
-            .filter((m) => !m.is_deleted)
+            .filter(
+              (m) =>
+                !m.is_deleted &&
+                (m.user_id === user.id || m.relation !== "self")
+            )
             .toArray()
         : [],
-    [userIdsKey]
+    [userIdsKey, user?.id]
   );
 
   const getMember = (id: string) =>

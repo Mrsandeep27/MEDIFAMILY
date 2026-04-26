@@ -193,14 +193,26 @@ export async function POST(request: NextRequest) {
     // + every family-mate. Empty family groups (the common case) reduce to
     // just [user.userId] so non-family users see no behaviour change.
     const familyUserIds = await getFamilyUserIds(user.userId);
+    const otherUserIds = [...familyUserIds].filter((id) => id !== user.userId);
 
-    // Get all member IDs visible to this user via family-mate sharing.
-    // Used for ownership validation on records, medicines, reminders, etc.
-    const { data: userMembers } = await supabaseAdmin
+    // Get all member IDs visible to this user. Each user's own "self" row is
+    // private — family-mates' self ids are excluded so this user can't write
+    // child rows (records, medicines) attached to a peer's private profile.
+    const { data: ownMembers } = await supabaseAdmin
       .from("members")
       .select("id")
-      .in("user_id", [...familyUserIds]);
-    const memberIds = new Set((userMembers || []).map((m: { id: string }) => m.id));
+      .eq("user_id", user.userId);
+    const memberIds = new Set(
+      (ownMembers || []).map((m: { id: string }) => m.id)
+    );
+    if (otherUserIds.length > 0) {
+      const { data: peerMembers } = await supabaseAdmin
+        .from("members")
+        .select("id")
+        .in("user_id", otherUserIds)
+        .neq("relation", "self");
+      for (const m of peerMembers || []) memberIds.add(m.id);
+    }
 
     // Pre-fetch user's reminder IDs for reminder_logs ownership validation
     let userReminderIds = new Set<string>();
@@ -410,26 +422,77 @@ export async function GET(request: NextRequest) {
     // family-mates. For solo users this collapses to just [user.userId].
     const familyUserIds = [...(await getFamilyUserIds(user.userId))];
 
-    // Member IDs spanning the user + every family-mate, used for child
-    // tables (records, medicines, reminders, metrics, share_links).
-    const { data: userMembers } = await supabaseAdmin
+    // Member IDs visible to this user. Includes: every member they own
+    // (self + non-self), and every NON-self member belonging to family-
+    // mates. Family-mates' own self rows are private and excluded — their
+    // child records (lab reports, prescriptions on their personal profile)
+    // therefore stay private too.
+    const otherUserIds = familyUserIds.filter((id) => id !== user.userId);
+    const { data: ownMembers } = await supabaseAdmin
       .from("members")
       .select("id")
-      .in("user_id", familyUserIds);
-    const memberIds = (userMembers || []).map((m: { id: string }) => m.id);
+      .eq("user_id", user.userId);
+    let memberIds = (ownMembers || []).map((m: { id: string }) => m.id);
+    if (otherUserIds.length > 0) {
+      const { data: peerMembers } = await supabaseAdmin
+        .from("members")
+        .select("id")
+        .in("user_id", otherUserIds)
+        .neq("relation", "self");
+      memberIds = memberIds.concat(
+        (peerMembers || []).map((m: { id: string }) => m.id)
+      );
+    }
 
     const data: Record<string, unknown[]> = {};
 
     for (const [table, since] of Object.entries(sinceMap)) {
       if (!ALLOWED_TABLES.includes(table)) continue;
 
-      let query;
+      // Members table needs a 2-query merge: self's full list + family-mates'
+      // non-self members only. Each user's "self" row is their private
+      // profile and shouldn't appear in another family-mate's household list.
+      // We handle it inline here instead of falling into the generic query
+      // path below.
       if (table === "members") {
-        query = supabaseAdmin.from("members")
+        const otherUserIds = familyUserIds.filter((id) => id !== user.userId);
+        const ownQuery = supabaseAdmin
+          .from("members")
           .select("*")
-          .in("user_id", familyUserIds)
-          .gt("updated_at", since);
-      } else if (table === "reminder_logs") {
+          .eq("user_id", user.userId)
+          .gt("updated_at", since)
+          .order("updated_at", { ascending: true })
+          .limit(500);
+        const ownResult = await ownQuery;
+        let rows: unknown[] = ownResult.error ? [] : ownResult.data || [];
+
+        if (otherUserIds.length > 0) {
+          const peerResult = await supabaseAdmin
+            .from("members")
+            .select("*")
+            .in("user_id", otherUserIds)
+            .neq("relation", "self")
+            .gt("updated_at", since)
+            .order("updated_at", { ascending: true })
+            .limit(500);
+          if (!peerResult.error && peerResult.data) {
+            rows = [...rows, ...peerResult.data];
+          }
+        }
+
+        // Re-sort merged result by updated_at so the client's watermark
+        // advances correctly.
+        rows.sort((a, b) => {
+          const ua = (a as { updated_at: string }).updated_at;
+          const ub = (b as { updated_at: string }).updated_at;
+          return ua < ub ? -1 : ua > ub ? 1 : 0;
+        });
+        data[table] = rows;
+        continue;
+      }
+
+      let query;
+      if (table === "reminder_logs") {
         if (memberIds.length === 0) { data[table] = []; continue; }
         // Get reminder IDs for this user's members
         const { data: reminders } = await supabaseAdmin
