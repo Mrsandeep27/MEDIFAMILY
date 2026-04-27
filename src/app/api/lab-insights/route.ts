@@ -64,8 +64,21 @@ Cover:
   - End with a clear next step OR a calm reassurance if everything is genuinely normal
 Use Hinglish naturally if locale is Hindi. NEVER write "the patient should..." — speak directly: "you should...".
 
+URGENT_ATTENTION (strict — most reports should have an empty array here):
+Include a marker ONLY if it meets BOTH:
+  1. status is "high", "low", or "critical" (never "normal"), AND
+  2. it falls into a clinically urgent category — needs doctor visit within weeks:
+     - Total cholesterol >= 240, LDL >= 130, Triglycerides >= 200, VLDL > 30
+     - HbA1c >= 6.5 OR fasting glucose >= 126
+     - SGOT or SGPT > 1.5x the upper limit
+     - Creatinine > 1.3 OR eGFR < 60
+     - TSH > 5 OR < 0.4
+     - Hemoglobin < 11, Platelets < 100k, WBC > 12k or < 3k
+     - Anything with status: "critical"
+DO NOT include: WBC differential percentages slightly off range (lymphocytes 42% etc.), MPV / MCV / MCH / MCHC / RDW / PDW / PCT slightly off, Absolute Basophil Count low, mild SGOT/SGPT (within 1.5x upper limit), borderline cholesterol 200-239. An empty urgent_attention array is the CORRECT answer for a mostly-fine report — don't pad it.
+
 OUTPUT: single raw JSON, no markdown, no prose.
-{"patient_name":"exact name or null","report_date":"YYYY-MM-DD or null","lab_name":"exact lab name or null","markers":[{"name":"exact marker name as printed","value":"exact value with unit","normal_range":"exact range as printed","status":"normal|low|high|critical","explanation":"what this measures + why it might be off + how serious (for abnormal); short for normal","advice":"specific actionable next step for abnormal, empty string for normal"}],"summary":"2-3 sentence headline of what's important","patient_summary":"4-6 sentence warm doctor-explaining-to-patient paragraph (THIS is the main field a patient reads)","urgent_attention":["only markers that are critically abnormal — empty array if none"]}
+{"patient_name":"exact name or null","report_date":"YYYY-MM-DD or null","lab_name":"exact lab name or null","markers":[{"name":"exact marker name as printed","value":"exact value with unit","normal_range":"exact range as printed","status":"normal|low|high|critical","explanation":"what this measures + why it might be off + how serious (for abnormal); short for normal","advice":"specific actionable next step for abnormal, empty string for normal"}],"summary":"2-3 sentence headline of what's important","patient_summary":"4-6 sentence warm doctor-explaining-to-patient paragraph (THIS is the main field a patient reads)","urgent_attention":["only markers meeting the strict criteria above — usually empty array"]}
 
 Max 40 markers. Be thorough on extraction, generous on explanation for abnormal markers, brief on normal markers. The patient_summary is what the patient reads first — make it count.`;
 
@@ -182,8 +195,28 @@ CRITICAL RULES:
 
 7. If locale is "hi", use Hinglish naturally (Devanagari script for Hindi words is fine, but English medical terms can stay English).
 
+URGENT_ATTENTION rules — be strict, do NOT include mild deviations:
+Include a marker in urgent_attention ONLY if it meets ALL of these:
+  1. status is "high", "low", or "critical" (never "normal"), AND
+  2. it falls into one of the clinically urgent categories below.
+Clinically urgent categories (these need a doctor visit within weeks, not months):
+  - Total cholesterol >= 240, LDL >= 130, Triglycerides >= 200, VLDL > 30
+  - HbA1c >= 6.5 OR fasting glucose >= 126
+  - SGOT or SGPT > 1.5x the upper limit of the reference range
+  - Creatinine > 1.3 OR eGFR < 60
+  - TSH > 5 OR < 0.4
+  - Hemoglobin < 11, Platelets < 100k, WBC > 12k or < 3k
+  - Anything you flagged status: "critical"
+DO NOT include in urgent_attention:
+  - Lymphocytes/Neutrophils/Monocytes/Eosinophils/Basophils % being slightly off range (these fluctuate with viral infections, normal life)
+  - MPV, MCV, MCH, MCHC, RDW, PDW, PCT slightly off (red cell indices that often run a touch high/low without clinical meaning)
+  - Absolute Basophil Count being low (clinically meaningless on its own)
+  - Total cholesterol 200-239 (borderline, lifestyle category, not urgent)
+  - SGOT/SGPT mildly elevated within 1.5x upper limit
+If nothing meets the bar, return an empty array. An empty urgent_attention is the CORRECT answer for a report with only mild deviations.
+
 OUTPUT: single raw JSON, no markdown, no prose around it.
-{"patient_summary":"the warm 5-8 sentence paragraph","urgent_attention":["specific marker names that need urgent doctor follow-up — empty array if none"]}`;
+{"patient_summary":"the warm 5-8 sentence paragraph","urgent_attention":["specific marker names that meet the strict criteria above — empty array if none"]}`;
 
 async function generateHolisticSummary(
   markers: Array<{

@@ -436,6 +436,35 @@ export default function LabInsightsPage() {
 
       aggregated.markers = Array.from(markersByKey.values());
 
+      // Merge qualitative same-name rows. Some labs print one cell with two
+      // qualities (e.g. RBC Morphology = "Normocytic / Normochromic") which
+      // the AI may split into two rows with the same name and no numeric
+      // range. Collapse those into a single row with comma-joined value.
+      // Only applies when range is empty/dash and status is normal —
+      // numeric markers with the same name but different values stay
+      // separate (legitimate duplicates from re-tests).
+      const isQualitativeRow = (m: LabMarker) => {
+        const r = (m.normal_range || "").trim();
+        return (r === "" || r === "-" || r === "—") && m.status === "normal";
+      };
+      const qualitativeByName = new Map<string, LabMarker>();
+      const merged: LabMarker[] = [];
+      for (const m of aggregated.markers) {
+        if (!isQualitativeRow(m)) {
+          merged.push(m);
+          continue;
+        }
+        const nameKey = canonical(m.name);
+        const existing = qualitativeByName.get(nameKey);
+        if (!existing) {
+          qualitativeByName.set(nameKey, m);
+          merged.push(m);
+        } else if (canonical(existing.value) !== canonical(m.value)) {
+          existing.value = `${existing.value}, ${m.value}`.trim();
+        }
+      }
+      aggregated.markers = merged;
+
       if (failedCount > 0) {
         toast.warning(`${failedCount} page(s) couldn't be read. Results may be incomplete.`);
       }
