@@ -349,6 +349,14 @@ export default function VitalsPage() {
     ? getHealthStatus(activeType, latestMetric.value)
     : null;
 
+  // Count auto-imported readings (from prescriptions / lab reports) so we
+  // can surface "X auto-imported" — users were assuming the page was
+  // empty when in fact data flows in automatically from scan/lab uploads.
+  const autoImportedCount = metrics.filter((m) =>
+    typeof m.notes === "string" &&
+    /^From (prescription|lab report)/i.test(m.notes)
+  ).length;
+
   // ─── Add Reading form state ─────────────────────────────────────────────
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(
@@ -560,6 +568,21 @@ export default function VitalsPage() {
             );
           })}
         </div>
+
+        {/* Auto-import indicator — readings come in automatically from
+            prescription scans (BP, temp, SpO2 in vitals text) and lab
+            reports (sugar, weight, etc.). Without this banner users assume
+            their data wasn't captured and start entering it manually. */}
+        {autoImportedCount > 0 && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground/80 flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>
+              <b>{autoImportedCount}</b> {config.label.toLowerCase()} reading
+              {autoImportedCount === 1 ? "" : "s"} auto-imported from your
+              prescriptions and lab reports.
+            </span>
+          </div>
+        )}
 
         {/* ─── Current Reading Card ──────────────────────────────────── */}
         <Card>

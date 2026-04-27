@@ -1,11 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { toast } from "sonner";
 import { Share2, Copy, Clock, Trash2, Ban } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AppHeader } from "@/components/layout/app-header";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
@@ -13,14 +21,30 @@ import { useShareLinks } from "@/hooks/use-share-links";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db/dexie";
 
+// Global shared-links management list. Per-member SHARE CREATION (QR
+// code, expiry picker) lives at /family/[memberId]/share — this page is
+// for reviewing and revoking active links across all members.
 export default function SharedLinksPage() {
   const { shareLinks, isLoading, revokeShareLink, deleteShareLink } =
     useShareLinks();
+  const [memberFilter, setMemberFilter] = useState<string>("all");
 
-  const members = useLiveQuery(() => db.members.toArray(), []);
+  const members = useLiveQuery(
+    () => db.members.filter((m) => !m.is_deleted).toArray(),
+    []
+  );
   const memberMap = Object.fromEntries(
     (members ?? []).map((m) => [m.id, m.name])
   );
+
+  const filteredLinks =
+    memberFilter === "all"
+      ? shareLinks
+      : shareLinks.filter((l) => l.member_id === memberFilter);
+
+  // Only show the filter when it would actually narrow something down —
+  // 1 member or 1 link makes the dropdown clutter.
+  const showFilter = (members?.length ?? 0) > 1 && shareLinks.length > 1;
 
   if (isLoading) {
     return (
@@ -36,14 +60,31 @@ export default function SharedLinksPage() {
       <AppHeader title="Shared Links" showBack />
 
       <div className="p-4 space-y-3">
-        {shareLinks.length === 0 ? (
+        {showFilter && (
+          <Select value={memberFilter} onValueChange={(v) => v && setMemberFilter(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="All members" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All members</SelectItem>
+              {(members ?? []).map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {filteredLinks.length === 0 ? (
           <EmptyState
             icon={Share2}
             title="No shared links"
-            description="When you share records with doctors via QR code, your active links will appear here."
+            description={
+              memberFilter === "all"
+                ? "When you share records with doctors via QR code, your active links will appear here."
+                : `No active links for ${memberMap[memberFilter] || "this member"}.`
+            }
           />
         ) : (
-          shareLinks.map((link) => {
+          filteredLinks.map((link) => {
             const expiresAt = new Date(link.expires_at);
             const isExpired = expiresAt < new Date();
             const hoursLeft = Math.max(

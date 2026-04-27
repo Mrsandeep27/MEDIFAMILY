@@ -102,13 +102,21 @@ export default function RemindersPage() {
     });
   }, []);
 
-  // Add form state
+  // Add form state. Auto-select the only member when there's just one —
+  // 95% of households start with a single self profile and forcing a
+  // re-pick adds a tap with no value.
   const [newMedicineName, setNewMedicineName] = useState("");
   const [newMemberId, setNewMemberId] = useState("");
   const [newTime, setNewTime] = useState("09:00");
   const [newDays, setNewDays] = useState<DayOfWeek[]>([...ALL_DAYS]);
   const [newDosage, setNewDosage] = useState("");
   const [newBeforeFood, setNewBeforeFood] = useState(false);
+
+  useEffect(() => {
+    if (members.length === 1 && !newMemberId) {
+      setNewMemberId(members[0].id);
+    }
+  }, [members, newMemberId]);
 
   const displayReminders = tab === "today" ? todayReminders : reminders;
 
@@ -156,7 +164,10 @@ export default function RemindersPage() {
 
   const resetForm = () => {
     setNewMedicineName("");
-    setNewMemberId("");
+    // Preserve the auto-selected member when only one exists — the
+    // useEffect above will refill on next render anyway, but this
+    // avoids a single-frame flicker of an empty dropdown.
+    setNewMemberId(members.length === 1 ? members[0].id : "");
     setNewTime("09:00");
     setNewDays([...ALL_DAYS]);
     setNewDosage("");

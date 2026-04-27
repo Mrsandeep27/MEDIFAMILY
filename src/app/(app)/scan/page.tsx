@@ -28,6 +28,8 @@ import { useCamera } from "@/hooks/use-camera";
 import { useMembers } from "@/hooks/use-members";
 import { useRecords } from "@/hooks/use-records";
 import { useMedicines } from "@/hooks/use-medicines";
+import { useReminders } from "@/hooks/use-reminders";
+import type { DayOfWeek, Frequency } from "@/lib/db/schema";
 import { extractText } from "@/lib/ocr/tesseract";
 import {
   extractPrescription,
@@ -37,6 +39,31 @@ import {
 import { FREQUENCY_LABELS } from "@/constants/config";
 import { useLocale } from "@/lib/i18n/use-locale";
 import { useHealthMetrics } from "@/hooks/use-health-metrics";
+
+/**
+ * Default reminder times for each medicine frequency. Picks reasonable
+ * meal-aligned times so the user can save without thinking — they can
+ * always edit later from /reminders.
+ */
+const ALL_DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+function defaultReminderTimes(frequency: Frequency | undefined): string[] {
+  switch (frequency) {
+    case "once_daily":
+      return ["09:00"];
+    case "twice_daily":
+      return ["09:00", "21:00"];
+    case "thrice_daily":
+      return ["09:00", "14:00", "21:00"];
+    case "weekly":
+      return ["09:00"]; // weekly default day is Mon (set below)
+    case "as_needed":
+      return []; // no auto-reminder for PRN meds
+    case "custom":
+      return []; // user must set manually
+    default:
+      return [];
+  }
+}
 
 /**
  * Parse vitals text from prescription (e.g., "BP: 110/70, Temp: 102.7F, SpO2: 97%")
@@ -96,6 +123,7 @@ export default function ScanPage() {
   const { members } = useMembers();
   const { addRecord } = useRecords();
   const { addMedicine } = useMedicines();
+  const { addReminder } = useReminders();
   const { addMetric } = useHealthMetrics();
   const {
     videoRef,
@@ -285,8 +313,17 @@ export default function ScanPage() {
         [new File([capturedImage], "prescription.jpg", { type: "image/jpeg" })]
       );
 
+      // Save medicines + auto-create reminders. The whole point of scanning
+      // a prescription is to actually take the medicines on schedule —
+      // forcing the user to retype every med name + time on /reminders
+      // throws away the data the AI just extracted. Skip reminder creation
+      // for PRN ("as_needed") and custom frequencies — those genuinely
+      // need user input.
+      const memberName =
+        members.find((m) => m.id === selectedMemberId)?.name || "";
+      let remindersCreated = 0;
       for (const med of editedMedicines) {
-        await addMedicine({
+        const medicineId = await addMedicine({
           record_id: recordId,
           member_id: selectedMemberId,
           name: med.name,
@@ -296,6 +333,28 @@ export default function ScanPage() {
           before_food: med.before_food,
           start_date: new Date().toISOString().split("T")[0],
         });
+
+        const times = defaultReminderTimes(med.frequency);
+        for (const time of times) {
+          try {
+            await addReminder({
+              medicine_id: medicineId,
+              member_id: selectedMemberId,
+              medicine_name: med.name,
+              member_name: memberName,
+              dosage: med.dosage,
+              before_food: med.before_food,
+              time,
+              days: ALL_DAYS,
+              is_active: true,
+            });
+            remindersCreated++;
+          } catch (err) {
+            // Per-reminder failures shouldn't block the save — the medicine
+            // is already in. User can add reminders manually if needed.
+            console.warn(`Reminder create failed for ${med.name}:`, err);
+          }
+        }
       }
 
       // Auto-save vitals from prescription (BP, Temp, SpO2)
@@ -307,9 +366,12 @@ export default function ScanPage() {
       );
 
       const { shareMediFamily } = await import("@/lib/utils/share-app");
-      const vitalsMsg = savedVitals.length > 0 ? ` + ${savedVitals.join(", ")} saved to Vitals` : "";
+      const reminderMsg =
+        remindersCreated > 0 ? ` + ${remindersCreated} reminder(s) set` : "";
+      const vitalsMsg =
+        savedVitals.length > 0 ? ` + ${savedVitals.join(", ")} saved to Vitals` : "";
       toast.success(
-        `Saved prescription with ${editedMedicines.length} medicine(s)${vitalsMsg}`,
+        `Saved prescription with ${editedMedicines.length} medicine(s)${reminderMsg}${vitalsMsg}`,
         {
           duration: 6000,
           action: {
