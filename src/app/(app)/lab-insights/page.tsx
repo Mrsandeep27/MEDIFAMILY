@@ -15,6 +15,7 @@ import {
   Info,
   Save,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,6 +135,10 @@ interface LabInsight {
   lab_name?: string;
   markers: LabMarker[];
   summary: string;
+  /** AI-generated warm doctor-explaining-to-patient paragraph (4-6 sentences).
+   *  This is the headline insight the patient reads first — reads like a
+   *  doctor explaining results across the table, not a transcript. */
+  patient_summary?: string;
   urgent_attention?: string[];
 }
 
@@ -393,6 +398,13 @@ export default function LabInsightsPage() {
       // Sort by page number so markers appear in document order
       allResults.sort((a, b) => a.pageNum - b.pageNum);
 
+      // Track which page's patient_summary to keep — pick the page with
+      // the most markers (densest page = AI had most data to reason from).
+      // A 4-page PDF where page 1 is a cover sheet would produce a thin
+      // summary if we kept the first; pick the meatiest one instead.
+      let bestSummaryPage = -1;
+      let bestSummaryMarkerCount = -1;
+
       for (const result of allResults) {
         if (!result.data) {
           failedCount++;
@@ -403,6 +415,13 @@ export default function LabInsightsPage() {
         if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
         if (!aggregated.lab_name && pageData.lab_name) aggregated.lab_name = pageData.lab_name;
         if (!aggregated.report_date && pageData.report_date) aggregated.report_date = pageData.report_date;
+
+        const pageMarkerCount = Array.isArray(pageData.markers) ? pageData.markers.length : 0;
+        if (pageData.patient_summary && pageMarkerCount > bestSummaryMarkerCount) {
+          aggregated.patient_summary = pageData.patient_summary;
+          bestSummaryPage = result.pageNum;
+          bestSummaryMarkerCount = pageMarkerCount;
+        }
 
         if (Array.isArray(pageData.markers)) {
           for (const m of pageData.markers) {
@@ -431,6 +450,7 @@ export default function LabInsightsPage() {
           }
         }
       }
+      void bestSummaryPage; // tracked for diagnostics if needed
 
       aggregated.markers = Array.from(markersByKey.values());
 
@@ -598,6 +618,25 @@ export default function LabInsightsPage() {
               </CardContent>
             </Card>
 
+            {/* Doctor's Note — AI-generated warm explanation, the headline
+                a patient reads first. Renders above urgent-attention so it
+                sets the tone before any red banner. */}
+            {insights.patient_summary && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-semibold text-primary">
+                      Doctor&apos;s Note
+                    </p>
+                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-line">
+                    {insights.patient_summary}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Urgent Attention */}
             {insights.urgent_attention && insights.urgent_attention.length > 0 && (
               <Card className="border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950">
@@ -615,8 +654,10 @@ export default function LabInsightsPage() {
               </Card>
             )}
 
-            {/* Summary */}
-            {insights.summary && (
+            {/* One-line headline summary — kept as a quick stat strip below
+                the Doctor's Note. Hidden if patient_summary exists to avoid
+                redundancy. */}
+            {insights.summary && !insights.patient_summary && (
               <Card className="bg-muted/50">
                 <CardContent className="py-3">
                   <p className="text-sm">{insights.summary}</p>
