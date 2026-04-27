@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db/dexie";
 import {
   Upload,
   FileText,
@@ -166,6 +168,23 @@ export default function LabInsightsPage() {
   const [saved, setSaved] = useState(false);
   // Multi-page PDF progress state
   const [pageProgress, setPageProgress] = useState<{ current: number; total: number; stage: "rendering" | "analyzing" | "" }>({ current: 0, total: 0, stage: "" });
+
+  // Live count of saved lab_reports for the selected member, used to
+  // gate the "Compare with Previous Report" button — only show it once
+  // the member has at least 2 reports (one prior + the one just saved).
+  // Reactive via Dexie's useLiveQuery so it updates instantly after save.
+  const memberLabReportCount = useLiveQuery(
+    async () => {
+      if (!selectedMemberId) return 0;
+      const recs = await db.records
+        .where("member_id")
+        .equals(selectedMemberId)
+        .filter((r) => !r.is_deleted && r.type === "lab_report")
+        .toArray();
+      return recs.length;
+    },
+    [selectedMemberId]
+  ) ?? 0;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -908,11 +927,12 @@ export default function LabInsightsPage() {
                       Report saved to {members.find((m) => m.id === selectedMemberId)?.name || "member"}&apos;s records
                     </span>
                   </div>
-                  {/* Compare button — only enabled if member has another
-                      saved lab_report aside from the one just saved. */}
-                  {selectedMemberId && (
+                  {/* Compare button — only when this member has 2+ saved
+                      lab_reports (this one + at least one prior).
+                      Hidden on the first-ever report (nothing to compare). */}
+                  {selectedMemberId && memberLabReportCount >= 2 && (
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       className="w-full"
                       onClick={() => router.push(`/lab-compare/${selectedMemberId}`)}
@@ -920,6 +940,12 @@ export default function LabInsightsPage() {
                       <ArrowLeftRight className="h-4 w-4 mr-2" />
                       Compare with Previous Report
                     </Button>
+                  )}
+                  {selectedMemberId && memberLabReportCount === 1 && (
+                    <p className="text-xs text-muted-foreground">
+                      First report saved. Upload another report later to see
+                      what improved or worsened over time.
+                    </p>
                   )}
                 </CardContent>
               </Card>
