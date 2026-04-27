@@ -45,13 +45,24 @@ For ABNORMAL markers (low/high/critical), the "explanation" must include:
 And "advice" must be ACTIONABLE in 1-2 short sentences (specific food/lifestyle suggestion, OR which doctor specialty to consult, OR "recheck in 4 weeks", OR "see doctor soon"). Avoid vague advice like "consult your doctor". Be specific: "see a hematologist" or "eat iron-rich foods like spinach, jaggery, dates" or "reduce fried food and walk 30 min daily".
 
 PATIENT_SUMMARY (the most important field — write this LAST, after extracting everything):
-A warm, plain-language paragraph (4-6 sentences) explaining what the report says overall, like you're talking to a patient sitting across from you. Cover:
-  - The headline ("Most things look fine, but two values caught my eye" OR "Your diabetes control looks excellent this time")
-  - Group abnormal findings into themes (heart/cholesterol, sugar, liver, kidney, blood, thyroid) — don't list every marker
+A warm, plain-language paragraph (5-8 sentences) explaining what the report says overall, like you're talking to a patient sitting across from you.
+
+NEVER call abnormal findings "minor" or "nothing to worry about" if they include any of these red-flag patterns:
+  - Total cholesterol >= 240, LDL >= 130, Triglycerides >= 200, VLDL > 30 (dyslipidemia / heart disease risk)
+  - HbA1c >= 6.5 (diabetes) OR 5.7-6.4 (pre-diabetes)
+  - SGOT or SGPT > 1.5x upper limit (liver inflammation)
+  - Creatinine > 1.3 (kidney concern)
+  - TSH > 5 OR < 0.4 (thyroid disorder)
+  - Hemoglobin < 12, Platelets < 100k, WBC > 11k (significant blood abnormality)
+These ARE concerns — explicitly tell the patient to follow up with a doctor.
+
+Cover:
+  - Headline (lead with the most clinically important finding, not the easiest)
+  - Group abnormal findings by body system (heart/lipids, sugar, liver, kidney, blood, thyroid) — don't list every marker
   - What's likely going on in human terms ("Your bad cholesterol is creeping up — common with age and oily food")
-  - What to do next, in priority order ("First, recheck thyroid in 6 weeks. Diet matters more than you think for the cholesterol number.")
-  - End with a calm reassurance OR a clear "please see a doctor about X" if anything is genuinely urgent
-Use Hinglish naturally if locale is Hindi. NEVER write "the patient should..." — speak directly to them: "you should...".
+  - Next steps in priority order, naming the specialty (cardiologist, hepatologist, endocrinologist) or specific lifestyle change
+  - End with a clear next step OR a calm reassurance if everything is genuinely normal
+Use Hinglish naturally if locale is Hindi. NEVER write "the patient should..." — speak directly: "you should...".
 
 OUTPUT: single raw JSON, no markdown, no prose.
 {"patient_name":"exact name or null","report_date":"YYYY-MM-DD or null","lab_name":"exact lab name or null","markers":[{"name":"exact marker name as printed","value":"exact value with unit","normal_range":"exact range as printed","status":"normal|low|high|critical","explanation":"what this measures + why it might be off + how serious (for abnormal); short for normal","advice":"specific actionable next step for abnormal, empty string for normal"}],"summary":"2-3 sentence headline of what's important","patient_summary":"4-6 sentence warm doctor-explaining-to-patient paragraph (THIS is the main field a patient reads)","urgent_attention":["only markers that are critically abnormal — empty array if none"]}
@@ -69,7 +80,19 @@ export async function POST(request: NextRequest) {
     if (quotaBlock) return NextResponse.json(quotaBlock.body, { status: quotaBlock.status });
 
     const body = await request.json();
-    const { text, image, locale } = body;
+    const { text, image, locale, mode, markers } = body;
+
+    // Holistic-summary mode: client has aggregated markers from all PDF
+    // pages and wants ONE patient_summary written from the full picture
+    // (cardiac findings on page 5 + liver findings on page 6 should land
+    // in the same summary, not get lost when picking from a per-page
+    // result). Triggered when client passes mode === "summary".
+    if (mode === "summary") {
+      if (!Array.isArray(markers) || markers.length === 0) {
+        return NextResponse.json({ error: "No markers provided" }, { status: 400 });
+      }
+      return await generateHolisticSummary(markers, locale);
+    }
 
     if (!text && !image) {
       return NextResponse.json({ error: "No report data provided" }, { status: 400 });
@@ -128,5 +151,94 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Lab insights error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// System prompt for holistic summary — the model only gets a JSON list of
+// already-extracted markers and must reason across the FULL report. No
+// extraction, no transcription. Just doctor-explaining-to-patient prose.
+const HOLISTIC_SUMMARY_SYSTEM = `You are a senior Indian doctor with 20 years of clinical experience. You have ALREADY extracted every marker from a multi-page lab report; the markers are given to you as JSON. Your only job now is to write one warm, plain-language paragraph that a 50-year-old layperson can read and understand what's actually going on in their body.
+
+CRITICAL RULES:
+1. NEVER call abnormal findings "minor" or "nothing to worry about" if they include any of these red-flag patterns:
+   - Total cholesterol >= 240 (high cardiac risk)
+   - LDL >= 130 OR Triglycerides >= 200 OR VLDL > 30 (dyslipidemia)
+   - HbA1c >= 6.5 (diabetes) OR 5.7-6.4 (pre-diabetes)
+   - SGOT or SGPT > 1.5x upper limit (liver inflammation)
+   - Creatinine > 1.3 OR eGFR < 60 (kidney concern)
+   - TSH > 5 OR < 0.4 (thyroid disorder)
+   - Hemoglobin < 12 OR Platelets < 100k OR WBC > 11k (significant blood abnormality)
+   These ARE concerns and you MUST clearly tell the patient to follow up with a doctor.
+
+2. Group abnormal findings by body system (heart/lipids, sugar, liver, kidney, blood, thyroid). Don't list every marker — explain the THEME.
+
+3. Prioritize: lead with the most clinically important finding, not the easiest to explain.
+
+4. Be specific in advice: name the specialty (cardiologist, hepatologist, endocrinologist) or the lifestyle change (cut down ghee/fried food, walk 30 min daily, recheck in 6 weeks).
+
+5. End with: a clear next step ("see a cardiologist within 2-4 weeks") OR a calm reassurance if everything is genuinely normal. Never end vaguely.
+
+6. 5-8 sentences. Conversational. Speak directly to the patient ("your cholesterol is..." not "the patient's cholesterol is...").
+
+7. If locale is "hi", use Hinglish naturally (Devanagari script for Hindi words is fine, but English medical terms can stay English).
+
+OUTPUT: single raw JSON, no markdown, no prose around it.
+{"patient_summary":"the warm 5-8 sentence paragraph","urgent_attention":["specific marker names that need urgent doctor follow-up — empty array if none"]}`;
+
+async function generateHolisticSummary(
+  markers: Array<{
+    name?: string;
+    value?: string;
+    normal_range?: string;
+    status?: string;
+  }>,
+  locale: string
+) {
+  // Compact the markers to keep prompt small — only include what the model
+  // needs to reason. Drop explanation/advice (already written per-marker on
+  // first pass; not needed for cross-marker reasoning).
+  const compact = markers
+    .filter((m) => m && m.name)
+    .map((m) => ({
+      name: m.name,
+      value: m.value,
+      range: m.normal_range,
+      status: m.status,
+    }));
+
+  const langFlag =
+    locale === "hi"
+      ? "Reply in Hinglish (Hindi mixed with English medical terms is fine)."
+      : "Reply in simple English.";
+
+  const userPrompt = `Here are all the lab markers extracted from this patient's report. Write the holistic patient_summary now.\n\n${langFlag}\n\nMarkers:\n${JSON.stringify(compact)}`;
+
+  try {
+    const response = await callGemini(
+      [{ text: userPrompt }],
+      {
+        feature: "lab-summary",
+        jsonMode: true,
+        maxOutputTokens: 1200,
+        // Slightly higher temp for natural prose — extraction-anchored
+        // accuracy isn't a concern here (no extraction happening).
+        temperature: 0.3,
+        systemInstruction: HOLISTIC_SUMMARY_SYSTEM,
+      }
+    );
+    const parsed = parseJsonResponse(response);
+    return NextResponse.json({
+      patient_summary:
+        typeof parsed.patient_summary === "string" ? parsed.patient_summary : "",
+      urgent_attention: Array.isArray(parsed.urgent_attention)
+        ? parsed.urgent_attention
+        : [],
+    });
+  } catch (err) {
+    console.error("Holistic summary error:", err);
+    return NextResponse.json(
+      { error: `Summary failed: ${err instanceof Error ? err.message : "Please try again"}` },
+      { status: 500 }
+    );
   }
 }

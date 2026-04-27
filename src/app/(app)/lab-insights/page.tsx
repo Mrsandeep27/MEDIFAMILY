@@ -398,13 +398,11 @@ export default function LabInsightsPage() {
       // Sort by page number so markers appear in document order
       allResults.sort((a, b) => a.pageNum - b.pageNum);
 
-      // Track which page's patient_summary to keep — pick the page with
-      // the most markers (densest page = AI had most data to reason from).
-      // A 4-page PDF where page 1 is a cover sheet would produce a thin
-      // summary if we kept the first; pick the meatiest one instead.
-      let bestSummaryPage = -1;
-      let bestSummaryMarkerCount = -1;
-
+      // Aggregate markers + metadata across pages. The per-page
+      // patient_summary fields are intentionally discarded — a single page
+      // can only see its own markers, so a CBC-page summary would miss the
+      // dyslipidemia on the lipid page. We make one final holistic call
+      // below that sees the FULL marker set.
       for (const result of allResults) {
         if (!result.data) {
           failedCount++;
@@ -415,13 +413,6 @@ export default function LabInsightsPage() {
         if (!aggregated.patient_name && pageData.patient_name) aggregated.patient_name = pageData.patient_name;
         if (!aggregated.lab_name && pageData.lab_name) aggregated.lab_name = pageData.lab_name;
         if (!aggregated.report_date && pageData.report_date) aggregated.report_date = pageData.report_date;
-
-        const pageMarkerCount = Array.isArray(pageData.markers) ? pageData.markers.length : 0;
-        if (pageData.patient_summary && pageMarkerCount > bestSummaryMarkerCount) {
-          aggregated.patient_summary = pageData.patient_summary;
-          bestSummaryPage = result.pageNum;
-          bestSummaryMarkerCount = pageMarkerCount;
-        }
 
         if (Array.isArray(pageData.markers)) {
           for (const m of pageData.markers) {
@@ -441,16 +432,7 @@ export default function LabInsightsPage() {
             }
           }
         }
-
-        if (Array.isArray(pageData.urgent_attention)) {
-          for (const u of pageData.urgent_attention) {
-            if (u && !aggregated.urgent_attention!.includes(u)) {
-              aggregated.urgent_attention!.push(u);
-            }
-          }
-        }
       }
-      void bestSummaryPage; // tracked for diagnostics if needed
 
       aggregated.markers = Array.from(markersByKey.values());
 
@@ -474,12 +456,53 @@ export default function LabInsightsPage() {
       // Step 4: generate overall summary from sorted markers
       aggregated.summary = buildLocalSummary(aggregated.markers);
 
+      // Step 5: render extraction immediately so the user sees results
+      // without waiting on the holistic summary call.
       setInsights(aggregated);
       if (aggregated.patient_name) autoSelectMemberFromReport(aggregated.patient_name);
 
       const abnormal = aggregated.markers.filter((m) => m.status !== "normal").length;
       if (abnormal > 0) toast.warning(`${abnormal} marker(s) need attention`);
       else toast.success(`All ${aggregated.markers.length} markers look normal!`);
+
+      // Step 6: holistic patient_summary — one final Gemini call that sees
+      // ALL markers across pages, so it can group findings by body system
+      // (cardiac on page 5 + liver on page 6 land in the same paragraph).
+      // Without this, per-page summaries each see only a slice and call the
+      // report "mostly fine" because their slice was fine. Async — render
+      // markers first, summary streams in below.
+      try {
+        const summaryRes = await fetch("/api/lab-insights", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            mode: "summary",
+            locale,
+            markers: aggregated.markers.map((m) => ({
+              name: m.name,
+              value: m.value,
+              normal_range: m.normal_range,
+              status: m.status,
+            })),
+          }),
+        });
+        if (summaryRes.ok) {
+          const sumData = await summaryRes.json();
+          if (sumData.patient_summary) {
+            setInsights((prev) => prev ? {
+              ...prev,
+              patient_summary: sumData.patient_summary,
+              urgent_attention: Array.isArray(sumData.urgent_attention) && sumData.urgent_attention.length > 0
+                ? sumData.urgent_attention
+                : prev.urgent_attention,
+            } : prev);
+          }
+        }
+      } catch (e) {
+        // Summary failure is non-fatal — markers + per-marker explanations
+        // are still shown. Log for diagnosis.
+        console.warn("Holistic summary failed:", e);
+      }
     } catch (err) {
       console.error("PDF analysis failed:", err);
       toast.error("Failed to analyze PDF. Please try again.");
