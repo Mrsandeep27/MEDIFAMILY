@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     if (quotaBlock) return NextResponse.json(quotaBlock.body, { status: quotaBlock.status });
 
     const body = await request.json();
-    const { text, image, locale, mode, markers } = body;
+    const { text, image, locale, mode, markers, comparison } = body;
 
     // Holistic-summary mode: client has aggregated markers from all PDF
     // pages and wants ONE patient_summary written from the full picture
@@ -105,6 +105,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "No markers provided" }, { status: 400 });
       }
       return await generateHolisticSummary(markers, locale);
+    }
+
+    // Compare mode: client has already computed a delta between two
+    // reports (improved/worsened/stable arrays). We just need a warm
+    // doctor-style trend summary.
+    if (mode === "compare") {
+      if (!comparison || typeof comparison !== "object") {
+        return NextResponse.json({ error: "No comparison data provided" }, { status: 400 });
+      }
+      return await generateTrendSummary(comparison, locale);
     }
 
     if (!text && !image) {
@@ -271,6 +281,92 @@ async function generateHolisticSummary(
     console.error("Holistic summary error:", err);
     return NextResponse.json(
       { error: `Summary failed: ${err instanceof Error ? err.message : "Please try again"}` },
+      { status: 500 }
+    );
+  }
+}
+
+// Trend-summary system prompt. The diff is already computed client-side
+// (improved/worsened/stable). The model writes one warm paragraph
+// explaining what the trend means in real-life terms, like a doctor
+// summarizing two visits' results.
+const TREND_SUMMARY_SYSTEM = `You are a senior Indian doctor reviewing two of the patient's lab reports side by side. The client has ALREADY computed which markers got better, worse, or stayed stable. Your job is to write one warm, plain-language paragraph (4-7 sentences) explaining what the trend means.
+
+Speak directly to the patient ("Your cholesterol came down nicely..." not "The patient's cholesterol..."). Use Hinglish naturally if locale is Hindi.
+
+PRIORITIZE in this order:
+1. Significant improvements in clinically important markers (HbA1c, cholesterol, triglycerides, SGPT, creatinine, TSH, hemoglobin) — celebrate these specifically with the actual numbers.
+2. Significant worsenings in clinically important markers — flag with concern, give specific advice (diet, recheck, see specialist).
+3. New abnormal findings that weren't on the previous report — flag explicitly.
+4. Things that resolved (was abnormal, now normal) — call this out as a win.
+5. Stable abnormal findings (still high) — note that whatever is being done isn't bringing them down, suggest re-evaluation.
+
+DO NOT:
+- List every marker that changed by 1-2% — those are noise.
+- Mention WBC differential percentage shifts unless dramatic.
+- Be bland ("some things changed"). Name specifics.
+- Use jargon — say "blood sugar control" not "glycemic index", "liver" not "hepatic".
+
+If the trend is broadly positive: end with encouragement to continue what they're doing.
+If the trend is broadly negative: end with a clear next step (see cardiologist within 4 weeks / book follow-up appt / restart medication discussion with doctor).
+If mixed: lead with the most important change, give one clear next step.
+
+OUTPUT: single raw JSON, no markdown.
+{"trend_summary":"the 4-7 sentence warm doctor explanation","verdict":"improved|worsened|mixed|stable","headline":"6-10 word headline like 'Diabetes control improving, cholesterol still high'"}`;
+
+interface ComparisonInput {
+  prev_date?: string;
+  curr_date?: string;
+  improved?: Array<{ name: string; prev: string; curr: string; delta: string }>;
+  worsened?: Array<{ name: string; prev: string; curr: string; delta: string }>;
+  stable?: Array<{ name: string; prev: string; curr: string }>;
+  new_abnormal?: Array<{ name: string; curr: string; status: string }>;
+  resolved?: Array<{ name: string; prev: string; curr: string }>;
+}
+
+async function generateTrendSummary(comparison: ComparisonInput, locale: string) {
+  // Trim each list to 8 entries max so the prompt stays compact even on
+  // dense reports. The model only needs the headline movers; per-marker
+  // detail is rendered client-side from the diff anyway.
+  const trim = <T,>(arr: T[] | undefined) => Array.isArray(arr) ? arr.slice(0, 8) : [];
+  const compact = {
+    prev_date: comparison.prev_date,
+    curr_date: comparison.curr_date,
+    improved: trim(comparison.improved),
+    worsened: trim(comparison.worsened),
+    new_abnormal: trim(comparison.new_abnormal),
+    resolved: trim(comparison.resolved),
+    stable_abnormal: trim(comparison.stable),
+  };
+
+  const langFlag =
+    locale === "hi"
+      ? "Reply in Hinglish (Hindi + English medical terms)."
+      : "Reply in simple English.";
+
+  const userPrompt = `Compare these two lab reports and write the trend summary.\n\n${langFlag}\n\nDiff:\n${JSON.stringify(compact)}`;
+
+  try {
+    const response = await callGemini(
+      [{ text: userPrompt }],
+      {
+        feature: "lab-compare",
+        jsonMode: true,
+        maxOutputTokens: 800,
+        temperature: 0.3,
+        systemInstruction: TREND_SUMMARY_SYSTEM,
+      }
+    );
+    const parsed = parseJsonResponse(response);
+    return NextResponse.json({
+      trend_summary: typeof parsed.trend_summary === "string" ? parsed.trend_summary : "",
+      verdict: typeof parsed.verdict === "string" ? parsed.verdict : "mixed",
+      headline: typeof parsed.headline === "string" ? parsed.headline : "",
+    });
+  } catch (err) {
+    console.error("Trend summary error:", err);
+    return NextResponse.json(
+      { error: `Comparison failed: ${err instanceof Error ? err.message : "Please try again"}` },
       { status: 500 }
     );
   }

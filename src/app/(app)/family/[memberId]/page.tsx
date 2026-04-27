@@ -257,6 +257,27 @@ export default function MemberDetailPage({
           </div>
         )}
 
+        {/* Compare Lab Reports CTA — only when member has 2+ saved
+            lab_reports. Tapping opens the side-by-side trend view. */}
+        {(records || []).filter((r) => r.type === "lab_report").length >= 2 && (
+          <Link
+            href={`/lab-compare/${memberId}`}
+            className="block rounded-2xl border border-[#4A3B7A]/20 bg-white p-3.5 active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-[#4A3B7A]/10 text-[#4A3B7A] flex items-center justify-center shrink-0">
+                <ArrowUpRight className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-foreground">Compare Lab Reports</p>
+                <p className="text-[11px] text-muted-foreground">
+                  See what got better or worse since the last test
+                </p>
+              </div>
+            </div>
+          </Link>
+        )}
+
         {/* Filter chips — plain-language + counts */}
         {!recordsLoading && (records || []).length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">

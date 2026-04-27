@@ -16,6 +16,7 @@ import {
   Save,
   Check,
   Sparkles,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -900,13 +901,26 @@ export default function LabInsightsPage() {
               </Card>
             ) : (
               <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/30">
-                <CardContent className="py-4">
+                <CardContent className="py-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Check className="h-5 w-5 text-green-600" />
                     <span className="text-sm font-semibold text-green-800 dark:text-green-300">
-                      Report saved to {members.find((m) => m.id === selectedMemberId)?.name || "member"}'s records
+                      Report saved to {members.find((m) => m.id === selectedMemberId)?.name || "member"}&apos;s records
                     </span>
                   </div>
+                  {/* Compare button — only enabled if member has another
+                      saved lab_report aside from the one just saved. */}
+                  {selectedMemberId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => router.push(`/lab-compare/${selectedMemberId}`)}
+                    >
+                      <ArrowLeftRight className="h-4 w-4 mr-2" />
+                      Compare with Previous Report
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
