@@ -16,6 +16,7 @@ import {
   Bell,
   Globe,
   HelpCircle,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -61,6 +62,8 @@ export default function MorePage() {
     setLanguage,
     notificationsEnabled,
     setNotificationsEnabled,
+    careHomeMode,
+    setCareHomeMode,
   } = useSettingsStore();
 
   const selfMember = members.find((m) => m.relation === "self");
@@ -148,6 +151,39 @@ export default function MorePage() {
                   {index < sharingItems.length - 1 && <Separator />}
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Care Home mode — flips the app between family and care-home
+            workflows. When ON: /residents replaces /family in nav, the
+            Daily Round screen is exposed, terminology shifts ("Add
+            Resident" instead of "Add Member"). One toggle, drives
+            everything via the settings store. */}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-2">
+            Workspace
+          </p>
+          <Card>
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Care Home Mode</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      For caretakers managing residents
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant={careHomeMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCareHomeMode(!careHomeMode)}
+                >
+                  {careHomeMode ? "On" : "Off"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

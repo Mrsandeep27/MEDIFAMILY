@@ -20,6 +20,13 @@ interface SettingsState {
   lastSyncAt: string | null;
   syncCursor: string | null;
 
+  // Care Home mode — when true, the app's UI flips to caretaker
+  // workflows: /family becomes /residents, "Add Member" becomes "Add
+  // Resident", a Daily Round entry appears in bottom nav. The data
+  // layer stays the same (members table with is_resident: true) so a
+  // user can switch modes without losing data.
+  careHomeMode: boolean;
+
   // Actions
   setPinEnabled: (enabled: boolean) => void;
   setPinHash: (hash: string | null) => void;
@@ -29,6 +36,7 @@ interface SettingsState {
   setQuietHours: (enabled: boolean, start?: string, end?: string) => void;
   setLastSyncAt: (timestamp: string | null) => void;
   setSyncCursor: (cursor: string | null) => void;
+  setCareHomeMode: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -44,6 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
       quietHoursEnd: "07:00",
       lastSyncAt: null,
       syncCursor: null,
+      careHomeMode: false,
 
       setPinEnabled: (enabled) => set({ pinEnabled: enabled }),
       setPinHash: (hash) => set({ pinHash: hash }),
@@ -59,6 +68,7 @@ export const useSettingsStore = create<SettingsState>()(
         })),
       setLastSyncAt: (timestamp) => set({ lastSyncAt: timestamp }),
       setSyncCursor: (cursor) => set({ syncCursor: cursor }),
+      setCareHomeMode: (enabled) => set({ careHomeMode: enabled }),
     }),
     {
       name: "medifamily-settings",

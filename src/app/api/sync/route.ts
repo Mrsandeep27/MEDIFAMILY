@@ -6,6 +6,10 @@ import { getMemberQuotaStatus } from "@/lib/ai/quota";
 const ALLOWED_TABLES = [
   "members", "health_records", "medicines", "reminders",
   "reminder_logs", "share_links", "health_metrics",
+  // Care Home tables. incidents are owned by member_id (cascade in /pull
+  // through memberIds set). care_home_shares are gated to the resident's
+  // member_id and carry the OTP-authorized phone, never the OTP itself.
+  "incidents", "care_home_shares",
 ];
 
 // Postgres error codes that will never succeed on retry. Anything in this set
@@ -49,13 +53,15 @@ async function getFamilyUserIds(userId: string): Promise<Set<string>> {
 }
 
 const ALLOWED_FIELDS: Record<string, Set<string>> = {
-  members: new Set(["id", "name", "relation", "date_of_birth", "blood_group", "gender", "allergies", "chronic_conditions", "emergency_contact_name", "emergency_contact_phone", "avatar_url", "is_deleted", "created_at", "updated_at"]),
+  members: new Set(["id", "name", "relation", "date_of_birth", "blood_group", "gender", "allergies", "chronic_conditions", "emergency_contact_name", "emergency_contact_phone", "avatar_url", "is_deleted", "created_at", "updated_at", "is_resident", "room_no", "admission_date", "discharged_at", "discharge_reason"]),
   health_records: new Set(["id", "member_id", "type", "title", "doctor_name", "hospital_name", "visit_date", "diagnosis", "notes", "image_urls", "raw_ocr_text", "ai_extracted", "tags", "is_deleted", "created_at", "updated_at"]),
   medicines: new Set(["id", "record_id", "member_id", "name", "dosage", "frequency", "duration", "before_food", "start_date", "end_date", "is_active", "is_deleted", "created_at", "updated_at"]),
   reminders: new Set(["id", "medicine_id", "member_id", "medicine_name", "member_name", "dosage", "before_food", "time", "days", "is_active", "is_deleted", "created_at", "updated_at"]),
   reminder_logs: new Set(["id", "reminder_id", "scheduled_at", "status", "acted_at", "is_deleted", "created_at", "updated_at"]),
   share_links: new Set(["id", "member_id", "created_by", "token", "record_ids", "expires_at", "is_active", "is_deleted", "created_at", "updated_at"]),
   health_metrics: new Set(["id", "member_id", "type", "value", "recorded_at", "notes", "is_deleted", "created_at", "updated_at"]),
+  incidents: new Set(["id", "member_id", "type", "occurred_at", "notes", "action_taken", "caretaker_id", "is_deleted", "created_at", "updated_at"]),
+  care_home_shares: new Set(["id", "member_id", "token", "authorized_phone", "expires_at", "revoked_at", "last_accessed_at", "created_by", "is_deleted", "created_at", "updated_at"]),
 };
 
 function sanitizeItem(table: string, item: Record<string, unknown>): Record<string, unknown> {

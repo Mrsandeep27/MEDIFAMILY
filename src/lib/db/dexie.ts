@@ -16,6 +16,8 @@ import type {
   Routine,
   GymSession,
   GymSet,
+  Incident,
+  CareHomeShare,
 } from "./schema";
 
 class MediFamilyDB extends Dexie {
@@ -35,6 +37,8 @@ class MediFamilyDB extends Dexie {
   routines!: Table<Routine>;
   gymSessions!: Table<GymSession>;
   gymSets!: Table<GymSet>;
+  incidents!: Table<Incident>;
+  careHomeShares!: Table<CareHomeShare>;
 
   constructor() {
     super("medifamily");
@@ -149,6 +153,46 @@ class MediFamilyDB extends Dexie {
         "id, user_id, date, routine_id, sync_status, is_deleted, [user_id+date]",
       gymSets:
         "id, session_id, exercise_id, sync_status, [session_id+exercise_id]",
+    });
+
+    // v6: Care Home — incidents table + is_resident index on members
+    // for /residents and /round queries to be fast on 50-resident homes.
+    // Existing family-only data is unaffected (is_resident undefined
+    // sorts identically to false). All previous tables re-stated
+    // verbatim because Dexie requires the full schema in each version.
+    this.version(6).stores({
+      members:
+        "id, user_id, name, relation, sync_status, is_deleted, is_resident, [user_id+is_deleted], [user_id+is_resident]",
+      records:
+        "id, member_id, type, visit_date, title, sync_status, is_deleted, *tags, [member_id+is_deleted], [member_id+type]",
+      medicines:
+        "id, record_id, member_id, name, is_active, sync_status, is_deleted, [member_id+is_active], [member_id+is_deleted]",
+      reminders:
+        "id, medicine_id, member_id, is_active, time, sync_status, is_deleted, [member_id+is_active], [member_id+is_deleted]",
+      reminderLogs: "id, reminder_id, scheduled_at, status, sync_status",
+      shareLinks: "id, member_id, token, is_active, expires_at, sync_status, [member_id+is_active]",
+      shareAccessLogs: "id, share_link_id, accessed_at",
+      healthMetrics:
+        "id, member_id, type, recorded_at, sync_status, is_deleted, [member_id+type], [member_id+is_deleted]",
+      wellnessEntries:
+        "id, user_id, date, sync_status, is_deleted, [user_id+date], [user_id+is_deleted]",
+      workouts:
+        "id, user_id, date, type, sync_status, is_deleted, [user_id+date], [user_id+is_deleted]",
+      foodLogs:
+        "id, user_id, date, meal, sync_status, is_deleted, [user_id+date], [user_id+is_deleted]",
+      wellnessGoals: "id, user_id, sync_status, is_deleted",
+      exercises:
+        "id, user_id, name, muscle_group, is_preset, sync_status, is_deleted",
+      routines:
+        "id, user_id, name, sync_status, is_deleted, [user_id+is_deleted]",
+      gymSessions:
+        "id, user_id, date, routine_id, sync_status, is_deleted, [user_id+date]",
+      gymSets:
+        "id, session_id, exercise_id, sync_status, [session_id+exercise_id]",
+      incidents:
+        "id, member_id, type, occurred_at, sync_status, is_deleted, [member_id+is_deleted]",
+      careHomeShares:
+        "id, member_id, token, authorized_phone, sync_status, is_deleted, [member_id+is_deleted]",
     });
   }
 }

@@ -20,6 +20,10 @@ const TABLES_TO_SYNC = [
   { local: "reminderLogs", remote: "reminder_logs" },
   { local: "shareLinks", remote: "share_links" },
   { local: "healthMetrics", remote: "health_metrics" },
+  // Care Home — incidents are scoped by member_id (cascade through
+  // existing memberIds set on server). care_home_shares similarly.
+  { local: "incidents", remote: "incidents" },
+  { local: "careHomeShares", remote: "care_home_shares" },
   // Wellness tables are intentionally local-only until the Prisma schema
   // + Supabase tables land in a follow-up. The feature works offline-first
   // on the current device either way.

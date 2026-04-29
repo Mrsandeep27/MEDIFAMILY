@@ -58,6 +58,68 @@ export interface Member extends SyncMeta {
   abha_number?: string;
   abha_address?: string;
   created_at: string;
+
+  // Care Home fields. When is_resident = true, the member belongs to a
+  // care home workspace (caretaker-managed, room-based, billed per head).
+  // Existing family members keep is_resident = undefined and behave
+  // identically to before.
+  is_resident?: boolean;
+  room_no?: string;
+  admission_date?: string;
+  /** Set when resident leaves (deceased / went home / transferred). When
+   *  set, the resident is hidden from the active list and excluded from
+   *  billing, but data is retained for compliance. */
+  discharged_at?: string;
+  discharge_reason?: string;
+}
+
+// ============================================================
+// Incidents (Care Home — falls, hospital transfers, etc.)
+// ============================================================
+
+export type IncidentType = "fall" | "illness" | "hospital" | "other";
+
+export interface Incident extends SyncMeta {
+  id: string;
+  member_id: string;
+  type: IncidentType;
+  occurred_at: string; // ISO timestamp — when the incident happened
+  notes: string; // What happened
+  action_taken: string; // What was done about it
+  /** ID of the caretaker who logged it. Used for the audit trail. */
+  caretaker_id: string;
+  created_at: string;
+}
+
+// ============================================================
+// Care Home Family Shares (phone-OTP gated read-only links)
+// ============================================================
+
+/**
+ * Read-only share link for a resident's family/next-of-kin. Differs from
+ * the existing ShareLink (doctor share) in two ways:
+ *   - Gated by phone OTP (recipient must verify their phone before access)
+ *   - Long-lived (months, not hours) — family checks in regularly
+ *
+ * Token is the URL-safe identifier embedded in the public link. The
+ * authorized phone is recorded at creation; family enters that phone and
+ * receives an OTP, which proves they're the intended recipient.
+ */
+export interface CareHomeShare extends SyncMeta {
+  id: string;
+  member_id: string;
+  /** Public token in the URL — random 32-char URL-safe string. */
+  token: string;
+  /** E.164 phone of the family member who can access this link. */
+  authorized_phone: string;
+  /** Optional expiry. Null = active until manually revoked. */
+  expires_at: string | null;
+  /** Set when caretaker manually revokes — link stops working. */
+  revoked_at: string | null;
+  /** Last time someone successfully opened the link (post-OTP). For audit. */
+  last_accessed_at: string | null;
+  created_by: string; // caretaker user_id
+  created_at: string;
 }
 
 // ============================================================
