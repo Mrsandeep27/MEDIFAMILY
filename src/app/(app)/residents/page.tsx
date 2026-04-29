@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, ChevronRight, Building2, Play } from "lucide-react";
+import { Plus, ChevronRight, Building2, Play, Upload } from "lucide-react";
 import { useResidents } from "@/hooks/use-residents";
 import { LoadingSpinner } from "@/components/common/loading-spinner";
 import { EmptyState } from "@/components/common/empty-state";
@@ -122,7 +122,9 @@ export default function ResidentsPage() {
           </>
         )}
 
-        {/* Add resident — always visible at bottom of list */}
+        {/* Add resident — single + bulk options. Single is the primary
+            action (centred + filled); bulk surfaces below as the secondary
+            path for care homes onboarding from a register. */}
         <Link
           href="/residents/add"
           className="flex items-center gap-3 rounded-2xl bg-card border-[1.5px] border-dashed border-[#C7C7C0] px-3.5 py-3 active:scale-[0.99] transition-transform mt-3"
@@ -136,6 +138,24 @@ export default function ResidentsPage() {
             </p>
             <p className="font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">
               Name + room — 30 seconds
+            </p>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        </Link>
+
+        <Link
+          href="/residents/bulk"
+          className="flex items-center gap-3 rounded-2xl bg-card border border-border/40 px-3.5 py-2.5 active:scale-[0.99] transition-transform"
+        >
+          <div className="h-9 w-9 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+            <Upload className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold tracking-tight">
+              Bulk upload CSV
+            </p>
+            <p className="text-[10.5px] text-muted-foreground">
+              For onboarding from an existing register
             </p>
           </div>
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />

@@ -25,6 +25,7 @@
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
     "jsonwebtoken": "^9.0.3",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "motion": "^12.38.0",
     "next": "16.1.7",

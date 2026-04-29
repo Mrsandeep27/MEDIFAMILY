@@ -1,9 +1,10 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
+import { toast } from "sonner";
 import {
   ChevronLeft,
   Phone,
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   Share2,
   Plus,
+  FileText,
 } from "lucide-react";
 import { db } from "@/lib/db/dexie";
 import { useMember } from "@/hooks/use-members";
@@ -70,6 +72,33 @@ export default function ResidentProfilePage({
   const router = useRouter();
   const { member: resident, isLoading } = useMember(id);
   const { incidents } = useIncidents(id);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleGenerateReport = async () => {
+    if (!resident) return;
+    setGeneratingPdf(true);
+    try {
+      // Lazy-load — jspdf is ~150KB and only the caretaker generating
+      // a report needs it. Keeps initial bundle smaller for everyone else.
+      const { generateComplianceReport } = await import(
+        "@/lib/care-home/compliance-pdf"
+      );
+      const blob = await generateComplianceReport({ resident });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const monthLabel = new Date().toISOString().slice(0, 7);
+      a.href = url;
+      a.download = `${resident.name.replace(/\s+/g, "_")}_${monthLabel}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded");
+    } catch (err) {
+      console.error("Generate PDF failed:", err);
+      toast.error("Couldn't generate report");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   // Active medicines for this resident
   const medicines = useLiveQuery(
@@ -135,13 +164,24 @@ export default function ResidentProfilePage({
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <Link
-            href={`/residents/${id}/share`}
-            className="inline-flex items-center gap-1.5 rounded-full bg-background/10 px-3 py-1.5 text-[12px] font-bold active:scale-[0.97]"
-          >
-            <Share2 className="h-3 w-3" />
-            Share
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateReport}
+              disabled={generatingPdf}
+              className="inline-flex items-center gap-1.5 rounded-full bg-background/10 px-3 py-1.5 text-[12px] font-bold active:scale-[0.97] disabled:opacity-50"
+            >
+              <FileText className="h-3 w-3" />
+              {generatingPdf ? "..." : "Report"}
+            </button>
+            <Link
+              href={`/residents/${id}/share`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-background/10 px-3 py-1.5 text-[12px] font-bold active:scale-[0.97]"
+            >
+              <Share2 className="h-3 w-3" />
+              Share
+            </Link>
+          </div>
         </div>
 
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-background/60">
