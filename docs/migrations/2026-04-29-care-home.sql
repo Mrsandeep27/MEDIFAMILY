@@ -18,15 +18,17 @@ CREATE INDEX IF NOT EXISTS members_user_resident_idx
 CREATE INDEX IF NOT EXISTS members_user_active_resident_idx
   ON public.members (user_id) WHERE is_resident IS TRUE AND discharged_at IS NULL;
 
--- 2. Incidents table — caretaker-logged events for residents
+-- 2. Incidents table — caretaker-logged events for residents.
+-- IDs are TEXT (not uuid) to match the existing members.id type and the
+-- client-generated UUIDs from Dexie sync.
 CREATE TABLE IF NOT EXISTS public.incidents (
-  id              uuid        PRIMARY KEY,
-  member_id       uuid        NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  id              text        PRIMARY KEY,
+  member_id       text        NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   type            text        NOT NULL,  -- 'fall' | 'illness' | 'hospital' | 'other'
   occurred_at     timestamptz NOT NULL,
   notes           text        NOT NULL DEFAULT '',
   action_taken    text        NOT NULL DEFAULT '',
-  caretaker_id    uuid        NOT NULL,
+  caretaker_id    text        NOT NULL,
   is_deleted      boolean     NOT NULL DEFAULT false,
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
@@ -38,16 +40,17 @@ CREATE INDEX IF NOT EXISTS incidents_member_id_idx
 CREATE INDEX IF NOT EXISTS incidents_occurred_at_idx
   ON public.incidents (member_id, occurred_at DESC) WHERE is_deleted IS FALSE;
 
--- 3. Care Home shares — phone-OTP-gated read-only links for family
+-- 3. Care Home shares — phone-OTP-gated read-only links for family.
+-- IDs are TEXT to match members.id and the client-generated UUIDs.
 CREATE TABLE IF NOT EXISTS public.care_home_shares (
-  id                 uuid        PRIMARY KEY,
-  member_id          uuid        NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  id                 text        PRIMARY KEY,
+  member_id          text        NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   token              text        NOT NULL UNIQUE,
   authorized_phone   text        NOT NULL,
   expires_at         timestamptz,
   revoked_at         timestamptz,
   last_accessed_at   timestamptz,
-  created_by         uuid        NOT NULL,
+  created_by         text        NOT NULL,
   is_deleted         boolean     NOT NULL DEFAULT false,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now()
