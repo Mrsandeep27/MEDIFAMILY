@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
-import { MONTHLY_AI_QUOTA, AI_FEATURES } from "@/constants/config";
+import {
+  MONTHLY_AI_QUOTA,
+  AI_FEATURES,
+  DEFAULT_MEMBER_CAP,
+} from "@/constants/config";
 
 // Type guard — the userOverride model may not exist on the Prisma client
 // if a deployment is running with a stale generated client (build cache).
@@ -7,6 +11,7 @@ import { MONTHLY_AI_QUOTA, AI_FEATURES } from "@/constants/config";
 // request with TypeError "Cannot read properties of undefined".
 type UserOverrideRow = {
   ai_quota_limit: number | null;
+  member_cap: number | null;
   plan: string | null;
 } | null;
 
@@ -158,3 +163,73 @@ export type QuotaExceededBody = {
   limit: number;
   resetsAt: string;
 };
+
+// ─── Member cap (Family-plan member limit) ────────────────────────────────
+
+export type MemberQuotaStatus = {
+  used: number;
+  limit: number;
+  remaining: number;
+  exceeded: boolean;
+  unlimited: boolean;
+  plan: string | null;
+};
+
+/**
+ * How many active (non-deleted) members the user has, vs their cap.
+ *
+ * Cap resolution: admin override on user_overrides.member_cap takes
+ * precedence (-1 = unlimited, positive = custom). Falls back to
+ * DEFAULT_MEMBER_CAP for everyone else (currently 6).
+ *
+ * Used by the /family/add gate — when exceeded, the UI shows an
+ * "upgrade to get more members" prompt instead of redirecting users
+ * to the Care Home tier (which is for caretakers, not families).
+ */
+export async function getMemberQuotaStatus(
+  userId: string
+): Promise<MemberQuotaStatus> {
+  const override = await safeLookupOverride(userId);
+
+  const effectiveLimit =
+    override?.member_cap === -1
+      ? Infinity
+      : typeof override?.member_cap === "number"
+        ? override.member_cap
+        : DEFAULT_MEMBER_CAP;
+
+  const plan = override?.plan ?? null;
+
+  if (effectiveLimit === Infinity) {
+    return {
+      used: 0,
+      limit: Infinity,
+      remaining: Infinity,
+      exceeded: false,
+      unlimited: true,
+      plan,
+    };
+  }
+
+  // Count active members. If the lookup fails (DB blip, missing
+  // model, etc.) we fall back to "0 used" — better to allow one
+  // extra add than block a paying user with a stack trace.
+  let used = 0;
+  try {
+    used = await prisma.member.count({
+      where: { user_id: userId, is_deleted: false },
+    });
+  } catch (err) {
+    console.warn("[member-quota] count failed; allowing add:", err);
+  }
+
+  const remaining = Math.max(0, effectiveLimit - used);
+  return {
+    used,
+    limit: effectiveLimit,
+    remaining,
+    exceeded: used >= effectiveLimit,
+    unlimited: false,
+    plan,
+  };
+}

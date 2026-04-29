@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabase/server";
 import { getUserFromRequest } from "@/lib/supabase/auth-cache";
+import { getMemberQuotaStatus } from "@/lib/ai/quota";
 
 const ALLOWED_TABLES = [
   "members", "health_records", "medicines", "reminders",
@@ -224,6 +225,23 @@ export async function POST(request: NextRequest) {
       userReminderIds = new Set((userReminders || []).map((r: { id: string }) => r.id));
     }
 
+    // Member cap — fetched once per request and decremented as we accept
+    // each new member in this push. Edits, deletes, and members owned by
+    // family-mates are exempt (the cap counts only the rows the user
+    // themselves created and still has active). Lookup is fail-open: any
+    // error returns generous defaults so a quota outage can't block sync.
+    let memberQuota: { remaining: number; limit: number; unlimited: boolean };
+    try {
+      const status = await getMemberQuotaStatus(user.userId);
+      memberQuota = {
+        remaining: status.unlimited ? Infinity : status.remaining,
+        limit: status.limit,
+        unlimited: status.unlimited,
+      };
+    } catch {
+      memberQuota = { remaining: Infinity, limit: Infinity, unlimited: true };
+    }
+
     // Process tables in fixed order (members first) — never trust client payload order
     for (const table of ALLOWED_TABLES) {
       const items = tablesPayload[table];
@@ -273,6 +291,24 @@ export async function POST(request: NextRequest) {
             results.failedIds.push(item.id);
             results.permanentFailedIds.push(item.id);
             continue;
+          }
+          // Member-cap enforcement. Only NEW active members count against
+          // the cap — edits (existingUserId set) and tombstones (is_deleted
+          // = true) pass through. This is the server-side gate; the
+          // /family/add UI also pre-checks via /api/member-quota so most
+          // users never reach this code path. If we hit it, the client
+          // will get the row tagged in `permanentFailedIds` and park the
+          // local row as conflict so it stops re-syncing every cycle.
+          const isNew = !existingUserId;
+          const isTombstone = data.is_deleted === true;
+          if (isNew && !isTombstone && !memberQuota.unlimited) {
+            if (memberQuota.remaining <= 0) {
+              results.errors.push(`${item.id}: MEMBER_CAP_EXCEEDED`);
+              results.failedIds.push(item.id);
+              results.permanentFailedIds.push(item.id);
+              continue;
+            }
+            memberQuota.remaining -= 1;
           }
           // Preserve original creator on edits so leaving the family
           // doesn't orphan the row. New members are created under the

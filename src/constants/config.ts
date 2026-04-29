@@ -41,6 +41,14 @@ export const MONTHLY_AI_QUOTA = 15;
 export const AI_FEATURES = ["extract", "lab-insights", "medicine-info", "ai-doctor"] as const;
 export type AIFeature = (typeof AI_FEATURES)[number];
 
+// Family-plan member cap. The Free / Family tier supports 6 active
+// members — covers self + spouse + 2 kids + 2 parents which is the
+// modal Indian household. Per-user override lives on user_overrides
+// table (admin sets `member_cap = N` to grant more, `member_cap = -1`
+// for unlimited). This is enforced server-side at member creation;
+// client uses /api/quota for the upgrade-gate UI.
+export const DEFAULT_MEMBER_CAP = 6;
+
 // Record types
 export const RECORD_TYPE_LABELS: Record<string, string> = {
   prescription: "Prescription",

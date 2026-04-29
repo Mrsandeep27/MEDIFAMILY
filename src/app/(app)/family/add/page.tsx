@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, Plus, Camera, Shield, ChevronRight } from "lucide-react";
+import { ChevronLeft, Plus, Camera, Shield, ChevronRight, Users, Mail } from "lucide-react";
 import { useMembers } from "@/hooks/use-members";
+import { createClient } from "@/lib/supabase/client";
 import type { MemberFormData } from "@/lib/utils/validators";
 import { compressToWebP } from "@/lib/utils/image";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,42 @@ export default function AddMemberPage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Member quota — fetched once on mount. The form is hidden entirely if
+  // the cap is already reached so users never type into a blocked form.
+  // Failure to fetch falls back to "allow" so a quota outage can't block
+  // adding a member. Quota check itself is fail-open server-side too.
+  const [quota, setQuota] = useState<
+    | { used: number; limit: number | "unlimited"; exceeded: boolean; unlimited: boolean }
+    | null
+  >(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+        const res = await fetch("/api/member-quota", { headers });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setQuota({
+          used: data.used,
+          limit: data.limit,
+          exceeded: data.exceeded,
+          unlimited: data.unlimited,
+        });
+      } catch {
+        // fail-open
+        if (!cancelled) {
+          setQuota({ used: 0, limit: "unlimited", exceeded: false, unlimited: true });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const age = dob ? ageFrom(dob) : null;
   const ready = name.trim().length > 0 && !!dob && !!rel;
@@ -95,8 +132,13 @@ export default function AddMemberPage() {
 
   const handleSubmit = async () => {
     if (!ready || loading) return;
-    // Light validation mirroring the schema; zod resolver isn't used here since
-    // A1 form binds state manually for the chip UX.
+    if (quota?.exceeded) {
+      // Last-line guard if state somehow let us through (race with quota
+      // fetch, or user opened tab before quota loaded). The page-level
+      // gate below normally hides the form before this can fire.
+      toast.error("You've reached the family member limit");
+      return;
+    }
     if (contactPhone && !/^[6-9]\d{9}$/.test(contactPhone)) {
       toast.error("Enter a valid 10-digit mobile number");
       return;
@@ -127,6 +169,77 @@ export default function AddMemberPage() {
       setLoading(false);
     }
   };
+
+  // ─── Cap-reached gate ────────────────────────────────────────────────
+  // Blocks the form entirely so users don't fill out fields just to be
+  // told no on submit. Shown in place of the form when the user is at
+  // the limit. Care Home tier is intentionally NOT mentioned here —
+  // that tier is for institutional caretakers, not large families.
+  if (quota?.exceeded && !quota.unlimited) {
+    const supportSubject = encodeURIComponent("Need more family members");
+    const supportBody = encodeURIComponent(
+      `Hi MediFamily team,\n\nI've hit the ${quota.limit}-member limit on my account and need to add more family members. Please bump my limit.\n\nThanks!`
+    );
+    return (
+      <div className="flex flex-col min-h-[100vh]">
+        <div className="sticky top-0 z-20 bg-background/90 backdrop-blur-sm flex items-center justify-between px-4 py-3 border-b border-transparent">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="h-9 w-9 rounded-full bg-muted/60 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <p className="text-[13px] font-bold">Family is full</p>
+          <span className="h-9 w-9" aria-hidden="true" />
+        </div>
+
+        <div className="flex-1 px-5 pt-8 space-y-6">
+          <div className="text-center space-y-3">
+            <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-950 flex items-center justify-center mx-auto">
+              <Users className="h-8 w-8 text-amber-600" />
+            </div>
+            <h1 className="text-[24px] font-bold tracking-tight">
+              You&apos;ve added all {quota.limit} family members
+            </h1>
+            <p className="text-[14px] text-muted-foreground leading-relaxed max-w-md mx-auto">
+              The Family plan covers up to {quota.limit} people — typically
+              you, your spouse, kids, and parents. Need to add more (extended
+              family, in-laws, grandparents)? Drop us a line and we&apos;ll
+              bump your limit.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border/50 bg-muted/40 p-4 space-y-3">
+            <p className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
+              Already added ({quota.used} / {quota.limit})
+            </p>
+            <p className="text-[13px] text-foreground/80 leading-relaxed">
+              You can free up a slot by removing a member you no longer need
+              from the family list — or contact us to add more.
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <a
+                href={`mailto:support@medifamily.in?subject=${supportSubject}&body=${supportBody}`}
+                className="w-full h-12 rounded-xl bg-foreground text-background inline-flex items-center justify-center gap-2 text-[14px] font-extrabold active:scale-[0.98] transition-transform"
+              >
+                <Mail className="h-4 w-4" />
+                Email us to bump my limit
+              </a>
+              <button
+                type="button"
+                onClick={() => router.replace("/family")}
+                className="w-full h-12 rounded-xl border border-border/50 bg-card text-foreground inline-flex items-center justify-center gap-2 text-[14px] font-bold active:scale-[0.98] transition-transform"
+              >
+                Back to family list
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-[100vh] pb-28">
@@ -169,6 +282,15 @@ export default function AddMemberPage() {
           <p className="text-[13px] text-muted-foreground leading-relaxed mt-2">
             We only need the basics now — you can always fill in the rest later.
           </p>
+          {/* Soft slots-remaining hint — only shown when 1-2 slots are left
+              so it doesn't pester users with plenty of room. */}
+          {quota && !quota.unlimited && typeof quota.limit === "number" &&
+            quota.limit - quota.used <= 2 && quota.limit - quota.used > 0 && (
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 px-3 py-1 text-[11.5px] font-semibold">
+                <Users className="h-3 w-3" />
+                {quota.limit - quota.used} of {quota.limit} slots left
+              </div>
+            )}
         </div>
 
         {/* Photo */}

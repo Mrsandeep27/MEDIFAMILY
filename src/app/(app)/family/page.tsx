@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { createClient } from "@/lib/supabase/client";
 import {
   Plus,
   ChevronRight,
@@ -34,6 +35,29 @@ type Alert = {
 export default function FamilyPage() {
   const { members, isLoading } = useMembers();
   const { t } = useLocale();
+
+  // Member-cap status — drives the "5 of 6" header. Optional; the page
+  // works without it (just shows raw count). Refetches when membership
+  // count changes so the badge stays accurate after add/delete.
+  const [quotaLimit, setQuotaLimit] = useState<number | "unlimited" | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+        const res = await fetch("/api/member-quota", { headers });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setQuotaLimit(data.unlimited ? "unlimited" : data.limit);
+      } catch {
+        /* fail-quiet — header just falls back to raw count */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [members.length]);
 
   const allRecords = useLiveQuery(
     () => db.records.filter((r) => !r.is_deleted).toArray(),
@@ -240,9 +264,12 @@ export default function FamilyPage() {
           </>
         )}
 
-        {/* Members list */}
+        {/* Members list — show "X of N" when there's a configured cap */}
         <p className="font-mono text-[9.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground px-0.5 pt-3 pb-1">
           Members · {members.length}
+          {typeof quotaLimit === "number" && (
+            <span className="text-foreground/60"> of {quotaLimit}</span>
+          )}
         </p>
 
         <div className="space-y-1">
