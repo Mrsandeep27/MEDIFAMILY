@@ -25,13 +25,20 @@ const TEXT_MODELS = [
 
 let currentKeyIndex = 0;
 
+// Key order matters. The first key in the returned list is tried first
+// on every call. We put the *paid* billing-enabled key at slot 0 so all
+// AI responses get the higher-quality Tier-1+ throughput and the free
+// rotation keys serve as backup when the paid key is rate-limited,
+// over-quota, or rejected.
 function getApiKeys(): string[] {
   const keys: string[] = [];
+  const paid = process.env.GOOGLE_AI_API_KEY_PAID;
+  if (paid) keys.push(paid);
   const primary = process.env.GOOGLE_AI_API_KEY;
-  if (primary) keys.push(primary);
+  if (primary && primary !== paid) keys.push(primary);
   for (let i = 2; i <= 11; i++) {
     const key = process.env[`GOOGLE_AI_API_KEY_${i}`];
-    if (key) keys.push(key);
+    if (key && key !== paid) keys.push(key);
   }
   return keys;
 }
@@ -88,10 +95,19 @@ export async function callGemini(
   const models = hasImage ? VISION_MODELS : TEXT_MODELS;
   const { temperature = 0.1, maxOutputTokens = 2048, feature = "unknown", userId, systemInstruction, jsonMode = false } = options;
 
-  // Atomic key rotation — each call grabs a unique starting key index
-  // This prevents concurrent requests from hammering the same key
-  const startKeyIndex = currentKeyIndex % apiKeys.length;
-  currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+  // When a paid (billing-enabled) key is configured it always sits at
+  // index 0 and we start every call there — paid tier gives much higher
+  // RPM + better model access. Only on failure (429, invalid key, etc.)
+  // does the loop fall through to the free rotation keys.
+  // Without a paid key, we keep the original round-robin so the free
+  // keys spread load evenly.
+  const hasPaidPrimary = !!process.env.GOOGLE_AI_API_KEY_PAID;
+  const startKeyIndex = hasPaidPrimary
+    ? 0
+    : currentKeyIndex % apiKeys.length;
+  if (!hasPaidPrimary) {
+    currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+  }
 
   const errors: string[] = [];
   const startTime = Date.now();
